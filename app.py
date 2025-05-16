@@ -134,6 +134,15 @@ def recognize_audio():
                 file.save(temp_in)
                 input_path = temp_in.name
                 logger.info(f"Saved uploaded file to: {input_path}")
+                
+                # Verify the file exists and has content
+                if not os.path.exists(input_path):
+                    raise Exception("Uploaded file was not saved properly")
+                file_size = os.path.getsize(input_path)
+                if file_size == 0:
+                    raise Exception("Uploaded file is empty")
+                logger.info(f"Uploaded file size: {file_size} bytes")
+                
         elif video_src:
             # Download the video file
             try:
@@ -162,9 +171,17 @@ def recognize_audio():
             # Process the audio with more detailed logging
             logger.info("Starting FFmpeg processing...")
             
-            # Use direct file input instead of piping
-            stream = ffmpeg.input(input_path, ss=start, t=duration)
-            stream = ffmpeg.output(stream, output_path, acodec='libmp3lame', audio_bitrate='192k')
+            # Use more explicit FFmpeg command with format specification
+            stream = (
+                ffmpeg
+                .input(input_path, f='mp4', ss=start, t=duration)
+                .output(output_path, 
+                       acodec='libmp3lame',
+                       audio_bitrate='192k',
+                       ac=1,  # mono audio
+                       ar=44100)  # sample rate
+                .overwrite_output()
+            )
             
             # Run FFmpeg with detailed error capture
             process = ffmpeg.run_async(stream, pipe_stdout=True, pipe_stderr=True)
