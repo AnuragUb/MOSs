@@ -159,21 +159,16 @@ def recognize_audio():
             # Use ffmpeg-python to extract audio
             logger.info(f"Extracting audio segment from {start}s to {end}s")
             
-            # Read the input file
-            with open(input_path, 'rb') as f:
-                input_data = f.read()
-            
-            # Create a BytesIO object for the input
-            input_buffer = io.BytesIO(input_data)
-            
             # Process the audio with more detailed logging
             logger.info("Starting FFmpeg processing...")
-            stream = ffmpeg.input('pipe:', format='mp4', ss=start, t=duration)
+            
+            # Use direct file input instead of piping
+            stream = ffmpeg.input(input_path, ss=start, t=duration)
             stream = ffmpeg.output(stream, output_path, acodec='libmp3lame', audio_bitrate='192k')
             
             # Run FFmpeg with detailed error capture
-            process = ffmpeg.run_async(stream, pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
-            stdout, stderr = process.communicate(input=input_data)
+            process = ffmpeg.run_async(stream, pipe_stdout=True, pipe_stderr=True)
+            stdout, stderr = process.communicate()
             
             if stderr:
                 logger.warning(f"FFmpeg stderr output: {stderr.decode()}")
