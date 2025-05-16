@@ -171,24 +171,49 @@ def recognize_audio():
             # Process the audio with more detailed logging
             logger.info("Starting FFmpeg processing...")
             
-            # Use more explicit FFmpeg command with format specification
-            stream = (
-                ffmpeg
-                .input(input_path, f='mp4', ss=start, t=duration)
-                .output(output_path, 
-                       acodec='libmp3lame',
-                       audio_bitrate='192k',
-                       ac=1,  # mono audio
-                       ar=44100)  # sample rate
-                .overwrite_output()
-            )
+            # First, try to probe the input file
+            probe_cmd = [
+                'ffprobe',
+                '-v', 'error',
+                '-show_entries', 'format=format_name,format_long_name',
+                '-of', 'json',
+                input_path
+            ]
             
-            # Run FFmpeg with detailed error capture
-            process = ffmpeg.run_async(stream, pipe_stdout=True, pipe_stderr=True)
-            stdout, stderr = process.communicate()
+            try:
+                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+                logger.info(f"FFprobe output: {probe_result.stdout}")
+                if probe_result.stderr:
+                    logger.warning(f"FFprobe stderr: {probe_result.stderr}")
+            except Exception as e:
+                logger.warning(f"FFprobe failed: {str(e)}")
             
-            if stderr:
-                logger.warning(f"FFmpeg stderr output: {stderr.decode()}")
+            # Build FFmpeg command with explicit options
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-y',  # Overwrite output file
+                '-v', 'error',  # Only show errors
+                '-i', input_path,  # Input file
+                '-ss', str(start),  # Start time
+                '-t', str(duration),  # Duration
+                '-vn',  # No video
+                '-acodec', 'libmp3lame',  # Audio codec
+                '-ab', '192k',  # Audio bitrate
+                '-ac', '1',  # Mono audio
+                '-ar', '44100',  # Sample rate
+                output_path  # Output file
+            ]
+            
+            logger.info(f"Running FFmpeg command: {' '.join(ffmpeg_cmd)}")
+            
+            # Run FFmpeg
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+            
+            if result.stderr:
+                logger.warning(f"FFmpeg stderr output: {result.stderr}")
+            
+            if result.returncode != 0:
+                raise Exception(f"FFmpeg failed with return code {result.returncode}")
             
             # Verify the output file exists and has content
             if not os.path.exists(output_path):
@@ -202,9 +227,9 @@ def recognize_audio():
             
             logger.info("Audio extraction completed successfully")
             
-        except ffmpeg.Error as e:
-            logger.error(f"FFmpeg error: {e.stderr.decode()}")
-            return jsonify({'status': 'error', 'message': 'ffmpeg error', 'stderr': e.stderr.decode()}), 500
+        except subprocess.CalledProcessError as e:
+            logger.error(f"FFmpeg error: {e.stderr}")
+            return jsonify({'status': 'error', 'message': 'ffmpeg error', 'stderr': e.stderr}), 500
         except Exception as e:
             logger.error(f"Error processing audio: {str(e)}")
             return jsonify({'status': 'error', 'message': f'Error processing audio: {str(e)}'}), 500
