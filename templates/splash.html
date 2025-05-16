@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOS - Media Operation Systems</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/splash.css') }}">
+</head>
+<body>
+    <div class="splash-container">
+        <div class="logo-container">
+            <h1 class="logo">MOS</h1>
+            <p class="subtitle">Media Operation Systems</p>
+        </div>
+        <div class="click-instruction">
+            <p>Double click anywhere to continue</p>
+            <div class="click-counter">Clicks remaining: <span id="clicksLeft">2</span></div>
+        </div>
+    </div>
+    <script>
+        let clicks = 0;
+        const requiredClicks = 2;
+        const clicksLeftElement = document.getElementById('clicksLeft');
+
+        document.addEventListener('click', function() {
+            clicks++;
+            clicksLeftElement.textContent = requiredClicks - clicks;
+            
+            if (clicks >= requiredClicks) {
+                window.location.href = '/main';
+            }
+        });
+    </script>
+</body>
+</html> 

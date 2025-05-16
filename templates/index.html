@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Marker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/topbar.css') }}">
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="topbar-logo">
+            <span class="mos-logo">MOS</span>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn btn-outline-info" id="offsetBtn">Offset Time</button>
+            <input type="file" id="cueFileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style="display:none;">
+            <div id="cueActions" style="display:none;">
+                <button class="btn btn-outline-primary btn-sm me-2" id="loadStructureBtn">Load Structure Only</button>
+                <button class="btn btn-outline-success btn-sm" id="loadDataBtn">Load Data</button>
+            </div>
+            <button class="btn btn-outline-light" id="loadCueBtn">Load CSV/Excel</button>
+        </div>
+    </div>
+    <div class="app-container">
+        <!-- Video Player Section -->
+        <div class="video-section" id="videoSection">
+            <div class="video-container">
+                <video id="videoPlayer" controls>
+                    <source src="" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <div class="controls mt-3">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-primary" id="tcrInBtn">TCR In</button>
+                    <button type="button" class="btn btn-primary" id="tcrOutBtn">TCR Out</button>
+                </div>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" id="singleButtonMode">
+                    <label class="form-check-label" for="singleButtonMode">Single Button Mode</label>
+                </div>
+                <button type="button" class="btn btn-secondary mt-2" id="loadVideoBtn">Load Video</button>
+                <input type="file" id="videoFileInput" accept="video/mp4" style="display: none;">
+            </div>
+            <div class="resize-handle horizontal" id="videoSectionResize"></div>
+        </div>
+        <div class="stacked-resize-handle" id="stackedResizeHandle" style="display:none;"></div>
+        <!-- Marker Table Section -->
+        <div class="marker-section" id="markerSection">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div>
+                    <button class="btn btn-primary" id="addColumnBtn" style="margin-right: 1em;">Add Column</button>
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <label for="viewMode" style="margin-right: 0.5em; font-weight: 500;">View:</label>
+                    <select id="viewMode" class="form-select" style="width: 200px; max-width: 200px;">
+                        <option value="side-by-side">Side by Side</option>
+                        <option value="stacked">Video Above, Table Below</option>
+                    </select>
+                </div>
+            </div>
+            <div class="export-buttons mb-3">
+                <button class="btn btn-success" id="exportExcel">Export to Excel</button>
+                <button class="btn btn-info" id="exportCSV">Export to CSV</button>
+                <button class="btn btn-danger ms-2" id="clearTableBtn">Clear Table</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th class="seq">#Seq</th>
+                            <th class="tcr">TCR In</th>
+                            <th class="tcr">TCR Out</th>
+                            <th class="tcr">Duration</th>
+                            <th class="usage">Usage</th>
+                            <th class="special">Title</th>
+                            <th class="special">Film/Album Title</th>
+                            <th class="special">Composer</th>
+                            <th class="special">Lyricist</th>
+                            <th class="special">Music Co</th>
+                            <th class="special">NOC ID</th>
+                            <th class="special">NOC Title</th>
+                            <th class="recognize">Recognize</th>
+                        </tr>
+                    </thead>
+                    <tbody id="markerTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <div class="resize-handle horizontal" id="markerSectionResize"></div>
+        </div>
+    </div>
+
+    <!-- Offset Modal -->
+    <div class="offset-modal" id="offsetModal">
+        <div class="offset-modal-content">
+            <div class="offset-modal-header">
+                <h4>Adjust Time Offset</h4>
+                <span class="offset-modal-close">&times;</span>
+            </div>
+            <div class="offset-modal-body">
+                <div class="mb-3">
+                    <label for="offsetTime" class="form-label">Enter time offset in format: HH:MM:SS.mmm</label>
+                    <input type="text" class="form-control" id="offsetTime" placeholder="00:00:05.000" value="00:00:05.000">
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="offsetDirection" id="offsetAdd" value="add" checked>
+                        <label class="form-check-label" for="offsetAdd">
+                            Add time (positive offset)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="offsetDirection" id="offsetSubtract" value="subtract">
+                        <label class="form-check-label" for="offsetSubtract">
+                            Subtract time (negative offset)
+                        </label>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary" id="applyOffset">Apply Offset</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 
