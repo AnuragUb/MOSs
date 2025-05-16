@@ -8,6 +8,7 @@ import tempfile
 import subprocess
 from werkzeug.utils import secure_filename
 import pandas as pd
+import ffmpeg
 
 app = Flask(__name__)
 CORS(app)
@@ -128,14 +129,13 @@ def recognize_audio():
     # Extract segment and convert to mp3
     with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_out:
         output_path = temp_out.name
-    ffmpeg_cmd = [
-        'ffmpeg', '-y', '-i', input_path,
-        '-ss', str(start), '-t', str(duration),
-        '-vn', '-acodec', 'libmp3lame', output_path
-    ]
+
     try:
-        subprocess.run(ffmpeg_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError as e:
+        # Use ffmpeg-python to extract audio
+        stream = ffmpeg.input(input_path, ss=start, t=duration)
+        stream = ffmpeg.output(stream, output_path, acodec='libmp3lame')
+        ffmpeg.run(stream, overwrite_output=True, capture_stdout=True, capture_stderr=True)
+    except ffmpeg.Error as e:
         return jsonify({'status': 'error', 'message': 'ffmpeg error', 'stderr': e.stderr.decode()}), 500
 
     # Send to audd.io
@@ -153,7 +153,6 @@ def recognize_audio():
 
     # Clean up temp files
     try:
-        import os
         os.remove(output_path)
         if file:
             os.remove(input_path)
