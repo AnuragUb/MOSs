@@ -166,15 +166,30 @@ def recognize_audio():
             # Create a BytesIO object for the input
             input_buffer = io.BytesIO(input_data)
             
-            # Process the audio
+            # Process the audio with more detailed logging
+            logger.info("Starting FFmpeg processing...")
             stream = ffmpeg.input('pipe:', format='mp4', ss=start, t=duration)
-            stream = ffmpeg.output(stream, output_path, acodec='libmp3lame')
+            stream = ffmpeg.output(stream, output_path, acodec='libmp3lame', audio_bitrate='192k')
             
-            # Run FFmpeg
+            # Run FFmpeg with detailed error capture
             process = ffmpeg.run_async(stream, pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
-            process.communicate(input=input_data)
+            stdout, stderr = process.communicate(input=input_data)
+            
+            if stderr:
+                logger.warning(f"FFmpeg stderr output: {stderr.decode()}")
+            
+            # Verify the output file exists and has content
+            if not os.path.exists(output_path):
+                raise Exception("FFmpeg output file was not created")
+            
+            file_size = os.path.getsize(output_path)
+            logger.info(f"FFmpeg output file size: {file_size} bytes")
+            
+            if file_size == 0:
+                raise Exception("FFmpeg output file is empty")
             
             logger.info("Audio extraction completed successfully")
+            
         except ffmpeg.Error as e:
             logger.error(f"FFmpeg error: {e.stderr.decode()}")
             return jsonify({'status': 'error', 'message': 'ffmpeg error', 'stderr': e.stderr.decode()}), 500
@@ -182,7 +197,7 @@ def recognize_audio():
             logger.error(f"Error processing audio: {str(e)}")
             return jsonify({'status': 'error', 'message': f'Error processing audio: {str(e)}'}), 500
 
-        # Send to audd.io
+        # Send to audd.io with enhanced error handling
         try:
             logger.info("Sending audio to audd.io")
             with open(output_path, 'rb') as f:
@@ -194,7 +209,21 @@ def recognize_audio():
                 r = requests.post('https://api.audd.io/', data=data, files=files)
                 r.raise_for_status()
                 result = r.json()
+                
+                # Log the complete response for debugging
+                logger.info(f"Complete audd.io response: {json.dumps(result, indent=2)}")
+                
+                if result.get('status') == 'error':
+                    error_message = result.get('error', {}).get('message', 'Unknown error from audd.io')
+                    logger.error(f"audd.io API error: {error_message}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'audd.io API error: {error_message}',
+                        'details': result
+                    }), 500
+                
                 logger.info(f"Received response from audd.io: {result.get('status', 'unknown')}")
+                
         except requests.RequestException as e:
             logger.error(f"Error calling audd.io: {str(e)}")
             result = {'status': 'error', 'message': f'Error calling audd.io: {str(e)}'}
