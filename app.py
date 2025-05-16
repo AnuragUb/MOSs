@@ -128,9 +128,8 @@ def recognize_audio():
     # Extract segment and convert to mp3
     with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_out:
         output_path = temp_out.name
-    ffmpeg_path = r'C:\ffmpeg\ffmpeg\bin\ffmpeg'
     ffmpeg_cmd = [
-        ffmpeg_path, '-y', '-i', input_path,
+        'ffmpeg', '-y', '-i', input_path,
         '-ss', str(start), '-t', str(duration),
         '-vn', '-acodec', 'libmp3lame', output_path
     ]
