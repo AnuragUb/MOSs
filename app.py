@@ -9,9 +9,14 @@ import subprocess
 from werkzeug.utils import secure_filename
 import pandas as pd
 import ffmpeg
+import logging
 
 app = Flask(__name__)
 CORS(app)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Store usage statistics
 USAGE_STATS = {
@@ -97,69 +102,103 @@ def handle_usage_stats():
 
 @app.route('/api/recognize-audio', methods=['POST'])
 def recognize_audio():
-    tcr_in = request.form.get('tcrIn')
-    tcr_out = request.form.get('tcrOut')
-    video_src = request.form.get('videoSrc')
-    file = request.files.get('file')
-
-    if not tcr_in or not tcr_out:
-        return jsonify({'status': 'error', 'message': 'Missing TCR In or Out'}), 400
-
-    # Calculate start and duration in seconds
-    def time_to_seconds(t):
-        h, m, s = map(float, t.split(':'))
-        return int(h) * 3600 + int(m) * 60 + s
-    start = time_to_seconds(tcr_in)
-    end = time_to_seconds(tcr_out)
-    duration = end - start
-    if duration <= 0:
-        return jsonify({'status': 'error', 'message': 'Invalid time range'}), 400
-
-    # Prepare input file path
-    if file:
-        # Save uploaded file to temp
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_in:
-            file.save(temp_in)
-            input_path = temp_in.name
-    elif video_src:
-        input_path = video_src
-    else:
-        return jsonify({'status': 'error', 'message': 'No file or videoSrc provided'}), 400
-
-    # Extract segment and convert to mp3
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_out:
-        output_path = temp_out.name
-
     try:
-        # Use ffmpeg-python to extract audio
-        stream = ffmpeg.input(input_path, ss=start, t=duration)
-        stream = ffmpeg.output(stream, output_path, acodec='libmp3lame')
-        ffmpeg.run(stream, overwrite_output=True, capture_stdout=True, capture_stderr=True)
-    except ffmpeg.Error as e:
-        return jsonify({'status': 'error', 'message': 'ffmpeg error', 'stderr': e.stderr.decode()}), 500
+        tcr_in = request.form.get('tcrIn')
+        tcr_out = request.form.get('tcrOut')
+        video_src = request.form.get('videoSrc')
+        file = request.files.get('file')
 
-    # Send to audd.io
-    with open(output_path, 'rb') as f:
-        files = {'file': f}
-        data = {
-            'api_token': AUDD_API_TOKEN,
-            'return': 'apple_music,spotify'
-        }
-        r = requests.post('https://api.audd.io/', data=data, files=files)
+        logger.info(f"Received recognize request - TCR In: {tcr_in}, TCR Out: {tcr_out}")
+        logger.info(f"Video source: {video_src}, File: {file.filename if file else 'None'}")
+
+        if not tcr_in or not tcr_out:
+            return jsonify({'status': 'error', 'message': 'Missing TCR In or Out'}), 400
+
+        # Calculate start and duration in seconds
+        def time_to_seconds(t):
+            h, m, s = map(float, t.split(':'))
+            return int(h) * 3600 + int(m) * 60 + s
+        
+        start = time_to_seconds(tcr_in)
+        end = time_to_seconds(tcr_out)
+        duration = end - start
+        
+        if duration <= 0:
+            return jsonify({'status': 'error', 'message': 'Invalid time range'}), 400
+
+        # Prepare input file path
+        if file:
+            # Save uploaded file to temp
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_in:
+                file.save(temp_in)
+                input_path = temp_in.name
+                logger.info(f"Saved uploaded file to: {input_path}")
+        elif video_src:
+            # Download the video file
+            try:
+                response = requests.get(video_src, stream=True)
+                response.raise_for_status()
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_in:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        temp_in.write(chunk)
+                    input_path = temp_in.name
+                    logger.info(f"Downloaded video to: {input_path}")
+            except requests.RequestException as e:
+                logger.error(f"Error downloading video: {str(e)}")
+                return jsonify({'status': 'error', 'message': f'Error downloading video: {str(e)}'}), 500
+        else:
+            return jsonify({'status': 'error', 'message': 'No file or videoSrc provided'}), 400
+
+        # Extract segment and convert to mp3
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_out:
+            output_path = temp_out.name
+            logger.info(f"Created output file: {output_path}")
+
         try:
-            result = r.json()
-        except Exception:
+            # Use ffmpeg-python to extract audio
+            logger.info(f"Extracting audio segment from {start}s to {end}s")
+            stream = ffmpeg.input(input_path, ss=start, t=duration)
+            stream = ffmpeg.output(stream, output_path, acodec='libmp3lame')
+            ffmpeg.run(stream, overwrite_output=True, capture_stdout=True, capture_stderr=True)
+            logger.info("Audio extraction completed successfully")
+        except ffmpeg.Error as e:
+            logger.error(f"FFmpeg error: {e.stderr.decode()}")
+            return jsonify({'status': 'error', 'message': 'ffmpeg error', 'stderr': e.stderr.decode()}), 500
+
+        # Send to audd.io
+        try:
+            logger.info("Sending audio to audd.io")
+            with open(output_path, 'rb') as f:
+                files = {'file': f}
+                data = {
+                    'api_token': AUDD_API_TOKEN,
+                    'return': 'apple_music,spotify'
+                }
+                r = requests.post('https://api.audd.io/', data=data, files=files)
+                r.raise_for_status()
+                result = r.json()
+                logger.info(f"Received response from audd.io: {result.get('status', 'unknown')}")
+        except requests.RequestException as e:
+            logger.error(f"Error calling audd.io: {str(e)}")
+            result = {'status': 'error', 'message': f'Error calling audd.io: {str(e)}'}
+        except Exception as e:
+            logger.error(f"Error processing audd.io response: {str(e)}")
             result = {'status': 'error', 'message': 'Invalid response from audd.io'}
 
-    # Clean up temp files
-    try:
-        os.remove(output_path)
-        if file:
-            os.remove(input_path)
-    except Exception:
-        pass
+        # Clean up temp files
+        try:
+            os.remove(output_path)
+            if file or video_src:
+                os.remove(input_path)
+            logger.info("Cleaned up temporary files")
+        except Exception as e:
+            logger.error(f"Error cleaning up files: {str(e)}")
 
-    return jsonify(result)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Unexpected error in recognize_audio: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Unexpected error: {str(e)}'}), 500
 
 @app.route('/api/parse-cue-sheet', methods=['POST'])
 def parse_cue_sheet():
