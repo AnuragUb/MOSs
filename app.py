@@ -134,15 +134,6 @@ def recognize_audio():
                 file.save(temp_in)
                 input_path = temp_in.name
                 logger.info(f"Saved uploaded file to: {input_path}")
-                
-                # Verify the file exists and has content
-                if not os.path.exists(input_path):
-                    raise Exception("Uploaded file was not saved properly")
-                file_size = os.path.getsize(input_path)
-                if file_size == 0:
-                    raise Exception("Uploaded file is empty")
-                logger.info(f"Uploaded file size: {file_size} bytes")
-                
         elif video_src:
             # Download the video file
             try:
@@ -159,62 +150,45 @@ def recognize_audio():
         else:
             return jsonify({'status': 'error', 'message': 'No file or videoSrc provided'}), 400
 
-        # Create temporary files for intermediate processing
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_standard:
-            standard_path = temp_standard.name
+        # Extract segment and convert to mp3
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_out:
             output_path = temp_out.name
-        logger.info(f"Created temporary files: {standard_path}, {output_path}")
+            logger.info(f"Created output file: {output_path}")
 
         try:
-            # First, convert the input to a standard MP4 format
-            logger.info("Converting input to standard MP4 format...")
-            standardize_cmd = [
-                'ffmpeg',
-                '-y',
-                '-v', 'error',
-                '-i', input_path,
-                '-c:v', 'copy',
-                '-c:a', 'aac',
-                '-movflags', '+faststart',
-                standard_path
-            ]
-            
-            logger.info(f"Running standardization command: {' '.join(standardize_cmd)}")
-            standardize_result = subprocess.run(standardize_cmd, capture_output=True, text=True)
-            
-            if standardize_result.stderr:
-                logger.warning(f"Standardization stderr: {standardize_result.stderr}")
-            
-            if standardize_result.returncode != 0:
-                raise Exception(f"Standardization failed with return code {standardize_result.returncode}")
-            
-            # Now extract the audio segment
+            # Use ffmpeg-python to extract audio
             logger.info(f"Extracting audio segment from {start}s to {end}s")
             
-            extract_cmd = [
+            # Process the audio with more detailed logging
+            logger.info("Starting FFmpeg processing...")
+            
+            # Use direct FFmpeg command with explicit options
+            ffmpeg_cmd = [
                 'ffmpeg',
-                '-y',
-                '-v', 'error',
-                '-i', standard_path,
-                '-ss', str(start),
-                '-t', str(duration),
-                '-vn',
-                '-acodec', 'libmp3lame',
-                '-ab', '192k',
-                '-ac', '1',
-                '-ar', '44100',
-                output_path
+                '-y',  # Overwrite output file
+                '-v', 'error',  # Only show errors
+                '-i', input_path,  # Input file
+                '-ss', str(start),  # Start time
+                '-t', str(duration),  # Duration
+                '-vn',  # No video
+                '-acodec', 'libmp3lame',  # Audio codec
+                '-ab', '192k',  # Audio bitrate
+                '-ac', '1',  # Mono audio
+                '-ar', '44100',  # Sample rate
+                '-f', 'mp3',  # Force MP3 format
+                output_path  # Output file
             ]
             
-            logger.info(f"Running extraction command: {' '.join(extract_cmd)}")
-            extract_result = subprocess.run(extract_cmd, capture_output=True, text=True)
+            logger.info(f"Running FFmpeg command: {' '.join(ffmpeg_cmd)}")
             
-            if extract_result.stderr:
-                logger.warning(f"Extraction stderr: {extract_result.stderr}")
+            # Run FFmpeg
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
             
-            if extract_result.returncode != 0:
-                raise Exception(f"Extraction failed with return code {extract_result.returncode}")
+            if result.stderr:
+                logger.warning(f"FFmpeg stderr output: {result.stderr}")
+            
+            if result.returncode != 0:
+                raise Exception(f"FFmpeg failed with return code {result.returncode}")
             
             # Verify the output file exists and has content
             if not os.path.exists(output_path):
@@ -272,7 +246,6 @@ def recognize_audio():
         # Clean up temp files
         try:
             os.remove(output_path)
-            os.remove(standard_path)
             if file or video_src:
                 os.remove(input_path)
             logger.info("Cleaned up temporary files")
