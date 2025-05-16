@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 import pandas as pd
 import ffmpeg
 import logging
+import io
 
 app = Flask(__name__)
 CORS(app)
@@ -157,13 +158,29 @@ def recognize_audio():
         try:
             # Use ffmpeg-python to extract audio
             logger.info(f"Extracting audio segment from {start}s to {end}s")
-            stream = ffmpeg.input(input_path, ss=start, t=duration)
+            
+            # Read the input file
+            with open(input_path, 'rb') as f:
+                input_data = f.read()
+            
+            # Create a BytesIO object for the input
+            input_buffer = io.BytesIO(input_data)
+            
+            # Process the audio
+            stream = ffmpeg.input('pipe:', format='mp4', ss=start, t=duration)
             stream = ffmpeg.output(stream, output_path, acodec='libmp3lame')
-            ffmpeg.run(stream, overwrite_output=True, capture_stdout=True, capture_stderr=True)
+            
+            # Run FFmpeg
+            process = ffmpeg.run_async(stream, pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
+            process.communicate(input=input_data)
+            
             logger.info("Audio extraction completed successfully")
         except ffmpeg.Error as e:
             logger.error(f"FFmpeg error: {e.stderr.decode()}")
             return jsonify({'status': 'error', 'message': 'ffmpeg error', 'stderr': e.stderr.decode()}), 500
+        except Exception as e:
+            logger.error(f"Error processing audio: {str(e)}")
+            return jsonify({'status': 'error', 'message': f'Error processing audio: {str(e)}'}), 500
 
         # Send to audd.io
         try:
