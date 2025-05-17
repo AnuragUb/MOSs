@@ -130,20 +130,62 @@ def recognize_audio():
         # Prepare input file path
         if file:
             # Save uploaded file to temp
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_in:
-                file.save(temp_in)
-                input_path = temp_in.name
-                logger.info(f"Saved uploaded file to: {input_path}")
+            try:
+                # First, read the file into memory to check its size
+                file_content = file.read()
+                file_size = len(file_content)
+                logger.info(f"Uploaded file size: {file_size} bytes")
+                
+                if file_size == 0:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'The uploaded file is empty'
+                    }), 400
+                
+                # Reset file pointer for saving
+                file.seek(0)
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_in:
+                    # Write the file in chunks to handle large files
+                    chunk_size = 8192
+                    bytes_written = 0
+                    while True:
+                        chunk = file.read(chunk_size)
+                        if not chunk:
+                            break
+                        temp_in.write(chunk)
+                        bytes_written += len(chunk)
+                    
+                    input_path = temp_in.name
+                    logger.info(f"Saved uploaded file to: {input_path} (size: {bytes_written} bytes)")
+                    
+                    if bytes_written != file_size:
+                        logger.error(f"File size mismatch. Expected {file_size} bytes, got {bytes_written} bytes")
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'File upload was incomplete. Please try again.'
+                        }), 400
                 
                 # Validate the video file
                 try:
+                    # First check if file exists and has content
+                    if not os.path.exists(input_path) or os.path.getsize(input_path) == 0:
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'The video file is empty or incomplete. Please try uploading again.'
+                        }), 400
+                    
+                    # Use ffprobe to validate the video file
                     probe_cmd = [
                         'ffprobe',
                         '-v', 'error',
-                        '-show_entries', 'format=duration',
-                        '-of', 'default=noprint_wrappers=1:nokey=1',
+                        '-select_streams', 'v:0',  # Check video stream
+                        '-show_entries', 'stream=codec_type,codec_name',
+                        '-of', 'json',
                         input_path
                     ]
+                    
+                    logger.info(f"Running ffprobe validation: {' '.join(probe_cmd)}")
                     probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
                     
                     if probe_result.returncode != 0:
@@ -152,14 +194,10 @@ def recognize_audio():
                             'status': 'error',
                             'message': 'The video file appears to be invalid or corrupted. Please try uploading again.'
                         }), 400
-                        
-                    # Check if the file is complete
-                    if not os.path.exists(input_path) or os.path.getsize(input_path) == 0:
-                        return jsonify({
-                            'status': 'error',
-                            'message': 'The video file is empty or incomplete. Please try uploading again.'
-                        }), 400
-                        
+                    
+                    # Log the probe result for debugging
+                    logger.info(f"FFprobe result: {probe_result.stdout}")
+                    
                 except Exception as e:
                     logger.error(f"Error validating video file: {str(e)}")
                     return jsonify({
@@ -167,6 +205,12 @@ def recognize_audio():
                         'message': 'Error validating video file. Please try uploading again.'
                     }), 400
                     
+            except Exception as e:
+                logger.error(f"Error handling file upload: {str(e)}")
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Error handling file upload: {str(e)}'
+                }), 500
         elif video_src:
             # Download the video file
             try:
