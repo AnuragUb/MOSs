@@ -67,6 +67,8 @@ function initializeVideoPlayer() {
     const singleButtonMode = document.getElementById('singleButtonMode');
     const loadVideoBtn = document.getElementById('loadVideoBtn');
     const videoFileInput = document.getElementById('videoFileInput');
+    const videoUrlInput = document.getElementById('videoUrlInput');
+    const loadUrlBtn = document.getElementById('loadUrlBtn');
 
     videoPlayer.addEventListener('loadedmetadata', function() {
         currentVideo = videoPlayer.src;
@@ -92,6 +94,54 @@ function initializeVideoPlayer() {
             videoPlayer.src = videoURL;
             videoPlayer.load();
             currentVideoFile = file; // Store the File object
+            currentVideo = videoURL;
+        }
+    });
+
+    loadUrlBtn.addEventListener('click', async function() {
+        const url = videoUrlInput.value.trim();
+        if (!url) {
+            alert('Please enter a valid video URL');
+            return;
+        }
+
+        try {
+            // Show loading state
+            loadUrlBtn.disabled = true;
+            loadUrlBtn.textContent = 'Loading...';
+
+            // Test if the URL is accessible
+            const response = await fetch(url, { method: 'HEAD' });
+            if (!response.ok) {
+                throw new Error('Video URL is not accessible');
+            }
+
+            // Set the video source
+            videoPlayer.src = url;
+            videoPlayer.load();
+            currentVideo = url;
+            currentVideoFile = null; // Clear local file reference
+
+            // Wait for video to load
+            await new Promise((resolve, reject) => {
+                videoPlayer.onloadeddata = resolve;
+                videoPlayer.onerror = reject;
+            });
+
+            // Reset button state
+            loadUrlBtn.disabled = false;
+            loadUrlBtn.textContent = 'Load URL';
+        } catch (error) {
+            alert('Error loading video: ' + error.message);
+            loadUrlBtn.disabled = false;
+            loadUrlBtn.textContent = 'Load URL';
+        }
+    });
+
+    // Handle Enter key in URL input
+    videoUrlInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            loadUrlBtn.click();
         }
     });
 }

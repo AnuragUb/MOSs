@@ -42,8 +42,14 @@
                     <input class="form-check-input" type="checkbox" id="singleButtonMode">
                     <label class="form-check-label" for="singleButtonMode">Single Button Mode</label>
                 </div>
-                <button type="button" class="btn btn-secondary mt-2" id="loadVideoBtn">Load Video</button>
-                <input type="file" id="videoFileInput" accept="video/mp4" style="display: none;">
+                <div class="video-upload-controls mt-2">
+                    <button type="button" class="btn btn-secondary" id="loadVideoBtn">Load Local Video</button>
+                    <input type="file" id="videoFileInput" accept="video/mp4" style="display: none;">
+                    <div class="input-group mt-2">
+                        <input type="text" class="form-control" id="videoUrlInput" placeholder="Enter video URL">
+                        <button class="btn btn-primary" type="button" id="loadUrlBtn">Load URL</button>
+                    </div>
+                </div>
             </div>
             <div class="resize-handle horizontal" id="videoSectionResize"></div>
         </div>
