@@ -198,6 +198,43 @@ def recognize_audio():
                     # Log the probe result for debugging
                     logger.info(f"FFprobe result: {probe_result.stdout}")
                     
+                    # Preprocess the video to move moov atom to start
+                    try:
+                        logger.info("Preprocessing video to move moov atom to start")
+                        preprocessed_path = input_path + "_processed.mp4"
+                        preprocess_cmd = [
+                            'ffmpeg',
+                            '-y',  # Overwrite output file
+                            '-v', 'error',  # Only show errors
+                            '-i', input_path,  # Input file
+                            '-vcodec', 'copy',  # Copy video stream
+                            '-acodec', 'copy',  # Copy audio stream
+                            '-movflags', '+faststart',  # Move moov atom to start
+                            preprocessed_path  # Output file
+                        ]
+                        
+                        logger.info(f"Running preprocessing command: {' '.join(preprocess_cmd)}")
+                        preprocess_result = subprocess.run(preprocess_cmd, capture_output=True, text=True)
+                        
+                        if preprocess_result.returncode != 0:
+                            logger.error(f"Preprocessing failed: {preprocess_result.stderr}")
+                            return jsonify({
+                                'status': 'error',
+                                'message': 'Error preprocessing video file. Please try uploading again.'
+                            }), 400
+                        
+                        # Replace original input path with preprocessed file
+                        os.remove(input_path)  # Remove original file
+                        input_path = preprocessed_path
+                        logger.info(f"Successfully preprocessed video to: {input_path}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error preprocessing video: {str(e)}")
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'Error preprocessing video file. Please try uploading again.'
+                        }), 500
+                    
                 except Exception as e:
                     logger.error(f"Error validating video file: {str(e)}")
                     return jsonify({
@@ -366,6 +403,10 @@ def recognize_audio():
             os.remove(output_path)
             if file or video_src:
                 os.remove(input_path)
+                # Also remove the preprocessed file if it exists
+                preprocessed_path = input_path + "_processed.mp4"
+                if os.path.exists(preprocessed_path):
+                    os.remove(preprocessed_path)
             logger.info("Cleaned up temporary files")
         except Exception as e:
             logger.error(f"Error cleaning up files: {str(e)}")
