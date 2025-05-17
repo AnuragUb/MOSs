@@ -276,32 +276,141 @@ def recognize_audio():
         elif video_src:
             # Download the video file
             try:
-                response = requests.get(video_src, stream=True)
-                response.raise_for_status()
+                logger.info(f"Starting video download from URL: {video_src}")
                 
-                # Get content length if available
-                content_length = response.headers.get('content-length')
+                # Create a unique temporary directory for this download
+                upload_dir = tempfile.mkdtemp()
+                input_path = os.path.join(upload_dir, 'input.mp4')
+                logger.info(f"Created temporary directory: {upload_dir}")
+                
+                # Get file size from headers if available
+                head_response = requests.head(video_src, allow_redirects=True)
+                content_length = head_response.headers.get('content-length')
                 if content_length:
                     logger.info(f"Expected file size: {content_length} bytes")
                 
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_in:
-                    downloaded_size = 0
-                    for chunk in response.iter_content(chunk_size=8192):
+                # Download the file with progress tracking
+                response = requests.get(video_src, stream=True)
+                response.raise_for_status()
+                
+                total_size = int(response.headers.get('content-length', 0))
+                block_size = 8192
+                downloaded_size = 0
+                
+                with open(input_path, 'wb') as temp_in:
+                    for chunk in response.iter_content(chunk_size=block_size):
                         if chunk:
                             temp_in.write(chunk)
                             downloaded_size += len(chunk)
-                    
-                    input_path = temp_in.name
-                    logger.info(f"Downloaded video to: {input_path} (size: {downloaded_size} bytes)")
-                    
-                    # Verify download is complete
-                    if content_length and int(content_length) != downloaded_size:
-                        logger.error(f"Download incomplete. Expected {content_length} bytes, got {downloaded_size} bytes")
+                            if total_size > 0:
+                                progress = (downloaded_size / total_size) * 100
+                                logger.info(f"Download progress: {downloaded_size}/{total_size} bytes ({progress:.2f}%)")
+                
+                logger.info(f"Download completed. Total bytes downloaded: {downloaded_size}")
+                
+                # Verify download is complete
+                if content_length and int(content_length) != downloaded_size:
+                    logger.error(f"Download incomplete. Expected {content_length} bytes, got {downloaded_size} bytes")
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Video download was incomplete. Please try again.'
+                    }), 400
+                
+                # Validate the downloaded file
+                try:
+                    # Check if file exists and has content
+                    if not os.path.exists(input_path) or os.path.getsize(input_path) == 0:
                         return jsonify({
                             'status': 'error',
-                            'message': 'Video download was incomplete. Please try again.'
+                            'message': 'The downloaded video file is empty or incomplete.'
                         }), 400
+                    
+                    # Use ffprobe to validate the video
+                    probe_cmd = [
+                        'ffprobe',
+                        '-v', 'error',
+                        '-print_format', 'json',
+                        '-show_format',
+                        '-show_streams',
+                        input_path
+                    ]
+                    
+                    logger.info(f"Running ffprobe validation: {' '.join(probe_cmd)}")
+                    probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+                    
+                    if probe_result.returncode != 0:
+                        logger.error(f"Invalid video file: {probe_result.stderr}")
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'The downloaded video file appears to be invalid or corrupted.'
+                        }), 400
+                    
+                    logger.info(f"FFprobe result: {probe_result.stdout}")
+                    
+                    # Try to fix the video file
+                    try:
+                        logger.info("Attempting to fix video file format")
+                        fixed_path = os.path.join(upload_dir, 'fixed.mp4')
                         
+                        # First try: Use -movflags +faststart
+                        fix_cmd1 = [
+                            'ffmpeg',
+                            '-y',
+                            '-v', 'error',
+                            '-i', input_path,
+                            '-c', 'copy',
+                            '-movflags', '+faststart',
+                            fixed_path
+                        ]
+                        
+                        logger.info(f"Running first fix attempt: {' '.join(fix_cmd1)}")
+                        fix_result1 = subprocess.run(fix_cmd1, capture_output=True, text=True)
+                        
+                        if fix_result1.returncode != 0:
+                            logger.warning(f"First fix attempt failed: {fix_result1.stderr}")
+                            
+                            # Second try: Re-encode the video
+                            logger.info("Attempting re-encoding fix")
+                            fix_cmd2 = [
+                                'ffmpeg',
+                                '-y',
+                                '-v', 'error',
+                                '-i', input_path,
+                                '-c:v', 'libx264',
+                                '-c:a', 'aac',
+                                '-movflags', '+faststart',
+                                fixed_path
+                            ]
+                            
+                            logger.info(f"Running second fix attempt: {' '.join(fix_cmd2)}")
+                            fix_result2 = subprocess.run(fix_cmd2, capture_output=True, text=True)
+                            
+                            if fix_result2.returncode != 0:
+                                logger.error(f"Second fix attempt failed: {fix_result2.stderr}")
+                                return jsonify({
+                                    'status': 'error',
+                                    'message': 'Could not process the downloaded video file.'
+                                }), 400
+                        
+                        # Replace original input path with fixed file
+                        os.remove(input_path)
+                        input_path = fixed_path
+                        logger.info(f"Successfully fixed video file: {input_path}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error fixing video file: {str(e)}")
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'Error processing downloaded video file.'
+                        }), 500
+                    
+                except Exception as e:
+                    logger.error(f"Error validating downloaded file: {str(e)}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Error validating downloaded video file.'
+                    }), 400
+                    
             except requests.RequestException as e:
                 logger.error(f"Error downloading video: {str(e)}")
                 return jsonify({
