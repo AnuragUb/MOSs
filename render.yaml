@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: media-action
+    name: mediaaction
     env: python
-    buildCommand: chmod +x build.sh && ./build.sh
+    buildCommand: ./build.sh
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.11
+        value: 3.9.0
       - key: AUDD_API_TOKEN
         value: 04e48a84490a8a2f0bf327b274404905 

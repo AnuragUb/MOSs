@@ -286,5 +286,27 @@ def parse_cue_sheet():
         'data': data
     })
 
+@app.route('/test-ffmpeg')
+def test_ffmpeg():
+    try:
+        result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'message': 'FFmpeg is installed',
+                'version': result.stdout.split('\n')[0]
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'FFmpeg command failed',
+                'error': result.stderr
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error checking FFmpeg: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     app.run(debug=True) 
