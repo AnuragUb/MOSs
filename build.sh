@@ -8,10 +8,6 @@ echo "Current directory: $(pwd)"
 echo "Listing files:"
 ls -la
 
-# Install system dependencies
-apt-get update
-apt-get install -y ffmpeg
-
 # Install Python dependencies
 echo "Upgrading pip..."
 python -m pip install --upgrade pip
