@@ -134,21 +134,79 @@ def recognize_audio():
                 file.save(temp_in)
                 input_path = temp_in.name
                 logger.info(f"Saved uploaded file to: {input_path}")
+                
+                # Validate the video file
+                try:
+                    probe_cmd = [
+                        'ffprobe',
+                        '-v', 'error',
+                        '-show_entries', 'format=duration',
+                        '-of', 'default=noprint_wrappers=1:nokey=1',
+                        input_path
+                    ]
+                    probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+                    
+                    if probe_result.returncode != 0:
+                        logger.error(f"Invalid video file: {probe_result.stderr}")
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'The video file appears to be invalid or corrupted. Please try uploading again.'
+                        }), 400
+                        
+                    # Check if the file is complete
+                    if not os.path.exists(input_path) or os.path.getsize(input_path) == 0:
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'The video file is empty or incomplete. Please try uploading again.'
+                        }), 400
+                        
+                except Exception as e:
+                    logger.error(f"Error validating video file: {str(e)}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Error validating video file. Please try uploading again.'
+                    }), 400
+                    
         elif video_src:
             # Download the video file
             try:
                 response = requests.get(video_src, stream=True)
                 response.raise_for_status()
+                
+                # Get content length if available
+                content_length = response.headers.get('content-length')
+                if content_length:
+                    logger.info(f"Expected file size: {content_length} bytes")
+                
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_in:
+                    downloaded_size = 0
                     for chunk in response.iter_content(chunk_size=8192):
-                        temp_in.write(chunk)
+                        if chunk:
+                            temp_in.write(chunk)
+                            downloaded_size += len(chunk)
+                    
                     input_path = temp_in.name
-                    logger.info(f"Downloaded video to: {input_path}")
+                    logger.info(f"Downloaded video to: {input_path} (size: {downloaded_size} bytes)")
+                    
+                    # Verify download is complete
+                    if content_length and int(content_length) != downloaded_size:
+                        logger.error(f"Download incomplete. Expected {content_length} bytes, got {downloaded_size} bytes")
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'Video download was incomplete. Please try again.'
+                        }), 400
+                        
             except requests.RequestException as e:
                 logger.error(f"Error downloading video: {str(e)}")
-                return jsonify({'status': 'error', 'message': f'Error downloading video: {str(e)}'}), 500
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Error downloading video: {str(e)}'
+                }), 500
         else:
-            return jsonify({'status': 'error', 'message': 'No file or videoSrc provided'}), 400
+            return jsonify({
+                'status': 'error',
+                'message': 'No file or videoSrc provided'
+            }), 400
 
         # Extract segment and convert to mp3
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_out:
