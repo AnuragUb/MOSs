@@ -145,26 +145,31 @@ def recognize_audio():
                 # Reset file pointer for saving
                 file.seek(0)
                 
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_in:
-                    # Write the file in chunks to handle large files
-                    chunk_size = 8192
-                    bytes_written = 0
+                # Create a unique temporary directory for this upload
+                upload_dir = tempfile.mkdtemp()
+                input_path = os.path.join(upload_dir, 'input.mp4')
+                logger.info(f"Created temporary directory: {upload_dir}")
+                
+                # Write the file in chunks to handle large files
+                chunk_size = 8192
+                bytes_written = 0
+                with open(input_path, 'wb') as temp_in:
                     while True:
                         chunk = file.read(chunk_size)
                         if not chunk:
                             break
                         temp_in.write(chunk)
                         bytes_written += len(chunk)
-                    
-                    input_path = temp_in.name
-                    logger.info(f"Saved uploaded file to: {input_path} (size: {bytes_written} bytes)")
-                    
-                    if bytes_written != file_size:
-                        logger.error(f"File size mismatch. Expected {file_size} bytes, got {bytes_written} bytes")
-                        return jsonify({
-                            'status': 'error',
-                            'message': 'File upload was incomplete. Please try again.'
-                        }), 400
+                        logger.info(f"Upload progress: {bytes_written}/{file_size} bytes ({(bytes_written/file_size)*100:.2f}%)")
+                
+                logger.info(f"File upload completed. Total bytes written: {bytes_written}")
+                
+                if bytes_written != file_size:
+                    logger.error(f"File size mismatch. Expected {file_size} bytes, got {bytes_written} bytes")
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'File upload was incomplete. Please try again.'
+                    }), 400
                 
                 # Validate the video file
                 try:
@@ -175,13 +180,13 @@ def recognize_audio():
                             'message': 'The video file is empty or incomplete. Please try uploading again.'
                         }), 400
                     
-                    # Use ffprobe to validate the video file
+                    # Use ffprobe to get detailed video information
                     probe_cmd = [
                         'ffprobe',
                         '-v', 'error',
-                        '-select_streams', 'v:0',  # Check video stream
-                        '-show_entries', 'stream=codec_type,codec_name',
-                        '-of', 'json',
+                        '-print_format', 'json',
+                        '-show_format',
+                        '-show_streams',
                         input_path
                     ]
                     
@@ -198,41 +203,61 @@ def recognize_audio():
                     # Log the probe result for debugging
                     logger.info(f"FFprobe result: {probe_result.stdout}")
                     
-                    # Preprocess the video to move moov atom to start
+                    # Try to fix the video file using a different approach
                     try:
-                        logger.info("Preprocessing video to move moov atom to start")
-                        preprocessed_path = input_path + "_processed.mp4"
-                        preprocess_cmd = [
+                        logger.info("Attempting to fix video file format")
+                        fixed_path = os.path.join(upload_dir, 'fixed.mp4')
+                        
+                        # First try: Use -movflags +faststart
+                        fix_cmd1 = [
                             'ffmpeg',
-                            '-y',  # Overwrite output file
-                            '-v', 'error',  # Only show errors
-                            '-i', input_path,  # Input file
-                            '-vcodec', 'copy',  # Copy video stream
-                            '-acodec', 'copy',  # Copy audio stream
-                            '-movflags', '+faststart',  # Move moov atom to start
-                            preprocessed_path  # Output file
+                            '-y',
+                            '-v', 'error',
+                            '-i', input_path,
+                            '-c', 'copy',
+                            '-movflags', '+faststart',
+                            fixed_path
                         ]
                         
-                        logger.info(f"Running preprocessing command: {' '.join(preprocess_cmd)}")
-                        preprocess_result = subprocess.run(preprocess_cmd, capture_output=True, text=True)
+                        logger.info(f"Running first fix attempt: {' '.join(fix_cmd1)}")
+                        fix_result1 = subprocess.run(fix_cmd1, capture_output=True, text=True)
                         
-                        if preprocess_result.returncode != 0:
-                            logger.error(f"Preprocessing failed: {preprocess_result.stderr}")
-                            return jsonify({
-                                'status': 'error',
-                                'message': 'Error preprocessing video file. Please try uploading again.'
-                            }), 400
+                        if fix_result1.returncode != 0:
+                            logger.warning(f"First fix attempt failed: {fix_result1.stderr}")
+                            
+                            # Second try: Re-encode the video
+                            logger.info("Attempting re-encoding fix")
+                            fix_cmd2 = [
+                                'ffmpeg',
+                                '-y',
+                                '-v', 'error',
+                                '-i', input_path,
+                                '-c:v', 'libx264',
+                                '-c:a', 'aac',
+                                '-movflags', '+faststart',
+                                fixed_path
+                            ]
+                            
+                            logger.info(f"Running second fix attempt: {' '.join(fix_cmd2)}")
+                            fix_result2 = subprocess.run(fix_cmd2, capture_output=True, text=True)
+                            
+                            if fix_result2.returncode != 0:
+                                logger.error(f"Second fix attempt failed: {fix_result2.stderr}")
+                                return jsonify({
+                                    'status': 'error',
+                                    'message': 'Could not process the video file. Please try uploading a different file.'
+                                }), 400
                         
-                        # Replace original input path with preprocessed file
-                        os.remove(input_path)  # Remove original file
-                        input_path = preprocessed_path
-                        logger.info(f"Successfully preprocessed video to: {input_path}")
+                        # Replace original input path with fixed file
+                        os.remove(input_path)
+                        input_path = fixed_path
+                        logger.info(f"Successfully fixed video file: {input_path}")
                         
                     except Exception as e:
-                        logger.error(f"Error preprocessing video: {str(e)}")
+                        logger.error(f"Error fixing video file: {str(e)}")
                         return jsonify({
                             'status': 'error',
-                            'message': 'Error preprocessing video file. Please try uploading again.'
+                            'message': 'Error processing video file. Please try uploading again.'
                         }), 500
                     
                 except Exception as e:
@@ -402,11 +427,10 @@ def recognize_audio():
         try:
             os.remove(output_path)
             if file or video_src:
-                os.remove(input_path)
-                # Also remove the preprocessed file if it exists
-                preprocessed_path = input_path + "_processed.mp4"
-                if os.path.exists(preprocessed_path):
-                    os.remove(preprocessed_path)
+                # Remove the entire temporary directory
+                if 'upload_dir' in locals():
+                    import shutil
+                    shutil.rmtree(upload_dir)
             logger.info("Cleaned up temporary files")
         except Exception as e:
             logger.error(f"Error cleaning up files: {str(e)}")
