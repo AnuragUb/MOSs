@@ -172,10 +172,11 @@ def recognize_audio():
                 '-t', str(duration),  # Duration
                 '-vn',  # No video
                 '-acodec', 'libmp3lame',  # Audio codec
-                '-ab', '192k',  # Audio bitrate
+                '-ab', '128k',  # Audio bitrate
                 '-ac', '1',  # Mono audio
                 '-ar', '44100',  # Sample rate
                 '-f', 'mp3',  # Force MP3 format
+                '-movflags', '+faststart',  # Move metadata to start of file
                 output_path  # Output file
             ]
             
@@ -186,8 +187,23 @@ def recognize_audio():
             
             if result.stderr:
                 logger.warning(f"FFmpeg stderr output: {result.stderr}")
+                # Check for specific error conditions
+                if "moov atom not found" in result.stderr:
+                    logger.error("Input video file appears to be incomplete or corrupted")
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'The video file appears to be incomplete or corrupted. Please ensure the video is fully uploaded before processing.'
+                    }), 400
+                elif "Invalid data found" in result.stderr:
+                    logger.error("Invalid video data detected")
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'The video file contains invalid data. Please check the file format and try again.'
+                    }), 400
             
             if result.returncode != 0:
+                logger.error(f"FFmpeg failed with return code {result.returncode}")
+                logger.error(f"FFmpeg error output: {result.stderr}")
                 raise Exception(f"FFmpeg failed with return code {result.returncode}")
             
             # Verify the output file exists and has content
