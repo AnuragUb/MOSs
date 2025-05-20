@@ -226,8 +226,31 @@ function initializeMarkerTable() {
                     
                     // Create MediaRecorder with specific audio settings
                     const stream = tempVideo.captureStream();
+                    
+                    // List of preferred MIME types in order of preference
+                    const mimeTypes = [
+                        'audio/webm;codecs=opus',
+                        'audio/webm',
+                        'audio/mp4',
+                        'audio/mpeg'
+                    ];
+                    
+                    // Find the first supported MIME type
+                    let selectedMimeType = null;
+                    for (const mimeType of mimeTypes) {
+                        if (MediaRecorder.isTypeSupported(mimeType)) {
+                            selectedMimeType = mimeType;
+                            break;
+                        }
+                    }
+                    
+                    if (!selectedMimeType) {
+                        throw new Error('No supported audio MIME types found');
+                    }
+                    
+                    // Create MediaRecorder with the first supported MIME type
                     const mediaRecorder = new MediaRecorder(stream, {
-                        mimeType: 'audio/webm;codecs=opus',
+                        mimeType: selectedMimeType,
                         audioBitsPerSecond: 256000
                     });
                     
@@ -240,7 +263,7 @@ function initializeMarkerTable() {
                     
                     mediaRecorder.onstop = async () => {
                         // Combine chunks into a single blob
-                        const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+                        const blob = new Blob(chunks, { type: selectedMimeType });
                         
                         // Verify the blob size
                         if (blob.size < 1000) { // Less than 1KB is suspicious
@@ -252,9 +275,10 @@ function initializeMarkerTable() {
                         
                         // Prepare form data
                         const formData = new FormData();
-                        formData.append('file', blob, 'segment.webm');
+                        formData.append('file', blob, 'segment.' + selectedMimeType.split('/')[1].split(';')[0]);
                         formData.append('tcrIn', tcrIn);
                         formData.append('tcrOut', tcrOut);
+                        formData.append('mimeType', selectedMimeType); // Send the MIME type to the server
                         
                         // Send to backend with progress tracking
                         const xhr = new XMLHttpRequest();
@@ -292,18 +316,21 @@ function initializeMarkerTable() {
                     };
                     
                     // Start recording
-                    mediaRecorder.start();
-                    
-                    // Set the time range and play
-                    tempVideo.currentTime = tcrInSec;
-                    await tempVideo.play();
-                    
-                    // Stop recording after duration
-                    setTimeout(() => {
-                        tempVideo.pause();
-                        mediaRecorder.stop();
-                    }, (tcrOutSec - tcrInSec) * 1000);
-                    
+                    try {
+                        mediaRecorder.start();
+                        
+                        // Set the time range and play
+                        tempVideo.currentTime = tcrInSec;
+                        await tempVideo.play();
+                        
+                        // Stop recording after duration
+                        setTimeout(() => {
+                            tempVideo.pause();
+                            mediaRecorder.stop();
+                        }, (tcrOutSec - tcrInSec) * 1000);
+                    } catch (error) {
+                        throw new Error('Failed to start recording: ' + error.message);
+                    }
                 } catch (error) {
                     alert('Error processing video segment: ' + error.message);
                     progressDiv.remove();
