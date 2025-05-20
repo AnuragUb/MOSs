@@ -482,14 +482,7 @@ function updateMarkerTable() {
         
         // Add color coding class to title cell
         const titleCellClass = marker.titleColor ? `title-cell-${marker.titleColor}` : '';
-        
-        // Get button color class based on current state
-        let buttonColorClass = '';
-        if (marker.titleColor === 'yellow') {
-            buttonColorClass = 'btn-warning';
-        } else if (marker.titleColor === 'red') {
-            buttonColorClass = 'btn-danger';
-        }
+        const selectedClass = marker.selected ? 'title-cell-selected' : '';
         
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -502,12 +495,9 @@ function updateMarkerTable() {
                     ${usageOptions.map(opt => `<option value="${opt}"${marker.usage === opt ? ' selected' : ''}>${opt}</option>`).join('')}
                 </select>
             </td>
-            <td class="title-cell ${titleCellClass}">
+            <td class="title-cell ${titleCellClass} ${selectedClass}" data-index="${index}">
                 <div class="title-cell-content">
                     <input type="text" class="table-input" data-index="${index}" data-field="title" value="${marker.title || ''}" />
-                    <button class="color-grade-btn ${buttonColorClass}" data-index="${index}" title="Color Grade">
-                        <i class="fas fa-palette"></i>
-                    </button>
                 </div>
             </td>
             <td><input type="text" class="table-input" data-index="${index}" data-field="filmTitle" value="${marker.filmTitle || ''}" /></td>
@@ -537,47 +527,63 @@ function updateMarkerTable() {
         });
     });
     
-    // Add click handler for color grade button
-    document.querySelectorAll('.color-grade-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
+    // Add selection logic for title cells
+    document.querySelectorAll('.title-cell').forEach(cell => {
+        cell.addEventListener('click', function(e) {
+            const idx = +this.dataset.index;
+            markers[idx].selected = !markers[idx].selected;
+            updateMarkerTable();
+        });
+        cell.addEventListener('contextmenu', function(e) {
             e.preventDefault();
-            e.stopPropagation();
-            
             const idx = +this.dataset.index;
-            const marker = markers[idx];
-            
-            // Cycle through colors: none -> yellow -> red -> none
-            if (!marker.titleColor) {
-                marker.titleColor = 'yellow';
-                this.classList.add('btn-warning');
-                this.classList.remove('btn-danger');
-            } else if (marker.titleColor === 'yellow') {
-                marker.titleColor = 'red';
-                this.classList.remove('btn-warning');
-                this.classList.add('btn-danger');
-            } else {
-                marker.titleColor = null;
-                this.classList.remove('btn-danger');
-                this.classList.remove('btn-warning');
+            if (!markers[idx].selected) {
+                markers[idx].selected = true;
+                updateMarkerTable();
             }
-            
-            // Update the title cell class
-            const titleCell = this.closest('.title-cell');
-            titleCell.className = 'title-cell' + (marker.titleColor ? ` title-cell-${marker.titleColor}` : '');
-            
-            // Save changes
-            saveMarkers();
+            showColorContextMenu(e.pageX, e.pageY);
         });
     });
-    
-    // Add input change handler for all table inputs
-    document.querySelectorAll('.table-input').forEach(input => {
-        input.addEventListener('change', function() {
-            const idx = +this.dataset.index;
-            const field = this.dataset.field;
-            markers[idx][field] = this.value;
-        });
+
+    // Hide context menu on click elsewhere
+    document.addEventListener('click', function(e) {
+        const menu = document.getElementById('colorContextMenu');
+        if (menu) menu.remove();
     });
+
+    function showColorContextMenu(x, y) {
+        let menu = document.getElementById('colorContextMenu');
+        if (menu) menu.remove();
+        menu = document.createElement('div');
+        menu.id = 'colorContextMenu';
+        menu.style.position = 'absolute';
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+        menu.style.background = '#fff';
+        menu.style.border = '1px solid #ccc';
+        menu.style.zIndex = 2000;
+        menu.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+        menu.style.padding = '0.5em 0';
+        menu.innerHTML = `
+            <div class='color-menu-item' data-color='yellow' style='padding:0.5em 2em;cursor:pointer;'>Mark Yellow</div>
+            <div class='color-menu-item' data-color='red' style='padding:0.5em 2em;cursor:pointer;'>Mark Red</div>
+            <div class='color-menu-item' data-color='none' style='padding:0.5em 2em;cursor:pointer;'>Clear Color</div>
+        `;
+        document.body.appendChild(menu);
+        menu.querySelectorAll('.color-menu-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const color = this.dataset.color;
+                markers.forEach(m => {
+                    if (m.selected) {
+                        m.titleColor = color === 'none' ? null : color;
+                        m.selected = false;
+                    }
+                });
+                updateMarkerTable();
+                menu.remove();
+            });
+        });
+    }
     
     document.querySelectorAll('.usage-select').forEach(select => {
         select.addEventListener('change', function() {
