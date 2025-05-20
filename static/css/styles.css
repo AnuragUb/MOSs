@@ -36,7 +36,12 @@
 
 .title-cell {
     position: relative;
-    cursor: pointer;
+}
+
+.title-cell-content {
+    position: relative;
+    display: flex;
+    align-items: center;
 }
 
 .title-cell-yellow {
@@ -48,15 +53,37 @@
 }
 
 .title-cell input {
+    flex: 1;
     background: transparent;
     border: none;
     width: 100%;
     padding: 4px;
-    cursor: text;
+    padding-right: 30px; /* Make room for the button */
 }
 
 .title-cell input:focus {
     background: white;
     border: 1px solid #ccc;
     outline: none;
-} 
+}
+
+.color-grade-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 2px 6px;
+    cursor: pointer;
+    color: #666;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.color-grade-btn:hover {
+    opacity: 1;
+}
+
+/* Add Font Awesome if not already included */
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'); 

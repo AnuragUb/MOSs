@@ -494,7 +494,14 @@ function updateMarkerTable() {
                     ${usageOptions.map(opt => `<option value="${opt}"${marker.usage === opt ? ' selected' : ''}>${opt}</option>`).join('')}
                 </select>
             </td>
-            <td class="title-cell ${titleCellClass}" style="cursor:pointer;"><input type="text" class="table-input" data-index="${index}" data-field="title" value="${marker.title || ''}" /></td>
+            <td class="title-cell ${titleCellClass}">
+                <div class="title-cell-content">
+                    <input type="text" class="table-input" data-index="${index}" data-field="title" value="${marker.title || ''}" />
+                    <button class="color-grade-btn" data-index="${index}" title="Color Grade">
+                        <i class="fas fa-palette"></i>
+                    </button>
+                </div>
+            </td>
             <td><input type="text" class="table-input" data-index="${index}" data-field="filmTitle" value="${marker.filmTitle || ''}" /></td>
             <td><input type="text" class="table-input" data-index="${index}" data-field="composer" value="${marker.composer || ''}" /></td>
             <td><input type="text" class="table-input" data-index="${index}" data-field="lyricist" value="${marker.lyricist || ''}" /></td>
@@ -522,12 +529,13 @@ function updateMarkerTable() {
         });
     });
     
-    // Add click handler for title cells
-    document.querySelectorAll('.title-cell').forEach(cell => {
-        cell.addEventListener('click', function(e) {
-            // Get the input element within the cell
-            const input = this.querySelector('input');
-            const idx = +input.dataset.index;
+    // Add click handler for color grade buttons
+    document.querySelectorAll('.color-grade-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const idx = +this.dataset.index;
             const marker = markers[idx];
             
             // Cycle through colors: none -> yellow -> red -> none
@@ -541,15 +549,11 @@ function updateMarkerTable() {
             
             // Update the table to reflect the new color
             updateMarkerTable();
-            
-            // Prevent the click from triggering input focus
-            e.preventDefault();
-            e.stopPropagation();
         });
     });
     
-    // Add input change handler for title cells
-    document.querySelectorAll('.title-cell input').forEach(input => {
+    // Add input change handler for all table inputs
+    document.querySelectorAll('.table-input').forEach(input => {
         input.addEventListener('change', function() {
             const idx = +this.dataset.index;
             const field = this.dataset.field;
