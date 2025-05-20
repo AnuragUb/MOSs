@@ -479,6 +479,10 @@ function updateMarkerTable() {
             }
         }
         recognizeCell += `</td>`;
+        
+        // Add color coding class to title cell
+        const titleCellClass = marker.titleColor ? `title-cell-${marker.titleColor}` : '';
+        
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="seq-cell" style="cursor:pointer;">${index + 1}</td>
@@ -490,7 +494,7 @@ function updateMarkerTable() {
                     ${usageOptions.map(opt => `<option value="${opt}"${marker.usage === opt ? ' selected' : ''}>${opt}</option>`).join('')}
                 </select>
             </td>
-            <td><input type="text" class="table-input" data-index="${index}" data-field="title" value="${marker.title || ''}" /></td>
+            <td class="title-cell ${titleCellClass}" style="cursor:pointer;"><input type="text" class="table-input" data-index="${index}" data-field="title" value="${marker.title || ''}" /></td>
             <td><input type="text" class="table-input" data-index="${index}" data-field="filmTitle" value="${marker.filmTitle || ''}" /></td>
             <td><input type="text" class="table-input" data-index="${index}" data-field="composer" value="${marker.composer || ''}" /></td>
             <td><input type="text" class="table-input" data-index="${index}" data-field="lyricist" value="${marker.lyricist || ''}" /></td>
@@ -502,6 +506,7 @@ function updateMarkerTable() {
         `;
         tableBody.appendChild(row);
     });
+    
     // Add event listeners for inputs and selects
     document.querySelectorAll('.tcr-input').forEach(input => {
         input.addEventListener('change', function() {
@@ -516,13 +521,29 @@ function updateMarkerTable() {
             }
         });
     });
-    document.querySelectorAll('.table-input').forEach(input => {
-        input.addEventListener('change', function() {
-            const idx = +this.dataset.index;
-            const field = this.dataset.field;
-            markers[idx][field] = this.value;
+    
+    // Add click handler for title cells
+    document.querySelectorAll('.title-cell').forEach(cell => {
+        cell.addEventListener('click', function(e) {
+            // Only handle clicks on the cell itself, not its input
+            if (e.target === this) {
+                const idx = +this.querySelector('input').dataset.index;
+                const marker = markers[idx];
+                
+                // Cycle through colors: none -> yellow -> red -> none
+                if (!marker.titleColor) {
+                    marker.titleColor = 'yellow';
+                } else if (marker.titleColor === 'yellow') {
+                    marker.titleColor = 'red';
+                } else {
+                    marker.titleColor = null;
+                }
+                
+                updateMarkerTable();
+            }
         });
     });
+    
     document.querySelectorAll('.usage-select').forEach(select => {
         select.addEventListener('change', function() {
             const idx = +this.dataset.index;
@@ -644,6 +665,18 @@ function initializeResizeHandles() {
 
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', function(e) {
+        const videoPlayer = document.getElementById('videoPlayer');
+        
+        // Arrow key controls for video timeline
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + 5);
+        }
+        
+        // Existing keyboard shortcuts
         if (e.altKey) {
             if (e.key === '1') {
                 e.preventDefault();
@@ -672,7 +705,8 @@ function exportToExcel() {
         'Lyricist': marker.lyricist,
         'Music Co': marker.musicCo,
         'NOC ID': marker.nocId,
-        'NOC Title': marker.nocTitle
+        'NOC Title': marker.nocTitle,
+        'Title Color': marker.titleColor || ''
     })));
     
     const wb = XLSX.utils.book_new();
@@ -682,7 +716,7 @@ function exportToExcel() {
 
 function exportToCSV() {
     const headers = ['#Seq', 'TCR In', 'TCR Out', 'Duration', 'Usage', 
-                    'Film/Album Title', 'Composer', 'Lyricist', 'Music Co', 'NOC ID', 'NOC Title'];
+                    'Film/Album Title', 'Composer', 'Lyricist', 'Music Co', 'NOC ID', 'NOC Title', 'Title Color'];
     
     const csvContent = [
         headers.join(','),
@@ -697,7 +731,8 @@ function exportToCSV() {
             marker.lyricist,
             marker.musicCo,
             marker.nocId,
-            marker.nocTitle
+            marker.nocTitle,
+            marker.titleColor || ''
         ].join(','))
     ].join('\n');
     

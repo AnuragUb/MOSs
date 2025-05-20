@@ -23,4 +23,29 @@
     color: #666;
     margin-top: 4px;
     text-align: center;
+}
+
+.title-cell {
+    position: relative;
+}
+
+.title-cell-yellow {
+    background-color: #fff3cd;
+}
+
+.title-cell-red {
+    background-color: #f8d7da;
+}
+
+.title-cell input {
+    background: transparent;
+    border: none;
+    width: 100%;
+    padding: 4px;
+}
+
+.title-cell input:focus {
+    background: white;
+    border: 1px solid #ccc;
+    outline: none;
 } 
