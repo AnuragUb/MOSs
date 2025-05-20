@@ -25,8 +25,18 @@
     text-align: center;
 }
 
+.top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 10px 0;
+}
+
 .title-cell {
     position: relative;
+    cursor: pointer;
 }
 
 .title-cell-yellow {
@@ -42,6 +52,7 @@
     border: none;
     width: 100%;
     padding: 4px;
+    cursor: text;
 }
 
 .title-cell input:focus {

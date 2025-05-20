@@ -525,22 +525,35 @@ function updateMarkerTable() {
     // Add click handler for title cells
     document.querySelectorAll('.title-cell').forEach(cell => {
         cell.addEventListener('click', function(e) {
-            // Only handle clicks on the cell itself, not its input
-            if (e.target === this) {
-                const idx = +this.querySelector('input').dataset.index;
-                const marker = markers[idx];
-                
-                // Cycle through colors: none -> yellow -> red -> none
-                if (!marker.titleColor) {
-                    marker.titleColor = 'yellow';
-                } else if (marker.titleColor === 'yellow') {
-                    marker.titleColor = 'red';
-                } else {
-                    marker.titleColor = null;
-                }
-                
-                updateMarkerTable();
+            // Get the input element within the cell
+            const input = this.querySelector('input');
+            const idx = +input.dataset.index;
+            const marker = markers[idx];
+            
+            // Cycle through colors: none -> yellow -> red -> none
+            if (!marker.titleColor) {
+                marker.titleColor = 'yellow';
+            } else if (marker.titleColor === 'yellow') {
+                marker.titleColor = 'red';
+            } else {
+                marker.titleColor = null;
             }
+            
+            // Update the table to reflect the new color
+            updateMarkerTable();
+            
+            // Prevent the click from triggering input focus
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+    
+    // Add input change handler for title cells
+    document.querySelectorAll('.title-cell input').forEach(input => {
+        input.addEventListener('change', function() {
+            const idx = +this.dataset.index;
+            const field = this.dataset.field;
+            markers[idx][field] = this.value;
         });
     });
     
