@@ -228,7 +228,7 @@ function initializeMarkerTable() {
                     const stream = tempVideo.captureStream();
                     const mediaRecorder = new MediaRecorder(stream, {
                         mimeType: 'audio/webm;codecs=opus',
-                        audioBitsPerSecond: 128000
+                        audioBitsPerSecond: 256000
                     });
                     
                     const chunks = [];
