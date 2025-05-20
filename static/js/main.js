@@ -483,6 +483,14 @@ function updateMarkerTable() {
         // Add color coding class to title cell
         const titleCellClass = marker.titleColor ? `title-cell-${marker.titleColor}` : '';
         
+        // Get button color class based on current state
+        let buttonColorClass = '';
+        if (marker.titleColor === 'yellow') {
+            buttonColorClass = 'btn-warning';
+        } else if (marker.titleColor === 'red') {
+            buttonColorClass = 'btn-danger';
+        }
+        
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="seq-cell" style="cursor:pointer;">${index + 1}</td>
@@ -497,7 +505,7 @@ function updateMarkerTable() {
             <td class="title-cell ${titleCellClass}">
                 <div class="title-cell-content">
                     <input type="text" class="table-input" data-index="${index}" data-field="title" value="${marker.title || ''}" />
-                    <button class="color-grade-btn" data-index="${index}" title="Color Grade">
+                    <button class="color-grade-btn ${buttonColorClass}" data-index="${index}" title="Color Grade">
                         <i class="fas fa-palette"></i>
                     </button>
                 </div>
@@ -529,7 +537,7 @@ function updateMarkerTable() {
         });
     });
     
-    // Add click handler for color grade buttons
+    // Add click handler for color grade button
     document.querySelectorAll('.color-grade-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
@@ -541,14 +549,24 @@ function updateMarkerTable() {
             // Cycle through colors: none -> yellow -> red -> none
             if (!marker.titleColor) {
                 marker.titleColor = 'yellow';
+                this.classList.add('btn-warning');
+                this.classList.remove('btn-danger');
             } else if (marker.titleColor === 'yellow') {
                 marker.titleColor = 'red';
+                this.classList.remove('btn-warning');
+                this.classList.add('btn-danger');
             } else {
                 marker.titleColor = null;
+                this.classList.remove('btn-danger');
+                this.classList.remove('btn-warning');
             }
             
-            // Update the table to reflect the new color
-            updateMarkerTable();
+            // Update the title cell class
+            const titleCell = this.closest('.title-cell');
+            titleCell.className = 'title-cell' + (marker.titleColor ? ` title-cell-${marker.titleColor}` : '');
+            
+            // Save changes
+            saveMarkers();
         });
     });
     

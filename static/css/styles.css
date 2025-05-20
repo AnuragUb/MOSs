@@ -65,7 +65,7 @@
     border: none;
     width: 100%;
     padding: 4px;
-    padding-right: 40px; /* Increased padding for bigger button */
+    padding-right: 48px; /* Increased padding for bigger button */
 }
 
 .title-cell input:focus {
@@ -82,12 +82,12 @@
     background: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 6px 10px;
     cursor: pointer;
     color: #495057;
-    font-size: 14px;
-    min-width: 32px;
-    height: 32px;
+    font-size: 16px;
+    min-width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -99,8 +99,20 @@
     border-color: #ced4da;
 }
 
+.color-grade-btn.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
+}
+
+.color-grade-btn.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+}
+
 .color-grade-btn i {
-    font-size: 16px;
+    font-size: 18px;
 }
 
 /* Add Font Awesome if not already included */
