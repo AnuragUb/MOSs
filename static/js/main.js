@@ -209,92 +209,105 @@ function initializeMarkerTable() {
                     <div class="progress-bar">
                         <div class="progress-fill"></div>
                     </div>
-                    <div class="progress-text">Uploading: 0%</div>
+                    <div class="progress-text">Processing: 0%</div>
                 `;
                 e.target.parentElement.appendChild(progressDiv);
                 
-                // Instead of slicing the file directly, we'll:
-                // 1. Create a temporary video element
-                // 2. Set the time range
-                // 3. Use MediaRecorder to capture the segment
-                const tempVideo = document.createElement('video');
-                tempVideo.src = URL.createObjectURL(currentVideoFile);
-                
-                // Wait for video to be loaded
-                await new Promise((resolve) => {
-                    tempVideo.onloadedmetadata = resolve;
-                });
-                
-                // Create MediaRecorder
-                const stream = tempVideo.captureStream();
-                const mediaRecorder = new MediaRecorder(stream, {
-                    mimeType: 'video/webm;codecs=vp9,opus'
-                });
-                
-                const chunks = [];
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) {
-                        chunks.push(e.data);
-                    }
-                };
-                
-                mediaRecorder.onstop = async () => {
-                    // Combine chunks into a single blob
-                    const blob = new Blob(chunks, { type: 'video/webm' });
+                try {
+                    // Create a temporary video element
+                    const tempVideo = document.createElement('video');
+                    tempVideo.src = URL.createObjectURL(currentVideoFile);
                     
-                    // Prepare form data
-                    const formData = new FormData();
-                    formData.append('file', blob, 'segment.webm');
-                    formData.append('tcrIn', tcrIn);
-                    formData.append('tcrOut', tcrOut);
+                    // Wait for video to be loaded
+                    await new Promise((resolve, reject) => {
+                        tempVideo.onloadedmetadata = resolve;
+                        tempVideo.onerror = reject;
+                    });
                     
-                    // Send to backend with progress tracking
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('POST', '/api/recognize-audio', true);
+                    // Create MediaRecorder with specific audio settings
+                    const stream = tempVideo.captureStream();
+                    const mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm;codecs=opus',
+                        audioBitsPerSecond: 128000
+                    });
                     
-                    xhr.upload.onprogress = function(e) {
-                        if (e.lengthComputable) {
-                            const percentComplete = (e.loaded / e.total) * 100;
-                            progressDiv.querySelector('.progress-fill').style.width = percentComplete + '%';
-                            progressDiv.querySelector('.progress-text').textContent = `Uploading: ${Math.round(percentComplete)}%`;
+                    const chunks = [];
+                    mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) {
+                            chunks.push(e.data);
                         }
                     };
                     
-                    xhr.onload = function() {
-                        if (xhr.status === 200) {
-                            const result = JSON.parse(xhr.responseText);
-                            marker.recognition = result;
-                            updateMarkerTable();
-                        } else {
-                            alert('Error during recognition: ' + xhr.statusText);
+                    mediaRecorder.onstop = async () => {
+                        // Combine chunks into a single blob
+                        const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+                        
+                        // Verify the blob size
+                        if (blob.size < 1000) { // Less than 1KB is suspicious
+                            throw new Error('Generated audio segment is too small');
                         }
-                        progressDiv.remove();
-                        // Cleanup
-                        URL.revokeObjectURL(tempVideo.src);
+                        
+                        // Update progress
+                        progressDiv.querySelector('.progress-text').textContent = 'Uploading...';
+                        
+                        // Prepare form data
+                        const formData = new FormData();
+                        formData.append('file', blob, 'segment.webm');
+                        formData.append('tcrIn', tcrIn);
+                        formData.append('tcrOut', tcrOut);
+                        
+                        // Send to backend with progress tracking
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', '/api/recognize-audio', true);
+                        
+                        xhr.upload.onprogress = function(e) {
+                            if (e.lengthComputable) {
+                                const percentComplete = (e.loaded / e.total) * 100;
+                                progressDiv.querySelector('.progress-fill').style.width = percentComplete + '%';
+                                progressDiv.querySelector('.progress-text').textContent = `Uploading: ${Math.round(percentComplete)}%`;
+                            }
+                        };
+                        
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                const result = JSON.parse(xhr.responseText);
+                                marker.recognition = result;
+                                updateMarkerTable();
+                            } else {
+                                alert('Error during recognition: ' + xhr.statusText);
+                            }
+                            progressDiv.remove();
+                            // Cleanup
+                            URL.revokeObjectURL(tempVideo.src);
+                        };
+                        
+                        xhr.onerror = function() {
+                            alert('Error during recognition');
+                            progressDiv.remove();
+                            // Cleanup
+                            URL.revokeObjectURL(tempVideo.src);
+                        };
+                        
+                        xhr.send(formData);
                     };
                     
-                    xhr.onerror = function() {
-                        alert('Error during recognition');
-                        progressDiv.remove();
-                        // Cleanup
-                        URL.revokeObjectURL(tempVideo.src);
-                    };
+                    // Start recording
+                    mediaRecorder.start();
                     
-                    xhr.send(formData);
-                };
-                
-                // Start recording
-                mediaRecorder.start();
-                
-                // Set the time range and play
-                tempVideo.currentTime = tcrInSec;
-                tempVideo.play();
-                
-                // Stop recording after duration
-                setTimeout(() => {
-                    tempVideo.pause();
-                    mediaRecorder.stop();
-                }, (tcrOutSec - tcrInSec) * 1000);
+                    // Set the time range and play
+                    tempVideo.currentTime = tcrInSec;
+                    await tempVideo.play();
+                    
+                    // Stop recording after duration
+                    setTimeout(() => {
+                        tempVideo.pause();
+                        mediaRecorder.stop();
+                    }, (tcrOutSec - tcrInSec) * 1000);
+                    
+                } catch (error) {
+                    alert('Error processing video segment: ' + error.message);
+                    progressDiv.remove();
+                }
             } else if (!isLocal) {
                 // Server file: send videoSrc and timecodes
                 const formData = new FormData();
