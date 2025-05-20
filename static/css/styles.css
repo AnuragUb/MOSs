@@ -28,10 +28,17 @@
 .top-bar {
     position: sticky;
     top: 0;
+    left: 0;
+    right: 0;
     z-index: 1000;
     background-color: #fff;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     padding: 10px 0;
+}
+
+/* Remove the padding-top since we're using sticky positioning */
+.app-container {
+    padding-top: 0;
 }
 
 .title-cell {
@@ -58,7 +65,7 @@
     border: none;
     width: 100%;
     padding: 4px;
-    padding-right: 30px; /* Make room for the button */
+    padding-right: 40px; /* Increased padding for bigger button */
 }
 
 .title-cell input:focus {
@@ -72,18 +79,84 @@
     right: 4px;
     top: 50%;
     transform: translateY(-50%);
-    background: none;
-    border: none;
-    padding: 2px 6px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 4px 8px;
     cursor: pointer;
-    color: #666;
-    opacity: 0.6;
-    transition: opacity 0.2s;
+    color: #495057;
+    font-size: 14px;
+    min-width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
 }
 
 .color-grade-btn:hover {
-    opacity: 1;
+    background: #e9ecef;
+    border-color: #ced4da;
+}
+
+.color-grade-btn i {
+    font-size: 16px;
 }
 
 /* Add Font Awesome if not already included */
-@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'); 
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
+
+/* Main container */
+.app-container {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    position: relative;
+    background-color: var(--bg-primary);
+    overflow-y: auto;
+}
+
+/* Video Section */
+.video-section {
+    flex: 1;
+    min-width: 400px;
+    max-width: 80%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: var(--bg-secondary);
+    padding: 1rem;
+    margin-right: 0.5rem;
+    border-radius: 10px;
+    box-shadow: var(--panel-shadow);
+    overflow: auto;
+    border: 1px solid var(--border-color);
+}
+
+/* Marker Section */
+.marker-section {
+    flex: 1;
+    min-width: 300px;
+    max-width: 80%;
+    position: relative;
+    background: var(--bg-secondary);
+    padding: 1rem;
+    margin-left: 0.5rem;
+    border-radius: 10px;
+    box-shadow: var(--panel-shadow);
+    overflow: auto;
+    border: 1px solid var(--border-color);
+}
+
+/* Table header should also be sticky */
+.table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-color);
+    padding: 1rem;
+    font-weight: 600;
+    z-index: 1;
+    white-space: nowrap;
+} 
