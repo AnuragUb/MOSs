@@ -886,17 +886,28 @@ function initializeCueSheetUpload() {
 
 function parseCueSheetFile(mode) {
     if (!cueSheetFile) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const allRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
-        headerRows = allRows.slice(0, 6); // Store first 6 rows
-    };
-    reader.readAsArrayBuffer(cueSheetFile);
-    // ... existing code ...
+    const formData = new FormData();
+    formData.append('file', cueSheetFile);
+    fetch('/api/parse-cue-sheet', {
+        method: 'POST',
+        body: formData
+    })
+    .then(resp => resp.json())
+    .then(result => {
+        if (result.error) {
+            alert('Error parsing file: ' + result.error);
+            return;
+        }
+        headerRows = result.metadata || [];
+        if (mode === 'structure') {
+            loadCueSheetStructure(result.header);
+        } else if (mode === 'data') {
+            loadCueSheetData(result.header, result.data);
+        }
+    })
+    .catch(err => {
+        alert('Failed to parse file.');
+    });
 }
 
 function loadCueSheetStructure(header) {
