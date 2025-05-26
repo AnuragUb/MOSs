@@ -25,72 +25,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize VLC instance with proper error handling
 try:
-    # Try to set VLC plugin path from environment variable
-    vlc_plugin_path = os.environ.get('VLC_PLUGIN_PATH')
-    if vlc_plugin_path:
-        if sys.platform.startswith('win'):
-            os.environ['PATH'] = vlc_plugin_path + os.pathsep + os.environ['PATH']
-        else:
-            os.environ['VLC_PLUGIN_PATH'] = vlc_plugin_path
-
-    # Try to load VLC library explicitly
-    if sys.platform.startswith('win'):
-        try:
-            ctypes.CDLL('libvlc.dll')
-        except OSError:
-            logger.error("Failed to load libvlc.dll")
-    else:
-        # First, try to find where libvlc.so.5 is actually installed
-        try:
-            find_cmd = ['find', '/usr', '-name', 'libvlc.so.5']
-            result = subprocess.run(find_cmd, capture_output=True, text=True)
-            if result.returncode == 0 and result.stdout.strip():
-                actual_path = result.stdout.strip().split('\n')[0]
-                logger.info(f"Found libvlc.so.5 at: {actual_path}")
-                
-                # Try to load from the actual path first
-                try:
-                    ctypes.CDLL(actual_path)
-                    logger.info(f"Successfully loaded VLC library from actual path: {actual_path}")
-                except OSError as e:
-                    logger.warning(f"Failed to load from actual path: {str(e)}")
-            else:
-                logger.warning("Could not find libvlc.so.5 using find command")
-        except Exception as e:
-            logger.warning(f"Error running find command: {str(e)}")
-
-        # Try multiple possible library paths
-        libvlc_paths = [
-            'libvlc.so.5',
-            '/usr/lib/libvlc.so.5',
-            '/usr/lib/x86_64-linux-gnu/libvlc.so.5',
-            find_library('vlc')
-        ]
-        
-        libvlc_loaded = False
-        for lib_path in libvlc_paths:
-            if lib_path:
-                try:
-                    ctypes.CDLL(lib_path)
-                    logger.info(f"Successfully loaded VLC library from: {lib_path}")
-                    libvlc_loaded = True
-                    break
-                except OSError as e:
-                    logger.warning(f"Failed to load VLC library from {lib_path}: {str(e)}")
-        
-        if not libvlc_loaded:
-            # Print system information for debugging
-            try:
-                logger.error("System information:")
-                logger.error(f"LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'Not set')}")
-                logger.error(f"VLC_PLUGIN_PATH: {os.environ.get('VLC_PLUGIN_PATH', 'Not set')}")
-                subprocess.run(['ldconfig', '-p'], capture_output=True, text=True)
-            except Exception as e:
-                logger.error(f"Error getting system information: {str(e)}")
-            raise Exception("Failed to load VLC library from any location")
-
-    # Initialize VLC with minimal options and debug logging
-    vlc_instance = vlc.Instance('--no-xlib --verbose 2')
+    # Initialize VLC with minimal options
+    vlc_instance = vlc.Instance('--no-xlib')
     if not vlc_instance:
         raise Exception("Failed to create VLC instance")
         

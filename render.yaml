@@ -5,29 +5,12 @@ services:
     buildCommand: |
       apt-get update
       apt-get install -y vlc libvlc-dev
-      # Find the actual location of libvlc.so.5
-      VLC_LIB_PATH=$(find /usr -name "libvlc.so.5" 2>/dev/null | head -n 1)
-      if [ -n "$VLC_LIB_PATH" ]; then
-        echo "Found libvlc.so.5 at: $VLC_LIB_PATH"
-        # Create symlinks in standard locations
-        ln -sf "$VLC_LIB_PATH" /usr/lib/libvlc.so.5
-        ln -sf "$(dirname $VLC_LIB_PATH)/libvlccore.so.9" /usr/lib/libvlccore.so.9
-      else
-        echo "libvlc.so.5 not found!"
-        exit 1
-      fi
-      # Update library cache
-      ldconfig
-      # Install Python requirements
+      pip install python-vlc==3.0.21203
       pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
-      - key: VLC_PLUGIN_PATH
-        value: /usr/lib/vlc/plugins
-      - key: LD_LIBRARY_PATH
-        value: /usr/lib:/usr/lib/x86_64-linux-gnu:/usr/lib/vlc
     systemPackages:
       - ffmpeg
       - vlc
