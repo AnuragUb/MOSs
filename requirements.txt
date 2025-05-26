@@ -5,4 +5,5 @@ pandas
 gunicorn==21.2.0
 ffmpeg-python==0.2.0
 requests==2.31.0
-openpyxl==3.1.2 
+openpyxl==3.1.2
+python-vlc==3.0.20123 

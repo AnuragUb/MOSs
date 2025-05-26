@@ -1,13 +1,18 @@
 services:
   - type: web
-    name: mediaaction
+    name: media-action
     env: python
-    buildCommand: ./build.sh
+    buildCommand: |
+      apt-get update
+      apt-get install -y vlc libvlc-dev
+      pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
-      - key: AUDD_API_TOKEN
-        value: 04e48a84490a8a2f0bf327b274404905
+      - key: VLC_PLUGIN_PATH
+        value: /usr/lib/vlc/plugins
     systemPackages:
-      - ffmpeg 
+      - ffmpeg
+      - vlc
+      - libvlc-dev 
