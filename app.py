@@ -25,16 +25,32 @@ logger = logging.getLogger(__name__)
 
 # Initialize VLC instance with proper error handling
 try:
+    # Try to load VLC library explicitly
+    if sys.platform.startswith('win'):
+        try:
+            ctypes.CDLL('libvlc.dll')
+        except OSError:
+            logger.error("Failed to load libvlc.dll")
+    else:
+        try:
+            ctypes.CDLL('libvlc.so.5')
+        except OSError:
+            logger.error("Failed to load libvlc.so.5")
+
     # Initialize VLC with minimal options
-    vlc_instance = vlc.Instance('--no-xlib')
-    if not vlc_instance:
-        raise Exception("Failed to create VLC instance")
-        
-    player = vlc_instance.media_player_new()
-    if not player:
-        raise Exception("Failed to create media player")
-        
-    logger.info("VLC initialized successfully")
+    try:
+        vlc_instance = vlc.libvlc_new(0, None)
+        if not vlc_instance:
+            raise Exception("Failed to create VLC instance")
+            
+        player = vlc_instance.media_player_new()
+        if not player:
+            raise Exception("Failed to create media player")
+            
+        logger.info("VLC initialized successfully")
+    except Exception as e:
+        logger.error(f"Error in VLC initialization: {str(e)}")
+        raise
 except Exception as e:
     logger.error(f"Error initializing VLC: {str(e)}")
     vlc_instance = None

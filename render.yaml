@@ -5,12 +5,20 @@ services:
     buildCommand: |
       apt-get update
       apt-get install -y vlc libvlc-dev
-      pip install python-vlc==3.0.21203
+      # Ensure VLC libraries are in the correct location
+      ln -sf /usr/lib/x86_64-linux-gnu/libvlc.so.5 /usr/lib/libvlc.so.5
+      ln -sf /usr/lib/x86_64-linux-gnu/libvlccore.so.9 /usr/lib/libvlccore.so.9
+      # Update library cache
+      ldconfig
+      # Install Python requirements
+      pip install python-vlc==3.0.20123
       pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
+      - key: LD_LIBRARY_PATH
+        value: /usr/lib:/usr/lib/x86_64-linux-gnu
     systemPackages:
       - ffmpeg
       - vlc
