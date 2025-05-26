@@ -14,6 +14,7 @@ import io
 import vlc
 import sys
 import ctypes
+from ctypes.util import find_library
 
 app = Flask(__name__)
 CORS(app)
@@ -39,10 +40,27 @@ try:
         except OSError:
             logger.error("Failed to load libvlc.dll")
     else:
-        try:
-            ctypes.CDLL('libvlc.so.5')
-        except OSError:
-            logger.error("Failed to load libvlc.so.5")
+        # Try multiple possible library paths
+        libvlc_paths = [
+            'libvlc.so.5',
+            '/usr/lib/libvlc.so.5',
+            '/usr/lib/x86_64-linux-gnu/libvlc.so.5',
+            find_library('vlc')
+        ]
+        
+        libvlc_loaded = False
+        for lib_path in libvlc_paths:
+            if lib_path:
+                try:
+                    ctypes.CDLL(lib_path)
+                    logger.info(f"Successfully loaded VLC library from: {lib_path}")
+                    libvlc_loaded = True
+                    break
+                except OSError as e:
+                    logger.warning(f"Failed to load VLC library from {lib_path}: {str(e)}")
+        
+        if not libvlc_loaded:
+            logger.error("Failed to load VLC library from any location")
 
     # Initialize VLC with minimal options and debug logging
     vlc_instance = vlc.Instance('--no-xlib --verbose 2')
