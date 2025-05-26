@@ -4,6 +4,7 @@ services:
     env: python
     buildCommand: |
       apt-get update && apt-get install -y vlc libvlc-dev
+      ldconfig
       pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
@@ -12,7 +13,7 @@ services:
       - key: VLC_PLUGIN_PATH
         value: /usr/lib/vlc/plugins
       - key: LD_LIBRARY_PATH
-        value: /usr/lib/vlc
+        value: /usr/lib/vlc:/usr/lib
     systemPackages:
       - ffmpeg
       - vlc

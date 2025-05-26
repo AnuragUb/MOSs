@@ -13,6 +13,7 @@ import logging
 import io
 import vlc
 import sys
+import ctypes
 
 app = Flask(__name__)
 CORS(app)
@@ -31,8 +32,20 @@ try:
         else:
             os.environ['VLC_PLUGIN_PATH'] = vlc_plugin_path
 
-    # Initialize VLC with minimal options
-    vlc_instance = vlc.Instance('--no-xlib')
+    # Try to load VLC library explicitly
+    if sys.platform.startswith('win'):
+        try:
+            ctypes.CDLL('libvlc.dll')
+        except OSError:
+            logger.error("Failed to load libvlc.dll")
+    else:
+        try:
+            ctypes.CDLL('libvlc.so.5')
+        except OSError:
+            logger.error("Failed to load libvlc.so.5")
+
+    # Initialize VLC with minimal options and debug logging
+    vlc_instance = vlc.Instance('--no-xlib --verbose 2')
     if not vlc_instance:
         raise Exception("Failed to create VLC instance")
         
