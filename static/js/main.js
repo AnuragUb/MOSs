@@ -9,6 +9,7 @@ let usageOptions = ['BI', 'BV', 'VI', 'VV', 'SRC'];
 let usageCounts = { BI: 0, BV: 0, VI: 0, VV: 0, SRC: 0 };
 let extraColumns = [];
 let seqClickState = { row: null, count: 0, timeout: null }; // For tracking triple clicks
+let headerRows = [];
 
 // Cue Sheet Upload & Integration
 let cueSheetParsed = null;
@@ -676,33 +677,11 @@ function setupKeyboardShortcuts() {
 }
 
 function exportToExcel() {
-    const ws = XLSX.utils.json_to_sheet(markers.map((marker, index) => ({
-        '#Seq': index + 1,
-        'TCR In': marker.tcrIn,
-        'TCR Out': marker.tcrOut,
-        'Duration': marker.duration,
-        'Usage': marker.usage,
-        'Film/Album Title': marker.filmTitle,
-        'Composer': marker.composer,
-        'Lyricist': marker.lyricist,
-        'Music Co': marker.musicCo,
-        'NOC ID': marker.nocId,
-        'NOC Title': marker.nocTitle,
-        'Title Color': marker.titleColor || ''
-    })));
-    
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Markers');
-    XLSX.writeFile(wb, 'markers.xlsx');
-}
-
-function exportToCSV() {
-    const headers = ['#Seq', 'TCR In', 'TCR Out', 'Duration', 'Usage', 
-                    'Film/Album Title', 'Composer', 'Lyricist', 'Music Co', 'NOC ID', 'NOC Title', 'Title Color'];
-    
-    const csvContent = [
-        headers.join(','),
-        ...markers.map((marker, index) => [
+    const includeHeader = document.getElementById('includeHeaderRows').checked;
+    let ws;
+    if (includeHeader && headerRows.length > 0) {
+        // Prepare marker data as array of arrays
+        const markerData = markers.map((marker, index) => [
             index + 1,
             marker.tcrIn,
             marker.tcrOut,
@@ -715,9 +694,53 @@ function exportToCSV() {
             marker.nocId,
             marker.nocTitle,
             marker.titleColor || ''
-        ].join(','))
-    ].join('\n');
-    
+        ]);
+        // Combine headerRows and markerData
+        const allData = headerRows.concat([['#Seq', 'TCR In', 'TCR Out', 'Duration', 'Usage', 'Film/Album Title', 'Composer', 'Lyricist', 'Music Co', 'NOC ID', 'NOC Title', 'Title Color']]).concat(markerData);
+        ws = XLSX.utils.aoa_to_sheet(allData);
+    } else {
+        ws = XLSX.utils.json_to_sheet(markers.map((marker, index) => ({
+            '#Seq': index + 1,
+            'TCR In': marker.tcrIn,
+            'TCR Out': marker.tcrOut,
+            'Duration': marker.duration,
+            'Usage': marker.usage,
+            'Film/Album Title': marker.filmTitle,
+            'Composer': marker.composer,
+            'Lyricist': marker.lyricist,
+            'Music Co': marker.musicCo,
+            'NOC ID': marker.nocId,
+            'NOC Title': marker.nocTitle,
+            'Title Color': marker.titleColor || ''
+        })));
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Markers');
+    XLSX.writeFile(wb, 'markers.xlsx');
+}
+
+function exportToCSV() {
+    const includeHeader = document.getElementById('includeHeaderRows').checked;
+    const headers = ['#Seq', 'TCR In', 'TCR Out', 'Duration', 'Usage', 'Film/Album Title', 'Composer', 'Lyricist', 'Music Co', 'NOC ID', 'NOC Title', 'Title Color'];
+    let csvContent = '';
+    if (includeHeader && headerRows.length > 0) {
+        csvContent += headerRows.map(row => row.join(",")).join("\n") + "\n";
+    }
+    csvContent += headers.join(',') + '\n';
+    csvContent += markers.map((marker, index) => [
+        index + 1,
+        marker.tcrIn,
+        marker.tcrOut,
+        marker.duration,
+        marker.usage,
+        marker.filmTitle,
+        marker.composer,
+        marker.lyricist,
+        marker.musicCo,
+        marker.nocId,
+        marker.nocTitle,
+        marker.titleColor || ''
+    ].join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -863,28 +886,17 @@ function initializeCueSheetUpload() {
 
 function parseCueSheetFile(mode) {
     if (!cueSheetFile) return;
-    const formData = new FormData();
-    formData.append('file', cueSheetFile);
-    fetch('/api/parse-cue-sheet', {
-        method: 'POST',
-        body: formData
-    })
-    .then(resp => resp.json())
-    .then(result => {
-        cueSheetParsed = result;
-        if (result.error) {
-            alert('Error parsing file: ' + result.error);
-            return;
-        }
-        if (mode === 'structure') {
-            loadCueSheetStructure(result.header);
-        } else if (mode === 'data') {
-            loadCueSheetData(result.header, result.data);
-        }
-    })
-    .catch(err => {
-        alert('Failed to parse file.');
-    });
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const allRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+        headerRows = allRows.slice(0, 6); // Store first 6 rows
+    };
+    reader.readAsArrayBuffer(cueSheetFile);
+    // ... existing code ...
 }
 
 function loadCueSheetStructure(header) {
