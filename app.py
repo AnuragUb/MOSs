@@ -40,6 +40,25 @@ try:
         except OSError:
             logger.error("Failed to load libvlc.dll")
     else:
+        # First, try to find where libvlc.so.5 is actually installed
+        try:
+            find_cmd = ['find', '/usr', '-name', 'libvlc.so.5']
+            result = subprocess.run(find_cmd, capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip():
+                actual_path = result.stdout.strip().split('\n')[0]
+                logger.info(f"Found libvlc.so.5 at: {actual_path}")
+                
+                # Try to load from the actual path first
+                try:
+                    ctypes.CDLL(actual_path)
+                    logger.info(f"Successfully loaded VLC library from actual path: {actual_path}")
+                except OSError as e:
+                    logger.warning(f"Failed to load from actual path: {str(e)}")
+            else:
+                logger.warning("Could not find libvlc.so.5 using find command")
+        except Exception as e:
+            logger.warning(f"Error running find command: {str(e)}")
+
         # Try multiple possible library paths
         libvlc_paths = [
             'libvlc.so.5',
@@ -60,7 +79,15 @@ try:
                     logger.warning(f"Failed to load VLC library from {lib_path}: {str(e)}")
         
         if not libvlc_loaded:
-            logger.error("Failed to load VLC library from any location")
+            # Print system information for debugging
+            try:
+                logger.error("System information:")
+                logger.error(f"LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'Not set')}")
+                logger.error(f"VLC_PLUGIN_PATH: {os.environ.get('VLC_PLUGIN_PATH', 'Not set')}")
+                subprocess.run(['ldconfig', '-p'], capture_output=True, text=True)
+            except Exception as e:
+                logger.error(f"Error getting system information: {str(e)}")
+            raise Exception("Failed to load VLC library from any location")
 
     # Initialize VLC with minimal options and debug logging
     vlc_instance = vlc.Instance('--no-xlib --verbose 2')
