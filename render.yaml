@@ -3,8 +3,7 @@ services:
     name: media-action
     env: python
     buildCommand: |
-      apt-get update
-      apt-get install -y vlc libvlc-dev
+      apt-get update && apt-get install -y vlc libvlc-dev
       pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
@@ -12,6 +11,8 @@ services:
         value: 3.9.0
       - key: VLC_PLUGIN_PATH
         value: /usr/lib/vlc/plugins
+      - key: LD_LIBRARY_PATH
+        value: /usr/lib/vlc
     systemPackages:
       - ffmpeg
       - vlc

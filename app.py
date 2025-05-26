@@ -12,6 +12,7 @@ import ffmpeg
 import logging
 import io
 import vlc
+import sys
 
 app = Flask(__name__)
 CORS(app)
@@ -20,10 +21,26 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize VLC instance
+# Initialize VLC instance with proper error handling
 try:
-    vlc_instance = vlc.Instance('--no-xlib', '--no-video-title-show')
+    # Try to set VLC plugin path from environment variable
+    vlc_plugin_path = os.environ.get('VLC_PLUGIN_PATH')
+    if vlc_plugin_path:
+        if sys.platform.startswith('win'):
+            os.environ['PATH'] = vlc_plugin_path + os.pathsep + os.environ['PATH']
+        else:
+            os.environ['VLC_PLUGIN_PATH'] = vlc_plugin_path
+
+    # Initialize VLC with minimal options
+    vlc_instance = vlc.Instance('--no-xlib')
+    if not vlc_instance:
+        raise Exception("Failed to create VLC instance")
+        
     player = vlc_instance.media_player_new()
+    if not player:
+        raise Exception("Failed to create media player")
+        
+    logger.info("VLC initialized successfully")
 except Exception as e:
     logger.error(f"Error initializing VLC: {str(e)}")
     vlc_instance = None
