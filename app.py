@@ -11,6 +11,7 @@ import pandas as pd
 import ffmpeg
 import logging
 import io
+import vlc
 
 app = Flask(__name__)
 CORS(app)
@@ -18,6 +19,15 @@ CORS(app)
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize VLC instance
+try:
+    vlc_instance = vlc.Instance('--no-xlib', '--no-video-title-show')
+    player = vlc_instance.media_player_new()
+except Exception as e:
+    logger.error(f"Error initializing VLC: {str(e)}")
+    vlc_instance = None
+    player = None
 
 # Store usage statistics
 USAGE_STATS = {
@@ -599,6 +609,93 @@ def test_ffmpeg():
             'status': 'error',
             'message': f'Error checking FFmpeg: {str(e)}'
         }), 500
+
+@app.route('/api/vlc/play', methods=['POST'])
+def vlc_play():
+    try:
+        video_path = request.json.get('video_path')
+        if not video_path:
+            return jsonify({'error': 'No video path provided'}), 400
+
+        # Create media from path
+        media = vlc_instance.media_new(video_path)
+        player.set_media(media)
+        player.play()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Video started playing',
+            'duration': player.get_length() / 1000  # Convert to seconds
+        })
+    except Exception as e:
+        logger.error(f"Error playing video with VLC: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vlc/pause', methods=['POST'])
+def vlc_pause():
+    try:
+        player.pause()
+        return jsonify({'status': 'success', 'message': 'Video paused'})
+    except Exception as e:
+        logger.error(f"Error pausing video: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vlc/stop', methods=['POST'])
+def vlc_stop():
+    try:
+        player.stop()
+        return jsonify({'status': 'success', 'message': 'Video stopped'})
+    except Exception as e:
+        logger.error(f"Error stopping video: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vlc/seek', methods=['POST'])
+def vlc_seek():
+    try:
+        position = request.json.get('position')  # Position in seconds
+        if position is None:
+            return jsonify({'error': 'No position provided'}), 400
+            
+        # Convert position to milliseconds
+        position_ms = int(position * 1000)
+        player.set_time(position_ms)
+        
+        return jsonify({'status': 'success', 'message': f'Seeked to {position} seconds'})
+    except Exception as e:
+        logger.error(f"Error seeking video: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vlc/status', methods=['GET'])
+def vlc_status():
+    try:
+        state = player.get_state()
+        position = player.get_time() / 1000  # Convert to seconds
+        duration = player.get_length() / 1000  # Convert to seconds
+        
+        return jsonify({
+            'status': 'success',
+            'state': str(state),
+            'position': position,
+            'duration': duration
+        })
+    except Exception as e:
+        logger.error(f"Error getting VLC status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vlc/volume', methods=['POST'])
+def vlc_volume():
+    try:
+        volume = request.json.get('volume')
+        if volume is None:
+            return jsonify({'error': 'No volume provided'}), 400
+            
+        # Set volume (0-100)
+        player.audio_set_volume(int(volume * 100))
+        
+        return jsonify({'status': 'success', 'message': f'Volume set to {volume * 100}%'})
+    except Exception as e:
+        logger.error(f"Error setting volume: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True) 
