@@ -564,7 +564,7 @@ def parse_cue_sheet():
         df = pd.read_csv(file, header=None)
     else:
         return jsonify({'error': 'Unsupported file type'}), 400
-    # Convert to list of lists
+    df = df.fillna('')  # Replace NaN with blank
     rows = df.values.tolist()
     # Extract metadata, header, and data
     metadata = [[str(cell) if cell is not None else '' for cell in row] for row in rows[:6]]
