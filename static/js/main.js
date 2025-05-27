@@ -754,7 +754,7 @@ function exportToExcel() {
             marker.tcrIn,
             marker.tcrOut,
             marker.duration,
-            marker.usage,
+            marker.usage.join(', '), // Join usage values
             marker.filmTitle,
             marker.composer,
             marker.lyricist,
@@ -772,7 +772,7 @@ function exportToExcel() {
             'TCR In': marker.tcrIn,
             'TCR Out': marker.tcrOut,
             'Duration': marker.duration,
-            'Usage': marker.usage,
+            'Usage': marker.usage.join(', '), // Join usage values
             'Film/Album Title': marker.filmTitle,
             'Composer': marker.composer,
             'Lyricist': marker.lyricist,
@@ -800,7 +800,7 @@ function exportToCSV() {
         marker.tcrIn,
         marker.tcrOut,
         marker.duration,
-        marker.usage,
+        marker.usage.join(', '), // Join usage values
         marker.filmTitle,
         marker.composer,
         marker.lyricist,
