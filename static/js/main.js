@@ -171,18 +171,25 @@ function initializeMarkerTable() {
         });
     });
     
-    // Add delete selected button
-    const deleteSelectedBtn = document.createElement('button');
-    deleteSelectedBtn.className = 'btn btn-danger ms-2';
-    deleteSelectedBtn.textContent = 'Delete Selected';
-    deleteSelectedBtn.addEventListener('click', deleteSelectedRows);
-    document.querySelector('.export-buttons').appendChild(deleteSelectedBtn);
+    // Add delete selected button functionality
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', deleteSelectedRows);
+    }
     
     // Add double-click handler for special column headers
     tableHeader.addEventListener('dblclick', function(e) {
         if (e.target.tagName === 'TH' && e.target.classList.contains('special')) {
             const columnIndex = Array.from(e.target.parentElement.children).indexOf(e.target);
             const columnName = getColumnName(columnIndex);
+            
+            // Toggle active paste mode for this column
+            activePasteColumns[columnName] = !activePasteColumns[columnName];
+            
+            // Update header color to indicate active state
+            e.target.style.backgroundColor = activePasteColumns[columnName] ? '#90EE90' : '';
+            
+            // Show copy dropdown
             showCopyDropdown(e, columnName);
         }
     });
@@ -492,9 +499,10 @@ function updateMarkerTable() {
         checkboxCell.appendChild(checkbox);
         row.appendChild(checkboxCell);
         
-        // Add sequence number cell with triple-click functionality
+        // Add sequence number cell
         const seqCell = document.createElement('td');
         seqCell.textContent = index + 1;
+        seqCell.className = 'seq-cell';
         seqCell.dataset.row = index;
         seqCell.addEventListener('click', () => handleSeqClick(index, seqCell));
         row.appendChild(seqCell);
@@ -580,6 +588,13 @@ function updateMarkerTable() {
         row.appendChild(recognizeCell);
         
         tableBody.appendChild(row);
+    });
+    
+    // Update header colors based on active paste columns
+    const headers = document.querySelectorAll('.table thead tr:first-child th.special');
+    headers.forEach(header => {
+        const columnName = getColumnName(Array.from(header.parentElement.children).indexOf(header));
+        header.style.backgroundColor = activePasteColumns[columnName] ? '#90EE90' : '';
     });
     
     // Scroll to top when table is updated
