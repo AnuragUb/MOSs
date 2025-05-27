@@ -180,17 +180,19 @@ function initializeMarkerTable() {
     // Add double-click handler for special column headers
     tableHeader.addEventListener('dblclick', function(e) {
         if (e.target.tagName === 'TH' && e.target.classList.contains('special')) {
-            const columnIndex = Array.from(e.target.parentElement.children).indexOf(e.target);
-            const columnName = getColumnName(columnIndex);
-            
-            // Toggle active paste mode for this column
-            activePasteColumns[columnName] = !activePasteColumns[columnName];
-            
-            // Update header color to indicate active state
-            e.target.style.backgroundColor = activePasteColumns[columnName] ? '#90EE90' : '';
-            
-            // Show copy dropdown
-            showCopyDropdown(e, columnName);
+            // There are 2 extra columns at the start: checkbox and seq
+            const baseColumns = 2;
+            const columnIndex = Array.from(e.target.parentElement.children).indexOf(e.target) - baseColumns;
+            // Only proceed if the columnIndex is valid
+            if (columnIndex >= 0) {
+                const columnName = getColumnName(columnIndex + baseColumns); // getColumnName expects the full index
+                // Toggle active paste mode for this column
+                activePasteColumns[columnName] = !activePasteColumns[columnName];
+                // Update header color to indicate active state
+                e.target.style.backgroundColor = activePasteColumns[columnName] ? '#90EE90' : '';
+                // Show copy dropdown
+                showCopyDropdown(e, columnName);
+            }
         }
     });
     
@@ -540,6 +542,9 @@ function updateMarkerTable() {
         // Add Duration cell (read-only)
         const durationCell = document.createElement('td');
         durationCell.textContent = marker.duration || '';
+        durationCell.addEventListener('dblclick', () => {
+            row.style.backgroundColor = row.style.backgroundColor === 'yellow' ? '' : 'yellow';
+        });
         row.appendChild(durationCell);
         
         // Add Usage cell with dropdown
@@ -696,25 +701,40 @@ function setupKeyboardShortcuts() {
     document.addEventListener('keydown', function(e) {
         const videoPlayer = document.getElementById('videoPlayer');
         
-        // Arrow key controls for video timeline
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-            e.preventDefault();
-            
-            // Start frame-by-frame navigation after holding for 500ms
-            if (!frameTimer) {
-                frameTimer = setTimeout(() => {
-                    isFrameByFrame = true;
-                }, 500);
+        // Check if video is not focused
+        if (document.activeElement !== videoPlayer) {
+            // Arrow key controls for text rows
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                const tableBody = document.getElementById('markerTableBody');
+                const scrollAmount = 50; // Adjust as needed
+                if (e.key === 'ArrowLeft') {
+                    tableBody.scrollLeft -= scrollAmount;
+                } else if (e.key === 'ArrowRight') {
+                    tableBody.scrollLeft += scrollAmount;
+                }
             }
-            
-            // Calculate the time increment (1 frame = 1/frameRate seconds)
-            const frameIncrement = 1 / frameRate;
-            const timeIncrement = isFrameByFrame ? frameIncrement : 1;
-            
-            if (e.key === 'ArrowLeft') {
-                videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - timeIncrement);
-            } else if (e.key === 'ArrowRight') {
-                videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + timeIncrement);
+        } else {
+            // Arrow key controls for video timeline
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                
+                // Start frame-by-frame navigation after holding for 500ms
+                if (!frameTimer) {
+                    frameTimer = setTimeout(() => {
+                        isFrameByFrame = true;
+                    }, 500);
+                }
+                
+                // Calculate the time increment (1 frame = 1/frameRate seconds)
+                const frameIncrement = 1 / frameRate;
+                const timeIncrement = isFrameByFrame ? frameIncrement : 1;
+                
+                if (e.key === 'ArrowLeft') {
+                    videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - timeIncrement);
+                } else if (e.key === 'ArrowRight') {
+                    videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + timeIncrement);
+                }
             }
         }
         
