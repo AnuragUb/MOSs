@@ -15,6 +15,11 @@ let headerRows = [];
 let cueSheetParsed = null;
 let cueSheetFile = null;
 
+// Add these variables at the top with other global variables
+let frameTimer = null;
+let frameRate = 30; // Default frame rate, will be updated when video loads
+let isFrameByFrame = false;
+
 // Update default columns to include 'Title'
 const defaultMarkerColumns = [
     { key: 'tcrIn', label: 'TCR In' },
@@ -73,6 +78,8 @@ function initializeVideoPlayer() {
 
     videoPlayer.addEventListener('loadedmetadata', function() {
         currentVideo = videoPlayer.src;
+        // Get the video's frame rate
+        frameRate = videoPlayer.getVideoPlaybackQuality()?.totalVideoFrames / videoPlayer.duration || 30;
     });
 
     tcrInBtn.addEventListener('click', () => markTCR('in'));
@@ -151,19 +158,32 @@ function initializeMarkerTable() {
     const tableBody = document.getElementById('markerTableBody');
     const tableHeader = document.querySelector('.table thead tr:first-child');
     
+    // Add checkbox column to header
+    const checkboxHeader = document.createElement('th');
+    checkboxHeader.innerHTML = '<input type="checkbox" id="selectAllRows">';
+    tableHeader.insertBefore(checkboxHeader, tableHeader.firstChild);
+    
+    // Add select all functionality
+    document.getElementById('selectAllRows').addEventListener('change', function(e) {
+        const checkboxes = document.querySelectorAll('.row-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = e.target.checked;
+        });
+    });
+    
+    // Add delete selected button
+    const deleteSelectedBtn = document.createElement('button');
+    deleteSelectedBtn.className = 'btn btn-danger ms-2';
+    deleteSelectedBtn.textContent = 'Delete Selected';
+    deleteSelectedBtn.addEventListener('click', deleteSelectedRows);
+    document.querySelector('.export-buttons').appendChild(deleteSelectedBtn);
+    
     // Add double-click handler for special column headers
     tableHeader.addEventListener('dblclick', function(e) {
         if (e.target.tagName === 'TH' && e.target.classList.contains('special')) {
             const columnIndex = Array.from(e.target.parentElement.children).indexOf(e.target);
             const columnName = getColumnName(columnIndex);
-            // Toggle this column's paste-to-all state
-            activePasteColumns[columnName] = !activePasteColumns[columnName];
-            // Update header style
-            if (activePasteColumns[columnName]) {
-                e.target.classList.add('active-paste');
-            } else {
-                e.target.classList.remove('active-paste');
-            }
+            showCopyDropdown(e, columnName);
         }
     });
     
@@ -450,118 +470,134 @@ function getColumnName(index) {
     return columns[index];
 }
 
+function makeInputResizable(input) {
+    input.style.resize = 'both';
+    input.style.overflow = 'auto';
+    input.style.minWidth = '100px';
+    input.style.minHeight = '20px';
+}
+
 function updateMarkerTable() {
     const tableBody = document.getElementById('markerTableBody');
     tableBody.innerHTML = '';
     
-    // Render markers in reverse order for UI
-    markers.slice().reverse().forEach((marker, revIndex) => {
-        // Calculate the correct sequence number (oldest is 1, newest is N)
-        const index = markers.length - 1 - revIndex;
-        let extraCells = '';
-        extraColumns.forEach(col => {
-            if (col.type === 'text') {
-                extraCells += `<td><input type="text" class="table-input" data-index="${index}" data-field="${col.name}" value="${marker[col.name] || ''}" /></td>`;
-            } else if (col.type === 'dropdown') {
-                extraCells += `<td><select class="table-input" data-index="${index}" data-field="${col.name}">${col.options.map(opt => `<option value="${opt}"${marker[col.name] === opt ? ' selected' : ''}>${opt}</option>`).join('')}</select></td>`;
-            } else if (col.type === 'button') {
-                extraCells += `<td><button class="btn btn-secondary" data-index="${index}" data-field="${col.name}">${col.name}</button></td>`;
-            }
-        });
-        const recognitionResult = marker.recognition && marker.recognition.status === 'success' && marker.recognition.result
-            ? marker.recognition.result
-            : null;
-        let recognizeCell = `<td><button class="btn btn-warning recognize-btn" data-index="${index}">Recognize</button>`;
-        if (marker.recognition) {
-            if (recognitionResult) {
-                recognizeCell += `<div class='recognize-result' style='margin-top:4px;font-size:0.95em;color:#228B22;'><b>${recognitionResult.artist || ''} - ${recognitionResult.title || ''}</b></div>`;
-            } else {
-                recognizeCell += `<div class='recognize-result' style='margin-top:4px;font-size:0.95em;color:#b00;'>No match</div>`;
-            }
-        }
-        recognizeCell += `</td>`;
-        
-        // Add color coding class to title cell
-        const titleCellClass = marker.titleColor ? `title-cell-${marker.titleColor}` : '';
-        
+    markers.forEach((marker, index) => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="seq-cell" style="cursor:pointer;">${index + 1}</td>
-            <td><input type="text" class="tcr-input" data-index="${index}" data-field="tcrIn" value="${marker.tcrIn}" /></td>
-            <td><input type="text" class="tcr-input" data-index="${index}" data-field="tcrOut" value="${marker.tcrOut}" /></td>
-            <td>${marker.duration}</td>
-            <td>
-                <select class="usage-select" data-index="${index}">
-                    ${usageOptions.map(opt => `<option value="${opt}"${marker.usage === opt ? ' selected' : ''}>${opt}</option>`).join('')}
-                </select>
-            </td>
-            <td class="title-cell ${titleCellClass}">
-                <div class="title-cell-content">
-                    <input type="text" class="table-input" data-index="${index}" data-field="title" value="${marker.title || ''}" />
-                </div>
-            </td>
-            <td><input type="text" class="table-input" data-index="${index}" data-field="filmTitle" value="${marker.filmTitle || ''}" /></td>
-            <td><input type="text" class="table-input" data-index="${index}" data-field="composer" value="${marker.composer || ''}" /></td>
-            <td><input type="text" class="table-input" data-index="${index}" data-field="lyricist" value="${marker.lyricist || ''}" /></td>
-            <td><input type="text" class="table-input" data-index="${index}" data-field="musicCo" value="${marker.musicCo || ''}" /></td>
-            <td><input type="text" class="table-input" data-index="${index}" data-field="nocId" value="${marker.nocId || ''}" /></td>
-            <td><input type="text" class="table-input" data-index="${index}" data-field="nocTitle" value="${marker.nocTitle || ''}" /></td>
-            ${recognizeCell}
-            ${extraCells}
-        `;
+        
+        // Add checkbox cell
+        const checkboxCell = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'row-checkbox';
+        checkboxCell.appendChild(checkbox);
+        row.appendChild(checkboxCell);
+        
+        // Add sequence number cell with triple-click functionality
+        const seqCell = document.createElement('td');
+        seqCell.textContent = index + 1;
+        seqCell.dataset.row = index;
+        seqCell.addEventListener('click', () => handleSeqClick(index, seqCell));
+        row.appendChild(seqCell);
+        
+        // Add TCR In cell
+        const tcrInCell = document.createElement('td');
+        const tcrInInput = document.createElement('input');
+        tcrInInput.type = 'text';
+        tcrInInput.className = 'table-input';
+        tcrInInput.value = marker.tcrIn || '';
+        tcrInInput.dataset.field = 'tcrIn';
+        makeInputResizable(tcrInInput);
+        tcrInInput.addEventListener('change', (e) => {
+            marker.tcrIn = e.target.value;
+            updateDuration(index);
+        });
+        tcrInCell.appendChild(tcrInInput);
+        row.appendChild(tcrInCell);
+        
+        // Add TCR Out cell
+        const tcrOutCell = document.createElement('td');
+        const tcrOutInput = document.createElement('input');
+        tcrOutInput.type = 'text';
+        tcrOutInput.className = 'table-input';
+        tcrOutInput.value = marker.tcrOut || '';
+        tcrOutInput.dataset.field = 'tcrOut';
+        makeInputResizable(tcrOutInput);
+        tcrOutInput.addEventListener('change', (e) => {
+            marker.tcrOut = e.target.value;
+            updateDuration(index);
+        });
+        tcrOutCell.appendChild(tcrOutInput);
+        row.appendChild(tcrOutCell);
+        
+        // Add Duration cell (read-only)
+        const durationCell = document.createElement('td');
+        durationCell.textContent = marker.duration || '';
+        row.appendChild(durationCell);
+        
+        // Add Usage cell with dropdown
+        const usageCell = document.createElement('td');
+        const usageSelect = document.createElement('select');
+        usageSelect.className = 'table-input';
+        usageSelect.dataset.field = 'usage';
+        makeInputResizable(usageSelect);
+        usageOptions.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            if (marker.usage === option) opt.selected = true;
+            usageSelect.appendChild(opt);
+        });
+        usageSelect.addEventListener('change', (e) => {
+            marker.usage = e.target.value;
+            updateUsageCounts();
+        });
+        usageCell.appendChild(usageSelect);
+        row.appendChild(usageCell);
+        
+        // Add other cells with resizable inputs
+        ['title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'].forEach(field => {
+            const cell = document.createElement('td');
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'table-input';
+            input.value = marker[field] || '';
+            input.dataset.field = field;
+            makeInputResizable(input);
+            input.addEventListener('change', (e) => {
+                marker[field] = e.target.value;
+            });
+            cell.appendChild(input);
+            row.appendChild(cell);
+        });
+        
+        // Add Recognize button
+        const recognizeCell = document.createElement('td');
+        const recognizeBtn = document.createElement('button');
+        recognizeBtn.className = 'btn btn-primary recognize-btn';
+        recognizeBtn.textContent = 'Recognize';
+        recognizeBtn.dataset.index = index;
+        recognizeCell.appendChild(recognizeBtn);
+        row.appendChild(recognizeCell);
+        
         tableBody.appendChild(row);
     });
     
-    // Add event listeners for inputs and selects
-    document.querySelectorAll('.tcr-input').forEach(input => {
-        input.addEventListener('change', function() {
-            const idx = +this.dataset.index;
-            const field = this.dataset.field;
-            markers[idx][field] = this.value;
-            if (field === 'tcrIn' || field === 'tcrOut') {
-                // Update duration if TCR In/Out changes
-                const m = markers[idx];
-                m.duration = calculateDuration(m.tcrIn, m.tcrOut);
-                updateMarkerTable();
-            }
-        });
-    });
-    
-    document.querySelectorAll('.usage-select').forEach(select => {
-        select.addEventListener('change', function() {
-            const idx = +this.dataset.index;
-            markers[idx].usage = this.value;
-            usageCounts[this.value] = (usageCounts[this.value] || 0) + 1;
-        });
-    });
-    // Extra column dropdowns
-    document.querySelectorAll('select.table-input').forEach(select => {
-        select.addEventListener('change', function() {
-            const idx = +this.dataset.index;
-            const field = this.dataset.field;
-            markers[idx][field] = this.value;
-        });
-    });
-    // Extra column buttons (no-op for now)
-    document.querySelectorAll('button.table-input').forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Custom button logic can go here
-            alert(`Button '${this.dataset.field}' clicked for row ${+this.dataset.index + 1}`);
-        });
-    });
-    // Add triple-click logic to seq cells
-    document.querySelectorAll('.seq-cell').forEach((cell, i) => {
-        cell.addEventListener('click', function() {
-            // Map UI index to actual marker index
-            const markerIdx = markers.length - 1 - i;
-            handleSeqClick(markerIdx, cell);
-        });
-    });
+    // Scroll to top when table is updated
+    tableBody.parentElement.parentElement.scrollTop = 0;
 }
 
 function formatTime(seconds) {
-    const date = new Date(seconds * 1000);
-    return date.toISOString().substr(11, 12);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const frames = Math.floor((seconds % 1) * 25); // Convert decimal seconds to frames (25fps)
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${frames.toString().padStart(2, '0')}`;
+}
+
+function timeToSeconds(timeStr) {
+    const [hours, minutes, seconds, frames] = timeStr.split(':').map(Number);
+    return hours * 3600 + minutes * 60 + seconds + (frames / 25); // Convert frames to seconds (25fps)
 }
 
 function calculateDuration(inTime, outTime) {
@@ -572,11 +608,6 @@ function calculateDuration(inTime, outTime) {
     const duration = outSeconds - inSeconds;
     
     return formatTime(duration);
-}
-
-function timeToSeconds(timeStr) {
-    const [hours, minutes, seconds] = timeStr.split(':').map(Number);
-    return hours * 3600 + minutes * 60 + seconds;
 }
 
 function initializeResizeHandles() {
@@ -651,12 +682,25 @@ function setupKeyboardShortcuts() {
         const videoPlayer = document.getElementById('videoPlayer');
         
         // Arrow key controls for video timeline
-        if (e.key === 'ArrowLeft') {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
             e.preventDefault();
-            videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
-        } else if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + 5);
+            
+            // Start frame-by-frame navigation after holding for 500ms
+            if (!frameTimer) {
+                frameTimer = setTimeout(() => {
+                    isFrameByFrame = true;
+                }, 500);
+            }
+            
+            // Calculate the time increment (1 frame = 1/frameRate seconds)
+            const frameIncrement = 1 / frameRate;
+            const timeIncrement = isFrameByFrame ? frameIncrement : 1;
+            
+            if (e.key === 'ArrowLeft') {
+                videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - timeIncrement);
+            } else if (e.key === 'ArrowRight') {
+                videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + timeIncrement);
+            }
         }
         
         // Existing keyboard shortcuts
@@ -672,6 +716,15 @@ function setupKeyboardShortcuts() {
                 e.preventDefault();
                 markTCR('out');
             }
+        }
+    });
+
+    // Reset frame-by-frame mode when key is released
+    document.addEventListener('keyup', function(e) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            clearTimeout(frameTimer);
+            frameTimer = null;
+            isFrameByFrame = false;
         }
     });
 }
@@ -836,12 +889,12 @@ function updateMarkerTableHeader() {
     });
 }
 
-// When adding a new row, auto-fill active columns
+// When adding a new row, auto-fill active columns only if they haven't been manually edited
 function addMarkerRow(newMarker) {
-    // For each special column, if active, copy from first row
+    // For each special column, if active, copy from first row only if the field is empty
     const specialColumns = ['filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle', 'title'];
     specialColumns.forEach(col => {
-        if (activePasteColumns[col] && markers.length > 0) {
+        if (activePasteColumns[col] && markers.length > 0 && !newMarker[col]) {
             newMarker[col] = markers[0][col] || '';
         }
     });
@@ -1056,4 +1109,98 @@ function initializeOffsetModal() {
         applyTimeOffset();
         offsetModal.style.display = 'none';
     });
+}
+
+function showCopyDropdown(event, columnName) {
+    // Remove any existing dropdown
+    const existingDropdown = document.querySelector('.copy-dropdown');
+    if (existingDropdown) {
+        existingDropdown.remove();
+    }
+
+    // Create dropdown menu
+    const dropdown = document.createElement('div');
+    dropdown.className = 'copy-dropdown';
+    dropdown.style.position = 'absolute';
+    dropdown.style.left = event.pageX + 'px';
+    dropdown.style.top = event.pageY + 'px';
+    dropdown.style.backgroundColor = 'white';
+    dropdown.style.border = '1px solid #ccc';
+    dropdown.style.borderRadius = '4px';
+    dropdown.style.padding = '8px';
+    dropdown.style.zIndex = '1000';
+    dropdown.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+
+    // Add title
+    const title = document.createElement('div');
+    title.textContent = 'Copy from row:';
+    title.style.marginBottom = '8px';
+    title.style.fontWeight = 'bold';
+    dropdown.appendChild(title);
+
+    // Add row options
+    markers.forEach((marker, index) => {
+        const option = document.createElement('div');
+        option.className = 'copy-option';
+        option.style.padding = '4px 8px';
+        option.style.cursor = 'pointer';
+        option.style.hover = 'background-color: #f0f0f0';
+        option.textContent = `Row ${index + 1}: ${marker[columnName] || ''}`;
+        option.addEventListener('click', () => {
+            applyValueToAllRows(columnName, marker[columnName]);
+            dropdown.remove();
+        });
+        option.addEventListener('mouseover', () => {
+            option.style.backgroundColor = '#f0f0f0';
+        });
+        option.addEventListener('mouseout', () => {
+            option.style.backgroundColor = 'white';
+        });
+        dropdown.appendChild(option);
+    });
+
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.marginTop = '8px';
+    closeBtn.style.padding = '4px 8px';
+    closeBtn.style.border = '1px solid #ccc';
+    closeBtn.style.borderRadius = '4px';
+    closeBtn.style.backgroundColor = '#f8f9fa';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.addEventListener('click', () => dropdown.remove());
+    dropdown.appendChild(closeBtn);
+
+    // Add click outside listener to close dropdown
+    document.addEventListener('click', function closeDropdown(e) {
+        if (!dropdown.contains(e.target)) {
+            dropdown.remove();
+            document.removeEventListener('click', closeDropdown);
+        }
+    });
+
+    document.body.appendChild(dropdown);
+}
+
+function deleteSelectedRows() {
+    const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('Please select rows to delete');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${checkboxes.length} selected row(s)?`)) {
+        return;
+    }
+    
+    // Get indices of selected rows
+    const selectedIndices = Array.from(checkboxes).map(checkbox => 
+        parseInt(checkbox.closest('tr').querySelector('.seq-cell').textContent) - 1
+    );
+    
+    // Remove selected markers
+    markers = markers.filter((_, index) => !selectedIndices.includes(index));
+    
+    // Update the table
+    updateMarkerTable();
 } 
