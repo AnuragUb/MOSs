@@ -182,10 +182,11 @@ function initializeMarkerTable() {
         if (e.target.tagName === 'TH' && e.target.classList.contains('special')) {
             // There are 2 extra columns at the start: checkbox and seq
             const baseColumns = 2;
-            const columnIndex = Array.from(e.target.parentElement.children).indexOf(e.target) - baseColumns;
-            // Only proceed if the columnIndex is valid
-            if (columnIndex >= 0) {
-                const columnName = getColumnName(columnIndex + baseColumns); // getColumnName expects the full index
+            const dataColumns = ['tcrIn', 'tcrOut', 'duration', 'usage', 'title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'];
+            const headerIndex = Array.from(e.target.parentElement.children).indexOf(e.target);
+            const dataColIndex = headerIndex - baseColumns;
+            if (dataColIndex >= 0 && dataColIndex < dataColumns.length) {
+                const columnName = dataColumns[dataColIndex];
                 // Toggle active paste mode for this column
                 activePasteColumns[columnName] = !activePasteColumns[columnName];
                 // Update header color to indicate active state
