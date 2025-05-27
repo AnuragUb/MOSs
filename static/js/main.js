@@ -552,11 +552,11 @@ function updateMarkerTable() {
             const opt = document.createElement('option');
             opt.value = option;
             opt.textContent = option;
-            if (marker.usage === option) opt.selected = true;
+            if (marker.usage && marker.usage.includes(option)) opt.selected = true;
             usageSelect.appendChild(opt);
         });
         usageSelect.addEventListener('change', (e) => {
-            marker.usage = e.target.value;
+            marker.usage = Array.from(e.target.selectedOptions, option => option.value);
             updateUsageCounts();
         });
         usageCell.appendChild(usageSelect);
@@ -913,6 +913,10 @@ function addMarkerRow(newMarker) {
             newMarker[col] = markers[0][col] || '';
         }
     });
+    // Allow up to 5 usage markers per row
+    if (newMarker.usage && !Array.isArray(newMarker.usage)) {
+        newMarker.usage = [newMarker.usage];
+    }
     markers.push(newMarker);
     updateMarkerTable();
 }
@@ -1126,72 +1130,57 @@ function initializeOffsetModal() {
     });
 }
 
-function showCopyDropdown(event, columnName) {
-    // Remove any existing dropdown
-    const existingDropdown = document.querySelector('.copy-dropdown');
-    if (existingDropdown) {
-        existingDropdown.remove();
-    }
-
-    // Create dropdown menu
+function showCopyDropdown(e, columnName) {
+    const header = e.target;
     const dropdown = document.createElement('div');
     dropdown.className = 'copy-dropdown';
+    dropdown.innerHTML = `
+        <div class="copy-title">Copy from row:</div>
+        <div class="copy-options">
+            ${markers.map((marker, index) => `
+                <div class="copy-option" data-index="${index}">
+                    Row ${index + 1}
+                </div>
+            `).join('')}
+        </div>
+        <button class="close-dropdown">Close</button>
+    `;
+
+    // Position the dropdown below the header
+    const rect = header.getBoundingClientRect();
     dropdown.style.position = 'absolute';
-    dropdown.style.left = event.pageX + 'px';
-    dropdown.style.top = event.pageY + 'px';
-    dropdown.style.backgroundColor = 'white';
-    dropdown.style.border = '1px solid #ccc';
-    dropdown.style.borderRadius = '4px';
-    dropdown.style.padding = '8px';
-    dropdown.style.zIndex = '1000';
-    dropdown.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+    dropdown.style.top = `${rect.bottom}px`;
+    dropdown.style.left = `${rect.left}px`;
 
-    // Add title
-    const title = document.createElement('div');
-    title.textContent = 'Copy from row:';
-    title.style.marginBottom = '8px';
-    title.style.fontWeight = 'bold';
-    dropdown.appendChild(title);
-
-    // Add row options
-    markers.forEach((marker, index) => {
-        const option = document.createElement('div');
-        option.className = 'copy-option';
-        option.style.padding = '4px 8px';
-        option.style.cursor = 'pointer';
-        option.style.hover = 'background-color: #f0f0f0';
-        option.textContent = `Row ${index + 1}: ${marker[columnName] || ''}`;
+    // Add click event to options
+    dropdown.querySelectorAll('.copy-option').forEach(option => {
         option.addEventListener('click', () => {
-            applyValueToAllRows(columnName, marker[columnName]);
+            const sourceIndex = parseInt(option.dataset.index);
+            const sourceValue = markers[sourceIndex][columnName];
+            
+            // Copy to all other rows in the same column
+            markers.forEach((marker, index) => {
+                if (index !== sourceIndex) {
+                    marker[columnName] = sourceValue;
+                }
+            });
+            
+            updateMarkerTable();
             dropdown.remove();
         });
-        option.addEventListener('mouseover', () => {
-            option.style.backgroundColor = '#f0f0f0';
-        });
-        option.addEventListener('mouseout', () => {
-            option.style.backgroundColor = 'white';
-        });
-        dropdown.appendChild(option);
     });
 
-    // Add close button
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Close';
-    closeBtn.style.marginTop = '8px';
-    closeBtn.style.padding = '4px 8px';
-    closeBtn.style.border = '1px solid #ccc';
-    closeBtn.style.borderRadius = '4px';
-    closeBtn.style.backgroundColor = '#f8f9fa';
-    closeBtn.style.cursor = 'pointer';
-    closeBtn.addEventListener('click', () => dropdown.remove());
-    dropdown.appendChild(closeBtn);
-
-    // Add click outside listener to close dropdown
+    // Close dropdown when clicking outside
     document.addEventListener('click', function closeDropdown(e) {
         if (!dropdown.contains(e.target)) {
             dropdown.remove();
             document.removeEventListener('click', closeDropdown);
         }
+    });
+
+    // Close button
+    dropdown.querySelector('.close-dropdown').addEventListener('click', () => {
+        dropdown.remove();
     });
 
     document.body.appendChild(dropdown);
