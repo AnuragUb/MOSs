@@ -500,7 +500,11 @@ function updateHeaderColors() {
     headers.forEach((header) => {
         const columnName = header.dataset.field;
         if (columnName) {
-            header.style.backgroundColor = activePasteColumns[columnName] ? '#90EE90' : '';
+            if (activePasteColumns[columnName]) {
+                header.classList.add('active-paste');
+            } else {
+                header.classList.remove('active-paste');
+            }
         }
     });
 }
@@ -1211,8 +1215,11 @@ function showCopyDropdown(e, columnName) {
             const sourceValue = markers[sourceIndex][columnName];
             // Copy to all other rows in the same column, only if not manually edited
             markers.forEach((marker, index) => {
-                if (index !== sourceIndex && (!manualEdits[columnName] || !manualEdits[columnName][index])) {
-                    marker[columnName] = sourceValue;
+                if (index !== sourceIndex) {
+                    // Check if this row has been manually edited in this column
+                    if (!manualEdits[columnName] || !manualEdits[columnName][index]) {
+                        marker[columnName] = sourceValue;
+                    }
                 }
             });
             updateMarkerTable();

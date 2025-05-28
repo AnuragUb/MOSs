@@ -649,17 +649,16 @@ body {
 
 .table thead th.special {
     cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
+    transition: background-color 0.2s ease;
 }
 
 .table thead th.special:hover {
-    background-color: var(--hover-color);
+    background-color: #e0e0e0;
 }
 
 .table thead th.special.active-paste {
     background-color: #90EE90 !important;
-    color: #000;
+    color: black;
 }
 
 /* Copy dropdown styles */
