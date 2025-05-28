@@ -609,56 +609,65 @@ body {
     box-shadow: 0 0 0 2px var(--accent-color);
 }
 
-.table-input, .tcr-input {
+/* Resizable inputs */
+.table-input {
     width: 100%;
+    min-width: 100px;
+    min-height: 20px;
+    resize: both;
+    overflow: auto;
+    padding: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 1em;
+}
+
+/* Make title columns and onwards expandable */
+.table td.special {
+    min-width: 140px;
+    max-width: none;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.table td.special .table-input {
+    min-width: 140px;
+    max-width: none;
+    white-space: normal;
+    word-wrap: break-word;
+    height: auto;
+    min-height: 20px;
+    resize: both;
+    overflow: auto;
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
     border-radius: 4px;
+    padding: 4px;
     font-family: inherit;
     font-size: 1em;
-    padding: 0.2em 0.5em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    outline: none;
-    transition: border-color 0.15s;
 }
-.table-input:focus, .tcr-input:focus {
+
+/* Ensure resize handle is visible */
+.table-input:hover {
     border-color: var(--accent-color);
-    background: #23272e;
 }
 
-.tcr-input {
-    min-width: 120px;
-    max-width: 160px;
-    width: 100%;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 1em;
-    padding: 0.2em 0.5em;
-    white-space: pre;
-    overflow: visible;
-    text-overflow: unset;
+.table-input:focus {
+    border-color: var(--accent-color);
     outline: none;
-    transition: border-color 0.15s;
+    box-shadow: 0 0 0 2px rgba(127, 156, 245, 0.2);
 }
 
-.table thead th.special {
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-.table thead th.special:hover {
-    background-color: #e0e0e0;
-}
-
-.table thead th.special.active-paste {
-    background-color: #90EE90 !important;
-    color: black;
+/* Add resize handle styles */
+.table-input::-webkit-resizer {
+    border-width: 8px;
+    border-style: solid;
+    border-color: transparent var(--accent-color) var(--accent-color) transparent;
+    background: var(--bg-tertiary);
 }
 
 /* Copy dropdown styles */
@@ -736,39 +745,6 @@ body {
     opacity: 0.7;
 }
 
-/* Resizable inputs */
-.table-input {
-    width: 100%;
-    min-width: 100px;
-    min-height: 20px;
-    resize: both;
-    overflow: auto;
-    padding: 4px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
-/* Copy dropdown styles */
-.copy-dropdown {
-    background-color: #333;
-    color: white;
-    border: 1px solid #555;
-    border-radius: 4px;
-    padding: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    z-index: 1000;
-}
-
-.copy-option {
-    padding: 4px 8px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.copy-option:hover {
-    background-color: #f0f0f0;
-}
-
 /* Checkbox column styles */
 .row-checkbox {
     width: 16px;
@@ -785,25 +761,6 @@ body {
 /* Delete button styles */
 .btn-danger {
     margin-left: 8px;
-}
-
-/* Make title columns and onwards expandable */
-.table td.special {
-    min-width: 140px;
-    max-width: none;
-    white-space: normal;
-    word-wrap: break-word;
-}
-
-.table td.special .table-input {
-    min-width: 140px;
-    max-width: none;
-    white-space: normal;
-    word-wrap: break-word;
-    height: auto;
-    min-height: 20px;
-    resize: both;
-    overflow: auto;
 }
 
 /* Sequence direction button styles */

@@ -497,6 +497,10 @@ function makeInputResizable(input) {
     input.style.overflow = 'auto';
     input.style.minWidth = '100px';
     input.style.minHeight = '20px';
+    input.style.maxWidth = 'none';
+    input.style.maxHeight = 'none';
+    input.style.whiteSpace = 'normal';
+    input.style.wordWrap = 'break-word';
 }
 
 function updateHeaderColors() {
