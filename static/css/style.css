@@ -650,6 +650,7 @@ body {
 .table thead th.special {
     cursor: pointer;
     transition: all 0.2s ease;
+    position: relative;
 }
 
 .table thead th.special:hover {
@@ -657,8 +658,58 @@ body {
 }
 
 .table thead th.special.active-paste {
-    background-color: var(--success-color);
-    color: #fff;
+    background-color: #90EE90 !important;
+    color: #000;
+}
+
+/* Copy dropdown styles */
+.copy-dropdown {
+    position: absolute;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 1000;
+    min-width: 150px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.copy-title {
+    padding: 8px 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.copy-options {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.copy-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.copy-option:hover {
+    background: var(--hover-color);
+}
+
+.close-dropdown {
+    width: 100%;
+    padding: 8px;
+    border: none;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    border-top: 1px solid var(--border-color);
+    transition: background 0.2s;
+}
+
+.close-dropdown:hover {
+    background: var(--hover-color);
 }
 
 .video-upload-controls {

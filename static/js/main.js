@@ -20,6 +20,9 @@ let frameTimer = null;
 let frameRate = 30; // Default frame rate, will be updated when video loads
 let isFrameByFrame = false;
 
+// Add a global object to track manual edits per row/column during copy mode
+let manualEdits = {};
+
 // Update default columns to include 'Title'
 const defaultMarkerColumns = [
     { key: 'tcrIn', label: 'TCR In' },
@@ -180,19 +183,24 @@ function initializeMarkerTable() {
     // Add double-click handler for special column headers
     tableHeader.addEventListener('dblclick', function(e) {
         if (e.target.tagName === 'TH' && e.target.classList.contains('special')) {
-            // There are 2 extra columns at the start: checkbox and seq
-            const baseColumns = 2;
-            const dataColumns = ['tcrIn', 'tcrOut', 'duration', 'usage', 'title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'];
             const headerIndex = Array.from(e.target.parentElement.children).indexOf(e.target);
-            const dataColIndex = headerIndex - baseColumns;
-            if (dataColIndex >= 0 && dataColIndex < dataColumns.length) {
-                const columnName = dataColumns[dataColIndex];
+            const columnName = e.target.dataset.field;
+            
+            if (columnName) {
                 // Toggle active paste mode for this column
                 activePasteColumns[columnName] = !activePasteColumns[columnName];
+                // Reset manualEdits for this column if activating
+                if (activePasteColumns[columnName]) {
+                    manualEdits[columnName] = {};
+                } else {
+                    delete manualEdits[columnName];
+                }
                 // Update header color to indicate active state
-                e.target.style.backgroundColor = activePasteColumns[columnName] ? '#90EE90' : '';
-                // Show copy dropdown
-                showCopyDropdown(e, columnName);
+                updateHeaderColors();
+                // Only show copy dropdown if activating
+                if (activePasteColumns[columnName]) {
+                    showCopyDropdown(e, columnName);
+                }
             }
         }
     });
@@ -487,6 +495,16 @@ function makeInputResizable(input) {
     input.style.minHeight = '20px';
 }
 
+function updateHeaderColors() {
+    const headers = document.querySelectorAll('.table thead tr:first-child th.special');
+    headers.forEach((header) => {
+        const columnName = header.dataset.field;
+        if (columnName) {
+            header.style.backgroundColor = activePasteColumns[columnName] ? '#90EE90' : '';
+        }
+    });
+}
+
 function updateMarkerTable() {
     const tableBody = document.getElementById('markerTableBody');
     tableBody.innerHTML = '';
@@ -543,6 +561,7 @@ function updateMarkerTable() {
         // Add Duration cell (read-only)
         const durationCell = document.createElement('td');
         durationCell.textContent = marker.duration || '';
+        durationCell.dataset.field = 'duration';
         durationCell.addEventListener('dblclick', () => {
             row.style.backgroundColor = row.style.backgroundColor === 'yellow' ? '' : 'yellow';
         });
@@ -564,6 +583,10 @@ function updateMarkerTable() {
         usageSelect.addEventListener('change', (e) => {
             marker.usage = Array.from(e.target.selectedOptions, option => option.value);
             updateUsageCounts();
+            if (activePasteColumns['usage']) {
+                if (!manualEdits['usage']) manualEdits['usage'] = {};
+                manualEdits['usage'][index] = true;
+            }
         });
         usageCell.appendChild(usageSelect);
         row.appendChild(usageCell);
@@ -579,6 +602,10 @@ function updateMarkerTable() {
             makeInputResizable(input);
             input.addEventListener('change', (e) => {
                 marker[field] = e.target.value;
+                if (activePasteColumns[field]) {
+                    if (!manualEdits[field]) manualEdits[field] = {};
+                    manualEdits[field][index] = true;
+                }
             });
             cell.appendChild(input);
             row.appendChild(cell);
@@ -597,11 +624,7 @@ function updateMarkerTable() {
     });
     
     // Update header colors based on active paste columns
-    const headers = document.querySelectorAll('.table thead tr:first-child th.special');
-    headers.forEach(header => {
-        const columnName = getColumnName(Array.from(header.parentElement.children).indexOf(header));
-        header.style.backgroundColor = activePasteColumns[columnName] ? '#90EE90' : '';
-    });
+    updateHeaderColors();
     
     // Scroll to top when table is updated
     tableBody.parentElement.parentElement.scrollTop = 0;
@@ -921,6 +944,8 @@ function updateMarkerTableHeader() {
     extraColumns.forEach(col => {
         const th = document.createElement('th');
         th.textContent = col.name;
+        th.className = 'special';
+        th.dataset.field = col.name.toLowerCase().replace(/[^a-z0-9]/g, '');
         headerRow.appendChild(th);
     });
 }
@@ -1018,7 +1043,12 @@ function loadCueSheetStructure(header) {
     header.forEach((col, i) => {
         let key = columnNameMap[col.trim().toLowerCase()] || col.trim();
         if (!mappedKeys.includes(key) && col.trim().toLowerCase() !== 'recognize') {
-            extraColumns.push({ name: col, type: 'text', options: [] });
+            extraColumns.push({ 
+                name: col, 
+                type: 'text', 
+                options: [],
+                field: col.toLowerCase().replace(/[^a-z0-9]/g, '')
+            });
         }
     });
     updateMarkerTableHeader();
@@ -1152,6 +1182,7 @@ function initializeOffsetModal() {
 }
 
 function showCopyDropdown(e, columnName) {
+    if (!activePasteColumns[columnName]) return; // Only allow if in copy mode
     const header = e.target;
     const dropdown = document.createElement('div');
     dropdown.className = 'copy-dropdown';
@@ -1178,14 +1209,12 @@ function showCopyDropdown(e, columnName) {
         option.addEventListener('click', () => {
             const sourceIndex = parseInt(option.dataset.index);
             const sourceValue = markers[sourceIndex][columnName];
-            
-            // Copy to all other rows in the same column
+            // Copy to all other rows in the same column, only if not manually edited
             markers.forEach((marker, index) => {
-                if (index !== sourceIndex) {
+                if (index !== sourceIndex && (!manualEdits[columnName] || !manualEdits[columnName][index])) {
                     marker[columnName] = sourceValue;
                 }
             });
-            
             updateMarkerTable();
             dropdown.remove();
         });
