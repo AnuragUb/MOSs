@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeClearTableButton();
     initializeOffsetModal();
     initializeSequenceDirection();
+    initializeTCRCellHandlers();
 });
 
 function initializeVideoPlayer() {
@@ -417,52 +418,123 @@ function markTCR(type) {
     const videoPlayer = document.getElementById('videoPlayer');
     const currentTime = videoPlayer.currentTime;
     
-    if (isSingleButtonMode) {
-        if (isNextMarkTcrIn) {
-            addMarkerRow({
-                tcrIn: formatTime(currentTime),
-                tcrOut: '',
-                duration: '',
-                usage: getMostUsedUsage(),
-                filmTitle: '',
-                composer: '',
-                lyricist: '',
-                musicCo: '',
-                nocId: '',
-                nocTitle: ''
-            });
-        } else {
-            if (markers.length > 0) {
-                const lastMarker = markers[markers.length - 1];
-                lastMarker.tcrOut = formatTime(currentTime);
-                lastMarker.duration = calculateDuration(lastMarker.tcrIn, lastMarker.tcrOut);
+    // Get selected rows
+    const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+    const selectedRows = Array.from(selectedCheckboxes).map(checkbox => {
+        const row = checkbox.closest('tr');
+        return parseInt(row.querySelector('.seq-cell').textContent) - 1;
+    });
+
+    if (selectedRows.length > 0) {
+        // Update TCR for selected rows
+        selectedRows.forEach(rowIndex => {
+            if (isSingleButtonMode) {
+                if (isNextMarkTcrIn) {
+                    markers[rowIndex].tcrIn = formatTime(currentTime);
+                    markers[rowIndex].tcrOut = '';
+                    markers[rowIndex].duration = '';
+                } else {
+                    markers[rowIndex].tcrOut = formatTime(currentTime);
+                    markers[rowIndex].duration = calculateDuration(markers[rowIndex].tcrIn, markers[rowIndex].tcrOut);
+                }
+            } else {
+                if (type === 'in') {
+                    markers[rowIndex].tcrIn = formatTime(currentTime);
+                    markers[rowIndex].tcrOut = '';
+                    markers[rowIndex].duration = '';
+                } else {
+                    markers[rowIndex].tcrOut = formatTime(currentTime);
+                    markers[rowIndex].duration = calculateDuration(markers[rowIndex].tcrIn, markers[rowIndex].tcrOut);
+                }
             }
-        }
-        isNextMarkTcrIn = !isNextMarkTcrIn; // Toggle for next click
+        });
     } else {
-        if (type === 'in') {
-            addMarkerRow({
-                tcrIn: formatTime(currentTime),
-                tcrOut: '',
-                duration: '',
-                usage: getMostUsedUsage(),
-                filmTitle: '',
-                composer: '',
-                lyricist: '',
-                musicCo: '',
-                nocId: '',
-                nocTitle: ''
-            });
+        // Original behavior for no selection
+        if (isSingleButtonMode) {
+            if (isNextMarkTcrIn) {
+                addMarkerRow({
+                    tcrIn: formatTime(currentTime),
+                    tcrOut: '',
+                    duration: '',
+                    usage: getMostUsedUsage(),
+                    filmTitle: '',
+                    composer: '',
+                    lyricist: '',
+                    musicCo: '',
+                    nocId: '',
+                    nocTitle: ''
+                });
+            } else {
+                if (markers.length > 0) {
+                    const lastMarker = markers[markers.length - 1];
+                    lastMarker.tcrOut = formatTime(currentTime);
+                    lastMarker.duration = calculateDuration(lastMarker.tcrIn, lastMarker.tcrOut);
+                }
+            }
+            isNextMarkTcrIn = !isNextMarkTcrIn;
         } else {
-            if (markers.length > 0) {
-                const lastMarker = markers[markers.length - 1];
-                lastMarker.tcrOut = formatTime(currentTime);
-                lastMarker.duration = calculateDuration(lastMarker.tcrIn, lastMarker.tcrOut);
+            if (type === 'in') {
+                addMarkerRow({
+                    tcrIn: formatTime(currentTime),
+                    tcrOut: '',
+                    duration: '',
+                    usage: getMostUsedUsage(),
+                    filmTitle: '',
+                    composer: '',
+                    lyricist: '',
+                    musicCo: '',
+                    nocId: '',
+                    nocTitle: ''
+                });
+            } else {
+                if (markers.length > 0) {
+                    const lastMarker = markers[markers.length - 1];
+                    lastMarker.tcrOut = formatTime(currentTime);
+                    lastMarker.duration = calculateDuration(lastMarker.tcrIn, lastMarker.tcrOut);
+                }
             }
         }
     }
     
     updateMarkerTable();
+}
+
+// Add new function for jumping to TCR
+function jumpToTCR(type, rowIndex) {
+    const videoPlayer = document.getElementById('videoPlayer');
+    const marker = markers[rowIndex];
+    
+    if (!marker) return;
+    
+    const timecode = type === 'in' ? marker.tcrIn : marker.tcrOut;
+    if (!timecode) return;
+    
+    const seconds = timeToSeconds(timecode);
+    videoPlayer.currentTime = seconds;
+}
+
+// Add click handlers for TCR cells
+function initializeTCRCellHandlers() {
+    const tableBody = document.getElementById('markerTableBody');
+    
+    tableBody.addEventListener('click', function(e) {
+        const cell = e.target.closest('td');
+        if (!cell) return;
+        
+        const input = cell.querySelector('input');
+        if (!input || !input.dataset.field) return;
+        
+        const field = input.dataset.field;
+        if (field !== 'tcrIn' && field !== 'tcrOut') return;
+        
+        const row = cell.closest('tr');
+        const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+        
+        // Add click handler to jump to TCR
+        cell.addEventListener('click', function() {
+            jumpToTCR(field, rowIndex);
+        });
+    });
 }
 
 function updateButtonMode() {

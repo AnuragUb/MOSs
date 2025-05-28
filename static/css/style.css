@@ -783,4 +783,36 @@ body {
 
 #sequenceDirectionBtn.reversed img {
     transform: rotate(180deg);
+}
+
+/* TCR cell styles */
+.table td.tcr {
+    cursor: pointer;
+    position: relative;
+}
+
+.table td.tcr:hover {
+    background-color: var(--hover-color);
+}
+
+.table td.tcr:hover::after {
+    content: 'Click to jump';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-tertiary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    animation: fadeIn 0.2s ease forwards;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
 } 
