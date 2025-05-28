@@ -605,9 +605,11 @@ function updateMarkerTable() {
             input.dataset.field = field;
             makeInputResizable(input);
             input.addEventListener('change', (e) => {
-                marker[field] = e.target.value;
+                const newValue = e.target.value;
+                marker[field] = newValue;
                 if (activePasteColumns[field]) {
                     if (!manualEdits[field]) manualEdits[field] = {};
+                    // Mark as manually edited if the value is different from the original
                     manualEdits[field][index] = true;
                 }
             });
@@ -1213,12 +1215,19 @@ function showCopyDropdown(e, columnName) {
         option.addEventListener('click', () => {
             const sourceIndex = parseInt(option.dataset.index);
             const sourceValue = markers[sourceIndex][columnName];
-            // Copy to all other rows in the same column, only if not manually edited
+            
+            // Copy to all other rows in the same column, respecting manual edits and blank values
             markers.forEach((marker, index) => {
                 if (index !== sourceIndex) {
-                    // Check if this row has been manually edited in this column
+                    // Only update if:
+                    // 1. The field hasn't been manually edited
+                    // 2. The field is empty (not blanked by user)
+                    // 3. The field hasn't been previously copied to
                     if (!manualEdits[columnName] || !manualEdits[columnName][index]) {
-                        marker[columnName] = sourceValue;
+                        // If the current value is empty (not blanked by user)
+                        if (!marker[columnName] || marker[columnName].trim() === '') {
+                            marker[columnName] = sourceValue;
+                        }
                     }
                 }
             });
