@@ -517,23 +517,26 @@ function jumpToTCR(type, rowIndex) {
 function initializeTCRCellHandlers() {
     const tableBody = document.getElementById('markerTableBody');
     
+    // Add click handler to the table body
     tableBody.addEventListener('click', function(e) {
+        // Check if we clicked on a TCR cell or its input
         const cell = e.target.closest('td');
         if (!cell) return;
         
+        // Get the input field
         const input = cell.querySelector('input');
         if (!input || !input.dataset.field) return;
         
+        // Check if it's a TCR field
         const field = input.dataset.field;
         if (field !== 'tcrIn' && field !== 'tcrOut') return;
         
+        // Get the row index
         const row = cell.closest('tr');
         const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
         
-        // Add click handler to jump to TCR
-        cell.addEventListener('click', function() {
-            jumpToTCR(field, rowIndex);
-        });
+        // Jump to the TCR timecode
+        jumpToTCR(field, rowIndex);
     });
 }
 
@@ -621,6 +624,7 @@ function updateMarkerTable() {
         
         // Add TCR In cell
         const tcrInCell = document.createElement('td');
+        tcrInCell.className = 'tcr-cell'; // Add tcr-cell class
         const tcrInInput = document.createElement('input');
         tcrInInput.type = 'text';
         tcrInInput.className = 'table-input';
@@ -636,6 +640,7 @@ function updateMarkerTable() {
         
         // Add TCR Out cell
         const tcrOutCell = document.createElement('td');
+        tcrOutCell.className = 'tcr-cell'; // Add tcr-cell class
         const tcrOutInput = document.createElement('input');
         tcrOutInput.type = 'text';
         tcrOutInput.className = 'table-input';
