@@ -535,8 +535,18 @@ function initializeTCRCellHandlers() {
         const row = cell.closest('tr');
         const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
         
-        // Jump to the TCR timecode
-        jumpToTCR(field, rowIndex);
+        // Get the marker for this row
+        const marker = markers[rowIndex];
+        if (!marker) return;
+        
+        // Get the timecode
+        const timecode = field === 'tcrIn' ? marker.tcrIn : marker.tcrOut;
+        if (!timecode) return;
+        
+        // Convert timecode to seconds and jump
+        const seconds = timeToSeconds(timecode);
+        const videoPlayer = document.getElementById('videoPlayer');
+        videoPlayer.currentTime = seconds;
     });
 }
 
