@@ -785,4 +785,45 @@ body {
 /* Delete button styles */
 .btn-danger {
     margin-left: 8px;
+}
+
+/* Make title columns and onwards expandable */
+.table td.special {
+    min-width: 140px;
+    max-width: none;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.table td.special .table-input {
+    min-width: 140px;
+    max-width: none;
+    white-space: normal;
+    word-wrap: break-word;
+    height: auto;
+    min-height: 20px;
+    resize: both;
+    overflow: auto;
+}
+
+/* Sequence direction button styles */
+#sequenceDirectionBtn {
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+}
+
+#sequenceDirectionBtn:hover {
+    background: var(--hover-color);
+}
+
+#sequenceDirectionBtn img {
+    transition: transform 0.3s ease;
+}
+
+#sequenceDirectionBtn.reversed img {
+    transform: rotate(180deg);
 } 

@@ -23,6 +23,9 @@ let isFrameByFrame = false;
 // Add a global object to track manual edits per row/column during copy mode
 let manualEdits = {};
 
+// Add at the top with other global variables
+let isSequenceReversed = false;
+
 // Update default columns to include 'Title'
 const defaultMarkerColumns = [
     { key: 'tcrIn', label: 'TCR In' },
@@ -67,6 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeCueSheetUpload();
     initializeClearTableButton();
     initializeOffsetModal();
+    initializeSequenceDirection();
 });
 
 function initializeVideoPlayer() {
@@ -513,7 +517,14 @@ function updateMarkerTable() {
     const tableBody = document.getElementById('markerTableBody');
     tableBody.innerHTML = '';
     
-    markers.forEach((marker, index) => {
+    // Create a copy of markers array and reverse if needed
+    let displayMarkers = [...markers];
+    if (isSequenceReversed) {
+        displayMarkers.reverse();
+    }
+    
+    displayMarkers.forEach((marker, displayIndex) => {
+        const actualIndex = isSequenceReversed ? markers.length - 1 - displayIndex : displayIndex;
         const row = document.createElement('tr');
         
         // Add checkbox cell
@@ -524,12 +535,12 @@ function updateMarkerTable() {
         checkboxCell.appendChild(checkbox);
         row.appendChild(checkboxCell);
         
-        // Add sequence number cell
+        // Update sequence number display
         const seqCell = document.createElement('td');
-        seqCell.textContent = index + 1;
+        seqCell.textContent = actualIndex + 1;
         seqCell.className = 'seq-cell';
-        seqCell.dataset.row = index;
-        seqCell.addEventListener('click', () => handleSeqClick(index, seqCell));
+        seqCell.dataset.row = actualIndex;
+        seqCell.addEventListener('click', () => handleSeqClick(actualIndex, seqCell));
         row.appendChild(seqCell);
         
         // Add TCR In cell
@@ -542,7 +553,7 @@ function updateMarkerTable() {
         makeInputResizable(tcrInInput);
         tcrInInput.addEventListener('change', (e) => {
             marker.tcrIn = e.target.value;
-            updateDuration(index);
+            updateDuration(actualIndex);
         });
         tcrInCell.appendChild(tcrInInput);
         row.appendChild(tcrInCell);
@@ -557,7 +568,7 @@ function updateMarkerTable() {
         makeInputResizable(tcrOutInput);
         tcrOutInput.addEventListener('change', (e) => {
             marker.tcrOut = e.target.value;
-            updateDuration(index);
+            updateDuration(actualIndex);
         });
         tcrOutCell.appendChild(tcrOutInput);
         row.appendChild(tcrOutCell);
@@ -589,7 +600,7 @@ function updateMarkerTable() {
             updateUsageCounts();
             if (activePasteColumns['usage']) {
                 if (!manualEdits['usage']) manualEdits['usage'] = {};
-                manualEdits['usage'][index] = true;
+                manualEdits['usage'][actualIndex] = true;
             }
         });
         usageCell.appendChild(usageSelect);
@@ -610,7 +621,7 @@ function updateMarkerTable() {
                 if (activePasteColumns[field]) {
                     if (!manualEdits[field]) manualEdits[field] = {};
                     // Mark as manually edited if the value is different from the original
-                    manualEdits[field][index] = true;
+                    manualEdits[field][actualIndex] = true;
                 }
             });
             cell.appendChild(input);
@@ -622,17 +633,14 @@ function updateMarkerTable() {
         const recognizeBtn = document.createElement('button');
         recognizeBtn.className = 'btn btn-primary recognize-btn';
         recognizeBtn.textContent = 'Recognize';
-        recognizeBtn.dataset.index = index;
+        recognizeBtn.dataset.index = actualIndex;
         recognizeCell.appendChild(recognizeBtn);
         row.appendChild(recognizeCell);
         
         tableBody.appendChild(row);
     });
     
-    // Update header colors based on active paste columns
     updateHeaderColors();
-    
-    // Scroll to top when table is updated
     tableBody.parentElement.parentElement.scrollTop = 0;
 }
 
@@ -730,41 +738,53 @@ function initializeResizeHandles() {
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', function(e) {
         const videoPlayer = document.getElementById('videoPlayer');
+        const tableBody = document.getElementById('markerTableBody');
+        const activeElement = document.activeElement;
         
-        // Check if video is not focused
-        if (document.activeElement !== videoPlayer) {
-            // Arrow key controls for text rows
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                e.preventDefault();
-                const tableBody = document.getElementById('markerTableBody');
-                const scrollAmount = 50; // Adjust as needed
-                if (e.key === 'ArrowLeft') {
-                    tableBody.scrollLeft -= scrollAmount;
-                } else if (e.key === 'ArrowRight') {
-                    tableBody.scrollLeft += scrollAmount;
+        // Handle space bar based on focused element
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (activeElement === videoPlayer) {
+                if (videoPlayer.paused) {
+                    videoPlayer.play();
+                } else {
+                    videoPlayer.pause();
                 }
             }
-        } else {
-            // Arrow key controls for video timeline
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                e.preventDefault();
-                
-                // Start frame-by-frame navigation after holding for 500ms
-                if (!frameTimer) {
-                    frameTimer = setTimeout(() => {
-                        isFrameByFrame = true;
-                    }, 500);
-                }
-                
-                // Calculate the time increment (1 frame = 1/frameRate seconds)
-                const frameIncrement = 1 / frameRate;
-                const timeIncrement = isFrameByFrame ? frameIncrement : 1;
-                
-                if (e.key === 'ArrowLeft') {
-                    videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - timeIncrement);
-                } else if (e.key === 'ArrowRight') {
-                    videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + timeIncrement);
-                }
+            return;
+        }
+        
+        // Handle delete key
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
+                return; // Let the input handle its own deletion
+            }
+            deleteSelectedRows();
+            return;
+        }
+        
+        // Arrow key controls for table navigation
+        if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
+            return; // Let inputs handle their own arrow keys
+        }
+        
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            const scrollAmount = 50;
+            if (e.key === 'ArrowLeft') {
+                tableBody.scrollLeft -= scrollAmount;
+            } else {
+                tableBody.scrollLeft += scrollAmount;
+            }
+        }
+        
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const scrollAmount = 30;
+            if (e.key === 'ArrowUp') {
+                tableBody.scrollTop -= scrollAmount;
+            } else {
+                tableBody.scrollTop += scrollAmount;
             }
         }
         
@@ -781,15 +801,6 @@ function setupKeyboardShortcuts() {
                 e.preventDefault();
                 markTCR('out');
             }
-        }
-    });
-
-    // Reset frame-by-frame mode when key is released
-    document.addEventListener('keyup', function(e) {
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-            clearTimeout(frameTimer);
-            frameTimer = null;
-            isFrameByFrame = false;
         }
     });
 }
@@ -1083,8 +1094,15 @@ function initializeClearTableButton() {
     const clearTableBtn = document.getElementById('clearTableBtn');
     if (clearTableBtn) {
         clearTableBtn.addEventListener('click', function() {
-            markers = [];
-            updateMarkerTable();
+            if (markers.length === 0) {
+                alert('Table is already empty.');
+                return;
+            }
+            
+            if (confirm(`Are you sure you want to clear all ${markers.length} rows from the table? This action cannot be undone.`)) {
+                markers = [];
+                updateMarkerTable();
+            }
         });
     }
 }
@@ -1273,4 +1291,14 @@ function deleteSelectedRows() {
     
     // Update the table
     updateMarkerTable();
+}
+
+function initializeSequenceDirection() {
+    const sequenceDirectionBtn = document.getElementById('sequenceDirectionBtn');
+    if (sequenceDirectionBtn) {
+        sequenceDirectionBtn.addEventListener('click', function() {
+            isSequenceReversed = !isSequenceReversed;
+            updateMarkerTable();
+        });
+    }
 } 
