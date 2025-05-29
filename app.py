@@ -110,29 +110,34 @@ def export_markers(format):
         logger.info(f"Received export request for format: {format}")
         logger.info(f"Data received: {json.dumps(markers[:2], indent=2)}...")  # Log first two items
 
-        # Create a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{format}') as temp_file:
-            temp_path = temp_file.name
-            logger.info(f"Created temporary file: {temp_path}")
-
+        # Create a temporary file with .xlsx extension for Excel
+        temp_path = None
         try:
             if format == 'excel':
+                # Create temporary file with .xlsx extension
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+                temp_path = temp_file.name
+                temp_file.close()
+                logger.info(f"Created temporary Excel file: {temp_path}")
+
                 # Convert markers to DataFrame
                 df = pd.DataFrame(markers)
                 logger.info(f"Created DataFrame with shape: {df.shape}")
                 
-                # Save to Excel using to_excel directly
-                df.to_excel(temp_path, index=False, sheet_name='Markers', engine='openpyxl')
-                logger.info("Excel file written successfully")
+                try:
+                    # Try using openpyxl engine first
+                    df.to_excel(temp_path, index=False, sheet_name='Markers', engine='openpyxl')
+                    logger.info("Excel file written successfully with openpyxl")
+                except Exception as excel_error:
+                    logger.error(f"Error with openpyxl: {str(excel_error)}")
+                    # If openpyxl fails, try xlsxwriter
+                    df.to_excel(temp_path, index=False, sheet_name='Markers', engine='xlsxwriter')
+                    logger.info("Excel file written successfully with xlsxwriter")
                 
                 # Read the file and send it
                 with open(temp_path, 'rb') as f:
                     file_data = f.read()
                 logger.info(f"Read {len(file_data)} bytes from Excel file")
-                
-                # Clean up
-                os.unlink(temp_path)
-                logger.info("Temporary file cleaned up")
                 
                 return send_file(
                     io.BytesIO(file_data),
@@ -142,6 +147,12 @@ def export_markers(format):
                 )
                 
             elif format == 'csv':
+                # Create temporary file with .csv extension
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.csv')
+                temp_path = temp_file.name
+                temp_file.close()
+                logger.info(f"Created temporary CSV file: {temp_path}")
+
                 # Convert markers to DataFrame
                 df = pd.DataFrame(markers)
                 logger.info(f"Created DataFrame with shape: {df.shape}")
@@ -155,10 +166,6 @@ def export_markers(format):
                     file_data = f.read()
                 logger.info(f"Read {len(file_data)} bytes from CSV file")
                 
-                # Clean up
-                os.unlink(temp_path)
-                logger.info("Temporary file cleaned up")
-                
                 return send_file(
                     io.BytesIO(file_data),
                     mimetype='text/csv',
@@ -171,14 +178,19 @@ def export_markers(format):
                 
         except Exception as e:
             logger.error(f"Error processing export: {str(e)}")
-            # Clean up temp file if it exists
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
             raise
                 
     except Exception as e:
         logger.error(f"Error exporting markers: {str(e)}")
         return jsonify({'error': f'Export failed: {str(e)}'}), 500
+    finally:
+        # Clean up temp file if it exists
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+                logger.info("Temporary file cleaned up")
+            except Exception as cleanup_error:
+                logger.error(f"Error cleaning up temporary file: {str(cleanup_error)}")
 
 @app.route('/api/usage-stats', methods=['GET', 'POST'])
 def handle_usage_stats():
