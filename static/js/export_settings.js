@@ -11,11 +11,18 @@ let exportSettings = {
 
 // Initialize the export settings page
 document.addEventListener('DOMContentLoaded', function() {
-    initializeExportSettings();
-    loadSavedSettings();
-    setupEventListeners();
-    populateFieldsToExport();
-    updateFileNamePreview();
+    // Wait a short moment to ensure all elements are rendered
+    setTimeout(() => {
+        try {
+            initializeExportSettings();
+            loadSavedSettings();
+            setupEventListeners();
+            populateFieldsToExport();
+            updateFileNamePreview();
+        } catch (error) {
+            console.error('Error initializing export settings:', error);
+        }
+    }, 100);
 });
 
 function initializeExportSettings() {
@@ -136,26 +143,35 @@ function populateFieldsToExport() {
 }
 
 function updateFileNamePreview() {
-    const fileNameInput = document.getElementById('fileName');
-    const preview = document.querySelector('.file-name-preview');
-    
-    // Extract show name and episode number from header rows
-    const showName = extractShowName();
-    const episodeNumber = extractEpisodeNumber();
-    const season = extractSeason();
-    
-    let fileName = showName;
-    if (season) {
-        fileName += `_Season${season}`;
+    try {
+        const fileNameInput = document.getElementById('fileName');
+        const preview = document.querySelector('.file-name-preview');
+        
+        if (!fileNameInput || !preview) {
+            console.warn('File name input or preview element not found');
+            return;
+        }
+        
+        // Extract show name and episode number from header rows
+        const showName = extractShowName();
+        const episodeNumber = extractEpisodeNumber();
+        const season = extractSeason();
+        
+        let fileName = showName;
+        if (season) {
+            fileName += `_Season${season}`;
+        }
+        if (episodeNumber) {
+            fileName += `_${episodeNumber.padStart(4, '0')}`;
+        }
+        fileName += '_Unmix HD_MusicCueSheet';
+        
+        exportSettings.fileName = fileName;
+        fileNameInput.value = fileName;
+        preview.textContent = `Preview: ${fileName}.${exportSettings.fileType === 'csv' ? 'csv' : 'xlsx'}`;
+    } catch (error) {
+        console.error('Error updating file name preview:', error);
     }
-    if (episodeNumber) {
-        fileName += `_${episodeNumber.padStart(4, '0')}`;
-    }
-    fileName += '_Unmix HD_MusicCueSheet';
-    
-    exportSettings.fileName = fileName;
-    fileNameInput.value = fileName;
-    preview.textContent = `Preview: ${fileName}.${exportSettings.fileType === 'csv' ? 'csv' : 'xlsx'}`;
 }
 
 function extractShowName() {
@@ -192,32 +208,49 @@ function extractSeason() {
 }
 
 function applySettingsToUI() {
-    // Apply file type
-    document.getElementById('fileType').value = exportSettings.fileType;
-    
-    // Apply download location
-    const downloadLocationRadios = document.querySelectorAll('input[name="downloadLocation"]');
-    downloadLocationRadios.forEach(radio => {
-        radio.checked = radio.value === exportSettings.downloadLocation;
-    });
-    
-    // Apply custom location
-    const customLocationInput = document.getElementById('customLocation');
-    customLocationInput.value = exportSettings.customLocation;
-    customLocationInput.disabled = exportSettings.downloadLocation !== 'custom';
-    document.getElementById('browseLocation').disabled = exportSettings.downloadLocation !== 'custom';
-    
-    // Apply include header
-    document.getElementById('includeHeader').checked = exportSettings.includeHeader;
-    
-    // Apply TCR format
-    const tcrFormatRadios = document.querySelectorAll('input[name="tcrFormat"]');
-    tcrFormatRadios.forEach(radio => {
-        radio.checked = radio.value === exportSettings.tcrFormat;
-    });
-    
-    // Update file name preview
-    updateFileNamePreview();
+    try {
+        // Apply file type
+        const fileTypeSelect = document.getElementById('fileType');
+        if (fileTypeSelect) {
+            fileTypeSelect.value = exportSettings.fileType;
+        }
+        
+        // Apply download location
+        const downloadLocationRadios = document.querySelectorAll('input[name="downloadLocation"]');
+        if (downloadLocationRadios.length > 0) {
+            downloadLocationRadios.forEach(radio => {
+                radio.checked = radio.value === exportSettings.downloadLocation;
+            });
+        }
+        
+        // Apply custom location
+        const customLocationInput = document.getElementById('customLocation');
+        const browseButton = document.getElementById('browseLocation');
+        if (customLocationInput && browseButton) {
+            customLocationInput.value = exportSettings.customLocation;
+            customLocationInput.disabled = exportSettings.downloadLocation !== 'custom';
+            browseButton.disabled = exportSettings.downloadLocation !== 'custom';
+        }
+        
+        // Apply include header
+        const includeHeaderCheckbox = document.getElementById('includeHeader');
+        if (includeHeaderCheckbox) {
+            includeHeaderCheckbox.checked = exportSettings.includeHeader;
+        }
+        
+        // Apply TCR format
+        const tcrFormatRadios = document.querySelectorAll('input[name="tcrFormat"]');
+        if (tcrFormatRadios.length > 0) {
+            tcrFormatRadios.forEach(radio => {
+                radio.checked = radio.value === exportSettings.tcrFormat;
+            });
+        }
+        
+        // Update file name preview
+        updateFileNamePreview();
+    } catch (error) {
+        console.error('Error applying settings to UI:', error);
+    }
 }
 
 function saveSettings() {
