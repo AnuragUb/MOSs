@@ -708,5 +708,9 @@ def vlc_volume():
         logger.error(f"Error setting volume: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/export-settings')
+def export_settings():
+    return render_template('export_settings.html')
+
 if __name__ == '__main__':
     app.run(debug=True) 

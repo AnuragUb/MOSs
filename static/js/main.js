@@ -26,6 +26,9 @@ let manualEdits = {};
 // Add at the top with other global variables
 let isSequenceReversed = false;
 
+// Add these variables at the top with other global variables
+let markedRows = new Set();
+
 // Update default columns to include 'Title'
 const defaultMarkerColumns = [
     { key: 'tcrIn', label: 'TCR In' },
@@ -72,6 +75,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeOffsetModal();
     initializeSequenceDirection();
     initializeTCRCellHandlers();
+    initializeExportSettings();
+    initializeRowMarking();
+    initializeColumnResize();
+    setupSeqHeaderDoubleClick();
 });
 
 function initializeVideoPlayer() {
@@ -629,6 +636,11 @@ function updateMarkerTable() {
         const actualIndex = isSequenceReversed ? markers.length - 1 - displayIndex : displayIndex;
         const row = document.createElement('tr');
         
+        // Add marked class if the row is marked
+        if (markedRows.has(actualIndex)) {
+            row.classList.add('marked-yellow');
+        }
+        
         // Add checkbox cell
         const checkboxCell = document.createElement('td');
         const checkbox = document.createElement('input');
@@ -758,8 +770,17 @@ function formatTime(seconds) {
 }
 
 function timeToSeconds(timeStr) {
-    const [hours, minutes, seconds, frames] = timeStr.split(':').map(Number);
-    return hours * 3600 + minutes * 60 + seconds + (frames / 25); // Convert frames to seconds (25fps)
+    if (!timeStr) return 0;
+    
+    const parts = timeStr.split(':').map(Number);
+    if (parts.length === 3) {
+        // HH:MM:SS format
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 4) {
+        // HH:MM:SS:FF format
+        return parts[0] * 3600 + parts[1] * 60 + parts[2] + (parts[3] / 25);
+    }
+    return 0;
 }
 
 function calculateDuration(inTime, outTime) {
@@ -847,8 +868,12 @@ function setupKeyboardShortcuts() {
         
         // Handle space bar based on focused element
         if (e.code === 'Space') {
+            if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
+                return; // Let the input handle its own space
+            }
+            
             e.preventDefault();
-            if (activeElement === videoPlayer) {
+            if (videoPlayer) {
                 if (videoPlayer.paused) {
                     videoPlayer.play();
                 } else {
@@ -1434,4 +1459,111 @@ function initializeSequenceDirection() {
             updateMarkerTable();
         });
     }
+}
+
+function initializeExportSettings() {
+    const exportSettingsBtn = document.getElementById('exportSettingsBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    
+    exportSettingsBtn.addEventListener('click', () => {
+        window.open('/export-settings', 'Export Settings', 'width=800,height=600');
+    });
+    
+    exportBtn.addEventListener('click', () => {
+        exportWithSettings();
+    });
+}
+
+function initializeRowMarking() {
+    const rowMarkBtn = document.getElementById('rowMarkBtn');
+    const rowMarkModal = document.getElementById('rowMarkModal');
+    const closeBtn = rowMarkModal.querySelector('.close');
+    const markButtons = rowMarkModal.querySelectorAll('.mark-btn');
+    
+    rowMarkBtn.addEventListener('click', () => {
+        const selectedRows = document.querySelectorAll('.row-checkbox:checked');
+        if (selectedRows.length === 0) {
+            alert('Please select rows to mark');
+            return;
+        }
+        rowMarkModal.style.display = 'block';
+    });
+    
+    closeBtn.addEventListener('click', () => {
+        rowMarkModal.style.display = 'none';
+    });
+    
+    markButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const color = btn.classList.contains('yellow') ? 'yellow' : 'red';
+            const selectedRows = document.querySelectorAll('.row-checkbox:checked');
+            
+            selectedRows.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+                
+                // Remove existing marks
+                row.classList.remove('marked-yellow', 'marked-red');
+                
+                // Add new mark
+                row.classList.add(`marked-${color}`);
+                
+                // Update markedRows set
+                if (color === 'yellow') {
+                    markedRows.add(rowIndex);
+                } else {
+                    markedRows.delete(rowIndex);
+                }
+            });
+            
+            rowMarkModal.style.display = 'none';
+        });
+    });
+}
+
+function initializeColumnResize() {
+    const table = document.querySelector('.table');
+    const headers = table.querySelectorAll('th');
+    
+    headers.forEach(header => {
+        const handle = document.createElement('div');
+        handle.className = 'resize-handle';
+        header.appendChild(handle);
+        
+        let startX, startWidth;
+        
+        handle.addEventListener('mousedown', (e) => {
+            startX = e.pageX;
+            startWidth = header.offsetWidth;
+            
+            const mouseMoveHandler = (e) => {
+                const width = startWidth + (e.pageX - startX);
+                if (width > 50) { // Minimum width
+                    header.style.width = `${width}px`;
+                }
+            };
+            
+            const mouseUpHandler = () => {
+                document.removeEventListener('mousemove', mouseMoveHandler);
+                document.removeEventListener('mouseup', mouseUpHandler);
+            };
+            
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', mouseUpHandler);
+        });
+    });
+}
+
+function setupSeqHeaderDoubleClick() {
+    const seqHeader = document.querySelector('th[data-field="seq"]');
+    if (seqHeader) {
+        seqHeader.addEventListener('dblclick', () => {
+            isSequenceReversed = !isSequenceReversed;
+            updateMarkerTable();
+        });
+    }
+}
+
+function exportWithSettings() {
+    // Implementation of exportWithSettings function
 } 

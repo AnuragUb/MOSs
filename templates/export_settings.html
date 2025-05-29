@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/export_settings.css') }}">
+</head>
+<body>
+    <div class="export-settings-container">
+        <div class="settings-header">
+            <h2>Export Settings</h2>
+            <button id="closeSettings" class="close-btn">&times;</button>
+        </div>
+        
+        <div class="settings-content">
+            <div class="settings-section">
+                <h3>File Settings</h3>
+                <div class="setting-group">
+                    <label for="fileName">File Name:</label>
+                    <input type="text" id="fileName" readonly>
+                    <div class="file-name-preview"></div>
+                </div>
+                
+                <div class="setting-group">
+                    <label for="fileType">File Type:</label>
+                    <select id="fileType">
+                        <option value="excel">Excel Workbook</option>
+                        <option value="csv">CSV</option>
+                        <option value="plain">Plain Excel</option>
+                    </select>
+                </div>
+                
+                <div class="setting-group">
+                    <label>Download Location:</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="downloadLocation" value="ask" checked>
+                            Ask each time
+                        </label>
+                        <label>
+                            <input type="radio" name="downloadLocation" value="custom">
+                            Set custom location
+                        </label>
+                    </div>
+                    <input type="text" id="customLocation" disabled placeholder="Select download location">
+                    <button id="browseLocation" disabled>Browse</button>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Content Settings</h3>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="includeHeader" checked>
+                        Include 6-line header
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label>Fields to Export:</label>
+                    <div class="fields-container">
+                        <!-- Fields will be populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label>TCR Format:</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="tcrFormat" value="timecode" checked>
+                            HH:MM:SS:FF
+                        </label>
+                        <label>
+                            <input type="radio" name="tcrFormat" value="time">
+                            HH:MM:SS
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-footer">
+            <button id="saveSettings" class="primary-btn">Save Settings</button>
+            <button id="resetSettings" class="secondary-btn">Reset to Default</button>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/export_settings.js') }}"></script>
+</body>
+</html> 
