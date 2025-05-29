@@ -16,6 +16,7 @@
             <img src="{{ url_for('static', filename='img/Group59.png') }}" alt="Logo" class="logo-img" style="max-height: 40px;" />
         </div>
         <div class="topbar-actions">
+            <button class="btn btn-secondary" id="exportSettingsBtn">Export Settings</button>
             <button class="btn btn-outline-info" id="offsetBtn">Offset Time</button>
             <input type="file" id="cueFileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style="display:none;">
             <div id="cueActions" style="display:none;">
@@ -70,8 +71,8 @@
                 </div>
             </div>
             <div class="export-buttons mb-3">
-                <button class="btn btn-success" id="exportExcel">Export to Excel</button>
-                <button class="btn btn-info" id="exportCSV">Export to CSV</button>
+                <button class="btn btn-warning" id="rowMarkBtn">Mark Rows</button>
+                <button class="btn btn-primary ms-2" id="exportBtn">Export</button>
                 <button class="btn btn-danger ms-2" id="clearTableBtn">Clear Table</button>
                 <button class="btn btn-danger ms-2" id="deleteSelectedBtn">Delete Selected</button>
                 <button id="sequenceDirectionBtn" class="btn btn-secondary" title="Toggle sequence direction">
@@ -153,7 +154,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=2"></script>
     <script>
         // Initialize VLC player
         function initVLCPlayer() {

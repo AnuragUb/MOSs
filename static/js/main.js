@@ -1243,6 +1243,12 @@ function loadCueSheetData(header, data) {
         extraColumns.forEach(col => {
             marker[col.name] = row[col.name] || '';
         });
+        // Normalize TCR fields
+        ['tcrIn', 'tcrOut'].forEach(field => {
+            if (marker[field] && marker[field].match(/^\d{2}:\d{2}:\d{2}$/)) {
+                marker[field] += ':00';
+            }
+        });
         return marker;
     });
     updateMarkerTable();
