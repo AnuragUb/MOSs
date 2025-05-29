@@ -63,6 +63,7 @@ const columnNameMap = {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing main page components...');
     initializeVideoPlayer();
     initializeMarkerTable();
     initializeResizeHandles();
@@ -79,6 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeRowMarking();
     initializeColumnResize();
     setupSeqHeaderDoubleClick();
+    console.log('Main page components initialized');
 });
 
 function initializeVideoPlayer() {
@@ -1364,18 +1366,31 @@ function initializeSequenceDirection() {
 }
 
 function initializeExportSettings() {
+    console.log('Initializing export settings...');
     const exportSettingsBtn = document.getElementById('exportSettingsBtn');
     const exportBtn = document.getElementById('exportBtn');
     
     if (exportSettingsBtn) {
+        console.log('Found export settings button, adding click handler');
         exportSettingsBtn.addEventListener('click', () => {
-            window.open('/export-settings', 'Export Settings', 'width=800,height=600');
+            console.log('Opening export settings window...');
+            const settingsWindow = window.open('/export-settings', 'Export Settings', 'width=800,height=600');
+            if (!settingsWindow) {
+                alert('Please allow popups for this site to use the export settings.');
+            }
         });
+    } else {
+        console.warn('Export settings button not found');
     }
+
     if (exportBtn) {
+        console.log('Found export button, adding click handler');
         exportBtn.addEventListener('click', () => {
+            console.log('Starting export process...');
             exportWithSettings();
         });
+    } else {
+        console.warn('Export button not found');
     }
 }
 
