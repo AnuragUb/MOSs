@@ -363,17 +363,12 @@ function exportWithSettings() {
     try {
         console.log('Starting export with settings');
         
-        // Get current settings
-        const settings = {
-            includeHeader: document.getElementById('includeHeader').checked,
-            tcrFormat: document.getElementById('tcrFormat').value,
-            fieldsToExport: Array.from(document.querySelectorAll('input[name="exportField"]:checked')).map(input => input.value)
-        };
-        
-        console.log('Export settings:', settings);
+        // Get settings from localStorage
+        const settings = JSON.parse(localStorage.getItem('exportSettings')) || exportSettings;
+        console.log('Loaded settings from localStorage:', settings);
         
         // Validate settings
-        if (!settings.fieldsToExport.length) {
+        if (!settings.fieldsToExport || !settings.fieldsToExport.length) {
             throw new Error('No fields selected for export');
         }
         
@@ -383,8 +378,8 @@ function exportWithSettings() {
             throw new Error('No data to export');
         }
         
-        // Get file type
-        const fileType = document.getElementById('fileType').value;
+        // Get file type from settings
+        const fileType = settings.fileType || 'excel';
         console.log('Exporting as:', fileType);
         
         // Export based on file type
@@ -424,8 +419,8 @@ function prepareExportData(settings) {
         if (settings.includeHeader) {
             console.log('Including header rows');
             const headerData = {};
-            // Ensure headerRows exists and is an array
-            const headerRows = window.headerRows || [];
+            // Get header rows from localStorage
+            const headerRows = JSON.parse(localStorage.getItem('headerRows')) || [];
             if (Array.isArray(headerRows)) {
                 headerRows.forEach((row, index) => {
                     if (Array.isArray(row)) {
@@ -455,7 +450,7 @@ function prepareExportData(settings) {
                     
                     // Format TCR if needed
                     if (field.toLowerCase().includes('tcr')) {
-                        value = formatTCR(value, settings.tcrFormat);
+                        value = formatTCR(value, settings.tcrFormat || 'timecode');
                     }
                     
                     rowData[field] = value;
