@@ -16,6 +16,8 @@ function isExportSettingsPage() {
 
 // Initialize the export settings page
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded in export settings page');
+    
     // Only initialize if we're on the export settings page
     if (!isExportSettingsPage()) {
         console.log('Not on export settings page, skipping initialization');
@@ -47,6 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Export settings initialized successfully');
             } catch (error) {
                 console.error('Error initializing export settings:', error);
+                alert('Error initializing export settings. Please refresh the page.');
             }
         }
     }, 100);
@@ -54,29 +57,49 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear interval after 5 seconds to prevent infinite checking
     setTimeout(() => {
         clearInterval(initInterval);
+        if (!document.getElementById('closeSettings')) {
+            console.error('Required elements not found after timeout');
+            alert('Error loading export settings. Please try again.');
+        }
     }, 5000);
 });
 
 function initializeExportSettings() {
-    // Get fields from localStorage if available
-    const savedFields = localStorage.getItem('exportFields');
-    if (savedFields) {
-        exportSettings.fieldsToExport = JSON.parse(savedFields);
-    } else {
-        // Default fields if none are saved
-        exportSettings.fieldsToExport = [
-            'tcrIn',
-            'tcrOut',
-            'duration',
-            'usage',
-            'title',
-            'filmTitle',
-            'composer',
-            'lyricist',
-            'musicCo',
-            'nocId',
-            'nocTitle'
-        ];
+    try {
+        // Get fields from localStorage if available
+        const savedFields = localStorage.getItem('exportFields');
+        if (savedFields) {
+            exportSettings.fieldsToExport = JSON.parse(savedFields);
+        } else {
+            // Default fields if none are saved
+            exportSettings.fieldsToExport = [
+                'tcrIn',
+                'tcrOut',
+                'duration',
+                'usage',
+                'title',
+                'filmTitle',
+                'composer',
+                'lyricist',
+                'musicCo',
+                'nocId',
+                'nocTitle'
+            ];
+        }
+
+        // Get markers and header rows from localStorage
+        const savedMarkers = localStorage.getItem('markers');
+        const savedHeaderRows = localStorage.getItem('headerRows');
+        
+        if (savedMarkers) {
+            window.markers = JSON.parse(savedMarkers);
+        }
+        if (savedHeaderRows) {
+            window.headerRows = JSON.parse(savedHeaderRows);
+        }
+    } catch (error) {
+        console.error('Error in initializeExportSettings:', error);
+        throw error;
     }
 }
 

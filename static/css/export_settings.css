@@ -1,12 +1,10 @@
 .export-settings-container {
-    background-color: #1e1e1e;
-    color: #d4d4d4;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     max-width: 800px;
     margin: 20px auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .settings-header {
@@ -15,44 +13,37 @@
     align-items: center;
     margin-bottom: 20px;
     padding-bottom: 10px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #eee;
 }
 
 .settings-header h2 {
     margin: 0;
-    color: #fff;
+    color: #333;
 }
 
 .close-btn {
     background: none;
     border: none;
-    color: #d4d4d4;
     font-size: 24px;
     cursor: pointer;
-    padding: 0 8px;
-}
-
-.close-btn:hover {
-    color: #fff;
+    color: #666;
 }
 
 .settings-content {
     display: grid;
-    grid-template-columns: 1fr;
     gap: 20px;
 }
 
 .settings-section {
-    background-color: #252526;
+    background: #f9f9f9;
     padding: 15px;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 
 .settings-section h3 {
     margin-top: 0;
-    margin-bottom: 15px;
-    color: #fff;
-    font-size: 16px;
+    color: #444;
+    font-size: 1.2em;
 }
 
 .setting-group {
@@ -61,28 +52,22 @@
 
 .setting-group label {
     display: block;
-    margin-bottom: 8px;
-    color: #d4d4d4;
+    margin-bottom: 5px;
+    color: #555;
 }
 
 .setting-group input[type="text"],
 .setting-group select {
     width: 100%;
     padding: 8px;
-    background-color: #3c3c3c;
-    border: 1px solid #555;
-    color: #d4d4d4;
+    border: 1px solid #ddd;
     border-radius: 4px;
-}
-
-.setting-group input[type="text"]:disabled {
-    background-color: #2d2d2d;
-    cursor: not-allowed;
+    margin-bottom: 5px;
 }
 
 .radio-group {
     display: flex;
-    gap: 20px;
+    gap: 15px;
     margin-bottom: 10px;
 }
 
@@ -94,28 +79,26 @@
 }
 
 .fields-container {
-    max-height: 200px;
-    overflow-y: auto;
-    background-color: #3c3c3c;
-    padding: 10px;
-    border-radius: 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .fields-container label {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 5px;
     cursor: pointer;
 }
 
 .settings-footer {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px solid #333;
 }
 
 .primary-btn,
@@ -128,49 +111,37 @@
 }
 
 .primary-btn {
-    background-color: #0e639c;
+    background: #007bff;
     color: white;
 }
 
-.primary-btn:hover {
-    background-color: #1177bb;
-}
-
 .secondary-btn {
-    background-color: #3c3c3c;
-    color: #d4d4d4;
+    background: #6c757d;
+    color: white;
 }
 
-.secondary-btn:hover {
-    background-color: #4c4c4c;
+.file-name-preview {
+    margin-top: 5px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+#customLocation {
+    margin-top: 10px;
 }
 
 #browseLocation {
-    margin-top: 8px;
-    padding: 6px 12px;
-    background-color: #3c3c3c;
-    border: 1px solid #555;
-    color: #d4d4d4;
+    margin-top: 5px;
+    padding: 5px 10px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
     border-radius: 4px;
     cursor: pointer;
 }
 
-#browseLocation:hover {
-    background-color: #4c4c4c;
-}
-
 #browseLocation:disabled {
-    background-color: #2d2d2d;
+    opacity: 0.5;
     cursor: not-allowed;
-}
-
-.file-name-preview {
-    margin-top: 8px;
-    padding: 8px;
-    background-color: #3c3c3c;
-    border-radius: 4px;
-    font-family: monospace;
-    color: #9cdcfe;
 }
 
 /* Scrollbar styling */

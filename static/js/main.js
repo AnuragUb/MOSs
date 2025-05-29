@@ -1408,9 +1408,34 @@ function initializeExportSettings() {
         console.log('Found export settings button, adding click handler');
         exportSettingsBtn.addEventListener('click', () => {
             console.log('Opening export settings window...');
-            const settingsWindow = window.open('/export-settings', 'Export Settings', 'width=800,height=600');
-            if (!settingsWindow) {
-                alert('Please allow popups for this site to use the export settings.');
+            try {
+                // Save current state to localStorage
+                localStorage.setItem('markers', JSON.stringify(markers));
+                localStorage.setItem('headerRows', JSON.stringify(headerRows));
+                
+                // Open the settings window
+                const settingsWindow = window.open('/export-settings', 'Export Settings', 'width=800,height=600');
+                
+                if (!settingsWindow) {
+                    alert('Please allow popups for this site to use the export settings.');
+                    return;
+                }
+                
+                // Add event listener for when the settings window closes
+                const checkWindow = setInterval(() => {
+                    if (settingsWindow.closed) {
+                        clearInterval(checkWindow);
+                        console.log('Export settings window closed');
+                        // Reload settings if needed
+                        const savedSettings = localStorage.getItem('exportSettings');
+                        if (savedSettings) {
+                            console.log('Reloading saved export settings');
+                        }
+                    }
+                }, 500);
+            } catch (error) {
+                console.error('Error opening export settings:', error);
+                alert('Error opening export settings. Please try again.');
             }
         });
     } else {
@@ -1421,7 +1446,12 @@ function initializeExportSettings() {
         console.log('Found export button, adding click handler');
         exportBtn.addEventListener('click', () => {
             console.log('Starting export process...');
-            exportWithSettings();
+            try {
+                exportWithSettings();
+            } catch (error) {
+                console.error('Error during export:', error);
+                alert('Error during export. Please try again.');
+            }
         });
     } else {
         console.warn('Export button not found');
