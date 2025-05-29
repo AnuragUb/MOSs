@@ -1190,6 +1190,16 @@ function loadCueSheetData(header, data) {
     localStorage.setItem('showInfo', JSON.stringify(showInfo));
 
     updateMarkerTable();
+
+    // --- BEGIN: Save metadata and marker data to localStorage for export ---
+    try {
+        localStorage.setItem('headerRows', JSON.stringify(headerRows));
+        localStorage.setItem('markers', JSON.stringify(markers));
+        console.log('Saved headerRows and markers to localStorage for export.');
+    } catch (e) {
+        console.error('Failed to save headerRows/markers to localStorage:', e);
+    }
+    // --- END: Save metadata and marker data to localStorage for export ---
 }
 
 function initializeClearTableButton() {
