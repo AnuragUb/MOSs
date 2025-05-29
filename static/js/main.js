@@ -405,8 +405,7 @@ function initializeMarkerTable() {
 }
 
 function initializeExportButtons() {
-    document.getElementById('exportExcel').addEventListener('click', exportToExcel);
-    document.getElementById('exportCSV').addEventListener('click', exportToCSV);
+    // This function is now obsolete since export is handled by exportBtn and settings
 }
 
 function getMostUsedUsage() {
@@ -935,104 +934,11 @@ function setupKeyboardShortcuts() {
 }
 
 function exportToExcel() {
-    try {
-        if (!markers || markers.length === 0) {
-            alert('No markers to export. Please add some markers first.');
-            return;
-        }
-
-        const includeHeader = document.getElementById('includeHeaderRows').checked;
-        let ws;
-        if (includeHeader && headerRows.length > 0) {
-            // Prepare marker data as array of arrays
-            const markerData = markers.map((marker, index) => [
-                index + 1,
-                marker.tcrIn || '',
-                marker.tcrOut || '',
-                marker.duration || '',
-                Array.isArray(marker.usage) ? marker.usage.join(', ') : (marker.usage || ''),
-                marker.filmTitle || '',
-                marker.composer || '',
-                marker.lyricist || '',
-                marker.musicCo || '',
-                marker.nocId || '',
-                marker.nocTitle || '',
-                marker.titleColor || ''
-            ]);
-            // Combine headerRows and markerData
-            const allData = headerRows.concat([['#Seq', 'TCR In', 'TCR Out', 'Duration', 'Usage', 'Film/Album Title', 'Composer', 'Lyricist', 'Music Co', 'NOC ID', 'NOC Title', 'Title Color']]).concat(markerData);
-            ws = XLSX.utils.aoa_to_sheet(allData);
-        } else {
-            ws = XLSX.utils.json_to_sheet(markers.map((marker, index) => ({
-                '#Seq': index + 1,
-                'TCR In': marker.tcrIn || '',
-                'TCR Out': marker.tcrOut || '',
-                'Duration': marker.duration || '',
-                'Usage': Array.isArray(marker.usage) ? marker.usage.join(', ') : (marker.usage || ''),
-                'Film/Album Title': marker.filmTitle || '',
-                'Composer': marker.composer || '',
-                'Lyricist': marker.lyricist || '',
-                'Music Co': marker.musicCo || '',
-                'NOC ID': marker.nocId || '',
-                'NOC Title': marker.nocTitle || '',
-                'Title Color': marker.titleColor || ''
-            })));
-        }
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Markers');
-        XLSX.writeFile(wb, 'markers.xlsx');
-    } catch (error) {
-        console.error('Error exporting to Excel:', error);
-        alert('Error exporting to Excel: ' + error.message);
-    }
+    // This function is now obsolete, replaced by exportWithSettings
 }
 
 function exportToCSV() {
-    try {
-        if (!markers || markers.length === 0) {
-            alert('No markers to export. Please add some markers first.');
-            return;
-        }
-
-        const includeHeader = document.getElementById('includeHeaderRows').checked;
-        const headers = ['#Seq', 'TCR In', 'TCR Out', 'Duration', 'Usage', 'Film/Album Title', 'Composer', 'Lyricist', 'Music Co', 'NOC ID', 'NOC Title', 'Title Color'];
-        let csvContent = '';
-        
-        if (includeHeader && headerRows.length > 0) {
-            csvContent += headerRows.map(row => row.join(",")).join("\n") + "\n";
-        }
-        
-        csvContent += headers.join(',') + '\n';
-        csvContent += markers.map((marker, index) => [
-            index + 1,
-            marker.tcrIn || '',
-            marker.tcrOut || '',
-            marker.duration || '',
-            Array.isArray(marker.usage) ? marker.usage.join(', ') : (marker.usage || ''),
-            marker.filmTitle || '',
-            marker.composer || '',
-            marker.lyricist || '',
-            marker.musicCo || '',
-            marker.nocId || '',
-            marker.nocTitle || '',
-            marker.titleColor || ''
-        ].map(field => {
-            // Escape fields that contain commas or quotes
-            if (typeof field === 'string' && (field.includes(',') || field.includes('"'))) {
-                return `"${field.replace(/"/g, '""')}"`;
-            }
-            return field;
-        }).join(',')).join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'markers.csv';
-        link.click();
-    } catch (error) {
-        console.error('Error exporting to CSV:', error);
-        alert('Error exporting to CSV: ' + error.message);
-    }
+    // This function is now obsolete, replaced by exportWithSettings
 }
 
 function setupViewModeSwitcher() {
@@ -1458,26 +1364,23 @@ function deleteSelectedRows() {
 }
 
 function initializeSequenceDirection() {
-    const sequenceDirectionBtn = document.getElementById('sequenceDirectionBtn');
-    if (sequenceDirectionBtn) {
-        sequenceDirectionBtn.addEventListener('click', function() {
-            isSequenceReversed = !isSequenceReversed;
-            updateMarkerTable();
-        });
-    }
+    // This function is now obsolete, sequence direction is toggled by double-clicking Seq header
 }
 
 function initializeExportSettings() {
     const exportSettingsBtn = document.getElementById('exportSettingsBtn');
     const exportBtn = document.getElementById('exportBtn');
     
-    exportSettingsBtn.addEventListener('click', () => {
-        window.open('/export-settings', 'Export Settings', 'width=800,height=600');
-    });
-    
-    exportBtn.addEventListener('click', () => {
-        exportWithSettings();
-    });
+    if (exportSettingsBtn) {
+        exportSettingsBtn.addEventListener('click', () => {
+            window.open('/export-settings', 'Export Settings', 'width=800,height=600');
+        });
+    }
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            exportWithSettings();
+        });
+    }
 }
 
 function initializeRowMarking() {
