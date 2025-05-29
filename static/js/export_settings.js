@@ -360,86 +360,116 @@ function resetSettings() {
 
 // Export function that will be called from the main page
 function exportWithSettings() {
-    const settings = JSON.parse(localStorage.getItem('exportSettings')) || exportSettings;
-    
-    // Get the selected fields in the correct order
-    const selectedFields = settings.fieldsToExport;
-    
-    // Prepare the data based on settings
-    const exportData = prepareExportData(settings);
-    
-    // Show loading indicator
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.className = 'loading-indicator';
-    loadingIndicator.textContent = 'Exporting...';
-    document.body.appendChild(loadingIndicator);
-    
-    // Export based on file type
     try {
-        switch(settings.fileType) {
+        console.log('Starting export with settings');
+        
+        // Get current settings
+        const settings = {
+            includeHeader: document.getElementById('includeHeader').checked,
+            tcrFormat: document.getElementById('tcrFormat').value,
+            fieldsToExport: Array.from(document.querySelectorAll('input[name="exportField"]:checked')).map(input => input.value)
+        };
+        
+        console.log('Export settings:', settings);
+        
+        // Validate settings
+        if (!settings.fieldsToExport.length) {
+            throw new Error('No fields selected for export');
+        }
+        
+        // Prepare data
+        const data = prepareExportData(settings);
+        if (!data || !data.length) {
+            throw new Error('No data to export');
+        }
+        
+        // Get file type
+        const fileType = document.getElementById('fileType').value;
+        console.log('Exporting as:', fileType);
+        
+        // Export based on file type
+        switch (fileType) {
             case 'excel':
-                exportToExcelWorkbook(exportData, settings);
+                exportToExcelWorkbook(data);
                 break;
             case 'csv':
-                exportToCSV(exportData, settings);
+                exportToCSV(data);
                 break;
             case 'plain':
-                exportToPlainExcel(exportData, settings);
+                exportToPlainExcel(data);
                 break;
             default:
-                throw new Error('Invalid file type');
+                throw new Error('Invalid file type selected');
         }
+        
+        console.log('Export completed successfully');
     } catch (error) {
-        console.error('Export failed:', error);
+        console.error('Error during export:', error);
         alert('Export failed: ' + error.message);
-    } finally {
-        // Remove loading indicator
-        loadingIndicator.remove();
     }
 }
 
 function prepareExportData(settings) {
-    // Get all marker rows
-    const rows = Array.from(document.querySelectorAll('.table tbody tr'));
-    
-    // Prepare data array
-    const data = [];
-    
-    // Add header if enabled
-    if (settings.includeHeader) {
-        const headerData = {};
-        window.headerRows.forEach((row, index) => {
-            row.forEach((cell, cellIndex) => {
-                if (cellIndex % 2 === 0 && cell) {
-                    const key = cell.trim();
-                    const value = row[cellIndex + 1] || '';
-                    headerData[key] = value;
+    try {
+        console.log('Preparing export data with settings:', settings);
+        
+        // Get all marker rows
+        const rows = Array.from(document.querySelectorAll('.table tbody tr'));
+        console.log('Found rows:', rows.length);
+        
+        // Prepare data array
+        const data = [];
+        
+        // Add header if enabled
+        if (settings.includeHeader) {
+            console.log('Including header rows');
+            const headerData = {};
+            // Ensure headerRows exists and is an array
+            const headerRows = window.headerRows || [];
+            if (Array.isArray(headerRows)) {
+                headerRows.forEach((row, index) => {
+                    if (Array.isArray(row)) {
+                        row.forEach((cell, cellIndex) => {
+                            if (cellIndex % 2 === 0 && cell) {
+                                const key = cell.trim();
+                                const value = row[cellIndex + 1] || '';
+                                headerData[key] = value;
+                            }
+                        });
+                    }
+                });
+                data.push(headerData);
+            } else {
+                console.warn('Header rows is not an array:', headerRows);
+            }
+        }
+        
+        // Add marker data
+        console.log('Processing marker data');
+        rows.forEach(row => {
+            const rowData = {};
+            settings.fieldsToExport.forEach(field => {
+                const cell = row.querySelector(`[data-field="${field}"]`);
+                if (cell) {
+                    let value = cell.textContent.trim();
+                    
+                    // Format TCR if needed
+                    if (field.toLowerCase().includes('tcr')) {
+                        value = formatTCR(value, settings.tcrFormat);
+                    }
+                    
+                    rowData[field] = value;
                 }
             });
+            data.push(rowData);
         });
-        data.push(headerData);
+        
+        console.log('Export data prepared:', data);
+        return data;
+    } catch (error) {
+        console.error('Error preparing export data:', error);
+        throw new Error('Failed to prepare export data: ' + error.message);
     }
-    
-    // Add marker data
-    rows.forEach(row => {
-        const rowData = {};
-        settings.fieldsToExport.forEach(field => {
-            const cell = row.querySelector(`[data-field="${field}"]`);
-            if (cell) {
-                let value = cell.textContent.trim();
-                
-                // Format TCR if needed
-                if (field.toLowerCase().includes('tcr')) {
-                    value = formatTCR(value, settings.tcrFormat);
-                }
-                
-                rowData[field] = value;
-            }
-        });
-        data.push(rowData);
-    });
-    
-    return data;
 }
 
 function formatTCR(timecode, format) {
@@ -457,7 +487,7 @@ function formatTCR(timecode, format) {
     return timecode;
 }
 
-function exportToExcelWorkbook(data, settings) {
+function exportToExcelWorkbook(data) {
     // Send data to server for Excel export
     fetch('/api/export/excel', {
         method: 'POST',
@@ -477,7 +507,7 @@ function exportToExcelWorkbook(data, settings) {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${settings.fileName}.xlsx`;
+        a.download = `${exportSettings.fileName}.xlsx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -489,7 +519,7 @@ function exportToExcelWorkbook(data, settings) {
     });
 }
 
-function exportToCSV(data, settings) {
+function exportToCSV(data) {
     // Send data to server for CSV export
     fetch('/api/export/csv', {
         method: 'POST',
@@ -509,7 +539,7 @@ function exportToCSV(data, settings) {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${settings.fileName}.csv`;
+        a.download = `${exportSettings.fileName}.csv`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -521,7 +551,7 @@ function exportToCSV(data, settings) {
     });
 }
 
-function exportToPlainExcel(data, settings) {
+function exportToPlainExcel(data) {
     // This is similar to Excel workbook but with simpler formatting
-    exportToExcelWorkbook(data, settings);
+    exportToExcelWorkbook(data);
 } 
