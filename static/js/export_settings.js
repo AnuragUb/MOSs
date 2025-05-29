@@ -9,20 +9,52 @@ let exportSettings = {
     tcrFormat: 'timecode'
 };
 
+// Check if we're on the export settings page
+function isExportSettingsPage() {
+    return document.querySelector('.export-settings-container') !== null;
+}
+
 // Initialize the export settings page
 document.addEventListener('DOMContentLoaded', function() {
-    // Wait a short moment to ensure all elements are rendered
-    setTimeout(() => {
-        try {
-            initializeExportSettings();
-            loadSavedSettings();
-            setupEventListeners();
-            populateFieldsToExport();
-            updateFileNamePreview();
-        } catch (error) {
-            console.error('Error initializing export settings:', error);
+    // Only initialize if we're on the export settings page
+    if (!isExportSettingsPage()) {
+        console.log('Not on export settings page, skipping initialization');
+        return;
+    }
+
+    // Wait for elements to be ready
+    const initInterval = setInterval(() => {
+        const requiredElements = [
+            'closeSettings',
+            'fileType',
+            'fileName',
+            'includeHeader',
+            'browseLocation',
+            'customLocation'
+        ];
+
+        const allElementsExist = requiredElements.every(id => document.getElementById(id) !== null);
+        
+        if (allElementsExist) {
+            clearInterval(initInterval);
+            try {
+                console.log('Initializing export settings...');
+                initializeExportSettings();
+                loadSavedSettings();
+                setupEventListeners();
+                populateFieldsToExport();
+                updateFileNamePreview();
+                console.log('Export settings initialized successfully');
+            } catch (error) {
+                console.error('Error initializing export settings:', error);
+            }
         }
     }, 100);
+
+    // Clear interval after 5 seconds to prevent infinite checking
+    setTimeout(() => {
+        clearInterval(initInterval);
+    }, 5000);
 });
 
 function initializeExportSettings() {
@@ -48,69 +80,102 @@ function loadSavedSettings() {
 }
 
 function setupEventListeners() {
-    // Close button
-    document.getElementById('closeSettings').addEventListener('click', () => {
-        window.close();
-    });
-
-    // File type change
-    document.getElementById('fileType').addEventListener('change', (e) => {
-        exportSettings.fileType = e.target.value;
-        updateFileNamePreview();
-    });
-
-    // Download location radio buttons
-    document.querySelectorAll('input[name="downloadLocation"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            exportSettings.downloadLocation = e.target.value;
-            const customLocationInput = document.getElementById('customLocation');
-            const browseButton = document.getElementById('browseLocation');
-            
-            if (e.target.value === 'custom') {
-                customLocationInput.disabled = false;
-                browseButton.disabled = false;
-            } else {
-                customLocationInput.disabled = true;
-                browseButton.disabled = true;
-            }
-        });
-    });
-
-    // Browse button
-    document.getElementById('browseLocation').addEventListener('click', async () => {
-        try {
-            const dirHandle = await window.showDirectoryPicker();
-            exportSettings.customLocation = dirHandle.name;
-            document.getElementById('customLocation').value = dirHandle.name;
-        } catch (err) {
-            console.error('Error selecting directory:', err);
+    try {
+        // Close button
+        const closeBtn = document.getElementById('closeSettings');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                window.close();
+            });
         }
-    });
 
-    // Include header checkbox
-    document.getElementById('includeHeader').addEventListener('change', (e) => {
-        exportSettings.includeHeader = e.target.checked;
-    });
-
-    // TCR format radio buttons
-    document.querySelectorAll('input[name="tcrFormat"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            exportSettings.tcrFormat = e.target.value;
-        });
-    });
-
-    // Save settings button
-    document.getElementById('saveSettings').addEventListener('click', () => {
-        saveSettings();
-        window.close();
-    });
-
-    // Reset settings button
-    document.getElementById('resetSettings').addEventListener('click', () => {
-        if (confirm('Are you sure you want to reset all export settings to default?')) {
-            resetSettings();
+        // File type change
+        const fileTypeSelect = document.getElementById('fileType');
+        if (fileTypeSelect) {
+            fileTypeSelect.addEventListener('change', (e) => {
+                exportSettings.fileType = e.target.value;
+                updateFileNamePreview();
+            });
         }
-    });
+
+        // Download location radio buttons
+        const downloadLocationRadios = document.querySelectorAll('input[name="downloadLocation"]');
+        if (downloadLocationRadios.length > 0) {
+            downloadLocationRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    exportSettings.downloadLocation = e.target.value;
+                    const customLocationInput = document.getElementById('customLocation');
+                    const browseButton = document.getElementById('browseLocation');
+                    
+                    if (customLocationInput && browseButton) {
+                        if (e.target.value === 'custom') {
+                            customLocationInput.disabled = false;
+                            browseButton.disabled = false;
+                        } else {
+                            customLocationInput.disabled = true;
+                            browseButton.disabled = true;
+                        }
+                    }
+                });
+            });
+        }
+
+        // Browse button
+        const browseButton = document.getElementById('browseLocation');
+        if (browseButton) {
+            browseButton.addEventListener('click', async () => {
+                try {
+                    const dirHandle = await window.showDirectoryPicker();
+                    exportSettings.customLocation = dirHandle.name;
+                    const customLocationInput = document.getElementById('customLocation');
+                    if (customLocationInput) {
+                        customLocationInput.value = dirHandle.name;
+                    }
+                } catch (err) {
+                    console.error('Error selecting directory:', err);
+                }
+            });
+        }
+
+        // Include header checkbox
+        const includeHeaderCheckbox = document.getElementById('includeHeader');
+        if (includeHeaderCheckbox) {
+            includeHeaderCheckbox.addEventListener('change', (e) => {
+                exportSettings.includeHeader = e.target.checked;
+            });
+        }
+
+        // TCR format radio buttons
+        const tcrFormatRadios = document.querySelectorAll('input[name="tcrFormat"]');
+        if (tcrFormatRadios.length > 0) {
+            tcrFormatRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    exportSettings.tcrFormat = e.target.value;
+                });
+            });
+        }
+
+        // Save settings button
+        const saveButton = document.getElementById('saveSettings');
+        if (saveButton) {
+            saveButton.addEventListener('click', () => {
+                saveSettings();
+                window.close();
+            });
+        }
+
+        // Reset settings button
+        const resetButton = document.getElementById('resetSettings');
+        if (resetButton) {
+            resetButton.addEventListener('click', () => {
+                if (confirm('Are you sure you want to reset all export settings to default?')) {
+                    resetSettings();
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error setting up event listeners:', error);
+    }
 }
 
 function populateFieldsToExport() {
