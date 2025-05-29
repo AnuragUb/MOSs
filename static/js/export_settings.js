@@ -40,15 +40,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (allElementsExist) {
             clearInterval(initInterval);
             try {
-                console.log('Initializing export settings...');
-                initializeExportSettings();
+                console.log('Initializing export settings page...');
+                initializeExportSettingsPage();
                 loadSavedSettings();
                 setupEventListeners();
                 populateFieldsToExport();
                 updateFileNamePreview();
-                console.log('Export settings initialized successfully');
+                console.log('Export settings page initialized successfully');
             } catch (error) {
-                console.error('Error initializing export settings:', error);
+                console.error('Error initializing export settings page:', error);
                 alert('Error initializing export settings. Please refresh the page.');
             }
         }
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 5000);
 });
 
-function initializeExportSettings() {
+function initializeExportSettingsPage() {
     try {
         // Get fields from localStorage if available
         const savedFields = localStorage.getItem('exportFields');
@@ -98,7 +98,7 @@ function initializeExportSettings() {
             window.headerRows = JSON.parse(savedHeaderRows);
         }
     } catch (error) {
-        console.error('Error in initializeExportSettings:', error);
+        console.error('Error in initializeExportSettingsPage:', error);
         throw error;
     }
 }
@@ -353,7 +353,7 @@ function resetSettings() {
         tcrFormat: 'timecode'
     };
     
-    initializeExportSettings();
+    initializeExportSettingsPage();
     applySettingsToUI();
     saveSettings();
 }

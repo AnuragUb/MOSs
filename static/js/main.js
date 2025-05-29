@@ -1560,38 +1560,66 @@ function setupSeqHeaderDoubleClick() {
 }
 
 function exportWithSettings() {
-    // Ensure export_settings.js logic is available
-    if (typeof window.exportToExcelWorkbook !== 'function' || typeof window.exportToCSV !== 'function' || typeof window.exportToPlainExcel !== 'function') {
-        alert('Export logic is not loaded. Please refresh the page.');
+    console.log('Starting export with settings...');
+    
+    // Check if required functions exist
+    const requiredFunctions = [
+        'exportToExcelWorkbook',
+        'exportToCSV',
+        'exportToPlainExcel',
+        'prepareExportData'
+    ];
+    
+    const missingFunctions = requiredFunctions.filter(func => typeof window[func] !== 'function');
+    
+    if (missingFunctions.length > 0) {
+        console.error('Missing required functions:', missingFunctions);
+        alert('Export functionality is not properly loaded. Please refresh the page.');
         return;
     }
-    // Get settings from localStorage or default
-    const settings = JSON.parse(localStorage.getItem('exportSettings')) || {
-        fileName: '',
-        fileType: 'excel',
-        downloadLocation: 'ask',
-        customLocation: '',
-        includeHeader: true,
-        fieldsToExport: [],
-        tcrFormat: 'timecode'
-    };
-    // Make sure window.markers and window.headerRows are up to date
-    window.markers = markers;
-    window.headerRows = headerRows;
-    // Prepare the data based on settings
-    const data = typeof prepareExportData === 'function' ? prepareExportData(settings) : [];
-    // Export based on file type
-    switch (settings.fileType) {
-        case 'excel':
-            exportToExcelWorkbook(data, settings);
-            break;
-        case 'csv':
-            exportToCSV(data, settings);
-            break;
-        case 'plain':
-            exportToPlainExcel(data, settings);
-            break;
-        default:
-            alert('Unknown export file type.');
+    
+    try {
+        // Get settings from localStorage or default
+        const settings = JSON.parse(localStorage.getItem('exportSettings')) || {
+            fileName: '',
+            fileType: 'excel',
+            downloadLocation: 'ask',
+            customLocation: '',
+            includeHeader: true,
+            fieldsToExport: [],
+            tcrFormat: 'timecode'
+        };
+        
+        console.log('Using export settings:', settings);
+        
+        // Make sure window.markers and window.headerRows are up to date
+        window.markers = markers;
+        window.headerRows = headerRows;
+        
+        // Prepare the data based on settings
+        const data = prepareExportData(settings);
+        console.log('Prepared data for export:', data);
+        
+        // Export based on file type
+        switch (settings.fileType) {
+            case 'excel':
+                console.log('Exporting to Excel workbook...');
+                exportToExcelWorkbook(data, settings);
+                break;
+            case 'csv':
+                console.log('Exporting to CSV...');
+                exportToCSV(data, settings);
+                break;
+            case 'plain':
+                console.log('Exporting to plain Excel...');
+                exportToPlainExcel(data, settings);
+                break;
+            default:
+                console.error('Unknown export file type:', settings.fileType);
+                alert('Unknown export file type. Please check your export settings.');
+        }
+    } catch (error) {
+        console.error('Error during export:', error);
+        alert('Error during export: ' + error.message);
     }
 } 
