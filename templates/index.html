@@ -310,6 +310,11 @@
 
         // Initialize VLC player when the page loads
         document.addEventListener('DOMContentLoaded', initVLCPlayer);
+
+        // Self-referencing reloader: ping the server every 12 minutes
+        setInterval(function() {
+            fetch(window.location.pathname, { cache: "no-store" });
+        }, 12 * 60 * 1000); // 12 minutes
     </script>
 </body>
 </html> 
