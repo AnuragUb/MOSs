@@ -408,6 +408,11 @@ function exportWithSettings() {
     }
 }
 
+function getExportFileName(extension) {
+    const settings = JSON.parse(localStorage.getItem('exportSettings')) || {};
+    return (settings.fileName || 'exported_file') + '.' + extension;
+}
+
 function exportToExcelWorkbook(payload) {
     console.log('Starting Excel export with payload:', payload);
     fetch('/api/export/excel', {
@@ -434,7 +439,7 @@ function exportToExcelWorkbook(payload) {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${exportSettings.fileName}.xlsx`;
+        a.download = getExportFileName('xlsx');
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -474,7 +479,7 @@ function exportToCSV(payload) {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${exportSettings.fileName}.csv`;
+        a.download = getExportFileName('csv');
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
