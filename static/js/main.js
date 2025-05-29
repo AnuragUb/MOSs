@@ -1146,6 +1146,20 @@ function loadCueSheetStructure(header) {
     updateMarkerTable();
 }
 
+function extractFieldValue(headerRows, fieldName) {
+    for (const row of headerRows) {
+        if (row[0] && row[0].toLowerCase().includes(fieldName)) {
+            // Search for the first non-empty cell after the field name
+            for (let i = 1; i < row.length; i++) {
+                if (row[i] && row[i].trim() !== '') {
+                    return row[i].trim();
+                }
+            }
+        }
+    }
+    return '';
+}
+
 function loadCueSheetData(header, data) {
     // Map file columns to app columns using mapping
     let lowerHeader = header.map(h => h.trim().toLowerCase());
@@ -1170,33 +1184,10 @@ function loadCueSheetData(header, data) {
 
     // Extract and save show information
     const showInfo = {
-        showName: 'Unknown_Show',
-        season: '',
-        episodeNumber: ''
+        showName: extractFieldValue(headerRows, 'series title'),
+        season: extractFieldValue(headerRows, 'season'),
+        episodeNumber: extractFieldValue(headerRows, 'episode number')
     };
-
-    // Look for show information in header rows
-    headerRows.forEach(row => {
-        const rowStr = row.join(' ').toLowerCase();
-        if (rowStr.includes('series title')) {
-            const titleIndex = row.findIndex(cell => cell.toLowerCase().includes('series title'));
-            if (titleIndex !== -1 && row[titleIndex + 1]) {
-                showInfo.showName = row[titleIndex + 1].trim();
-            }
-        }
-        if (rowStr.includes('season')) {
-            const seasonIndex = row.findIndex(cell => cell.toLowerCase().includes('season'));
-            if (seasonIndex !== -1 && row[seasonIndex + 1]) {
-                showInfo.season = row[seasonIndex + 1].trim();
-            }
-        }
-        if (rowStr.includes('episode number')) {
-            const episodeIndex = row.findIndex(cell => cell.toLowerCase().includes('episode number'));
-            if (episodeIndex !== -1 && row[episodeIndex + 1]) {
-                showInfo.episodeNumber = row[episodeIndex + 1].trim();
-            }
-        }
-    });
 
     // --- BEGIN: Logging for show info extraction ---
     if (!showInfo.showName || showInfo.showName === 'Unknown_Show') {
