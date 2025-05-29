@@ -248,107 +248,162 @@ function exportWithSettings() {
     const selectedFields = settings.fieldsToExport;
     
     // Prepare the data based on settings
-    const data = prepareExportData(settings);
+    const exportData = prepareExportData(settings);
+    
+    // Show loading indicator
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'loading-indicator';
+    loadingIndicator.textContent = 'Exporting...';
+    document.body.appendChild(loadingIndicator);
     
     // Export based on file type
-    switch (settings.fileType) {
-        case 'excel':
-            exportToExcelWorkbook(data, settings);
-            break;
-        case 'csv':
-            exportToCSV(data, settings);
-            break;
-        case 'plain':
-            exportToPlainExcel(data, settings);
-            break;
+    try {
+        switch(settings.fileType) {
+            case 'excel':
+                exportToExcelWorkbook(exportData, settings);
+                break;
+            case 'csv':
+                exportToCSV(exportData, settings);
+                break;
+            case 'plain':
+                exportToPlainExcel(exportData, settings);
+                break;
+            default:
+                throw new Error('Invalid file type');
+        }
+    } catch (error) {
+        console.error('Export failed:', error);
+        alert('Export failed: ' + error.message);
+    } finally {
+        // Remove loading indicator
+        loadingIndicator.remove();
     }
 }
 
 function prepareExportData(settings) {
+    // Get all marker rows
+    const rows = Array.from(document.querySelectorAll('.table tbody tr'));
+    
+    // Prepare data array
     const data = [];
     
-    // Add header rows if enabled
-    if (settings.includeHeader && window.headerRows) {
-        data.push(...window.headerRows);
+    // Add header if enabled
+    if (settings.includeHeader) {
+        const headerData = {};
+        window.headerRows.forEach((row, index) => {
+            row.forEach((cell, cellIndex) => {
+                if (cellIndex % 2 === 0 && cell) {
+                    const key = cell.trim();
+                    const value = row[cellIndex + 1] || '';
+                    headerData[key] = value;
+                }
+            });
+        });
+        data.push(headerData);
     }
     
-    // Add column headers
-    const headers = selectedFields.map(field => {
-        const th = document.querySelector(`th[data-field="${field}"]`);
-        return th ? th.textContent.trim() : field;
-    });
-    data.push(headers);
-    
     // Add marker data
-    window.markers.forEach(marker => {
-        const row = selectedFields.map(field => {
-            let value = marker[field] || '';
-            
-            // Format TCR values if needed
-            if ((field === 'tcrIn' || field === 'tcrOut') && value) {
-                value = formatTCR(value, settings.tcrFormat);
+    rows.forEach(row => {
+        const rowData = {};
+        settings.fieldsToExport.forEach(field => {
+            const cell = row.querySelector(`[data-field="${field}"]`);
+            if (cell) {
+                let value = cell.textContent.trim();
+                
+                // Format TCR if needed
+                if (field.toLowerCase().includes('tcr')) {
+                    value = formatTCR(value, settings.tcrFormat);
+                }
+                
+                rowData[field] = value;
             }
-            
-            return value;
         });
-        data.push(row);
+        data.push(rowData);
     });
     
     return data;
 }
 
 function formatTCR(timecode, format) {
+    if (!timecode) return '';
+    
+    // Parse the timecode
+    const [hours, minutes, seconds, frames] = timecode.split(':').map(Number);
+    
     if (format === 'time') {
-        // Convert HH:MM:SS:FF to HH:MM:SS
-        return timecode.split(':').slice(0, 3).join(':');
+        // Convert to HH:MM:SS
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
+    
+    // Return original timecode format
     return timecode;
 }
 
 function exportToExcelWorkbook(data, settings) {
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Markers');
-    
-    // Apply styling
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for (let R = range.s.r; R <= range.e.r; R++) {
-        for (let C = range.s.c; C <= range.e.c; C++) {
-            const cell_address = { c: C, r: R };
-            const cell_ref = XLSX.utils.encode_cell(cell_address);
-            if (!ws[cell_ref]) continue;
-            
-            ws[cell_ref].s = {
-                font: { sz: 11 },
-                alignment: { vertical: 'center' }
-            };
+    // Send data to server for Excel export
+    fetch('/api/export/excel', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Export failed');
         }
-    }
-    
-    // Write the file
-    XLSX.writeFile(wb, `${settings.fileName}.xlsx`);
+        return response.blob();
+    })
+    .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${settings.fileName}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    })
+    .catch(error => {
+        console.error('Excel export failed:', error);
+        throw error;
+    });
 }
 
 function exportToCSV(data, settings) {
-    const csvContent = data.map(row => 
-        row.map(field => {
-            if (typeof field === 'string' && (field.includes(',') || field.includes('"'))) {
-                return `"${field.replace(/"/g, '""')}"`;
-            }
-            return field;
-        }).join(',')
-    ).join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${settings.fileName}.csv`;
-    link.click();
+    // Send data to server for CSV export
+    fetch('/api/export/csv', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Export failed');
+        }
+        return response.blob();
+    })
+    .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${settings.fileName}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    })
+    .catch(error => {
+        console.error('CSV export failed:', error);
+        throw error;
+    });
 }
 
 function exportToPlainExcel(data, settings) {
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Markers');
-    XLSX.writeFile(wb, `${settings.fileName}.xlsx`);
+    // This is similar to Excel workbook but with simpler formatting
+    exportToExcelWorkbook(data, settings);
 } 

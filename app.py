@@ -102,16 +102,63 @@ def handle_markers():
 
 @app.route('/api/export/<format>', methods=['POST'])
 def export_markers(format):
-    markers = request.json
-    
-    if format == 'excel':
-        # Handle Excel export
-        return jsonify({'status': 'success', 'message': 'Excel export handled by frontend'})
-    elif format == 'csv':
-        # Handle CSV export
-        return jsonify({'status': 'success', 'message': 'CSV export handled by frontend'})
-    else:
-        return jsonify({'error': 'Invalid export format'}), 400
+    try:
+        markers = request.json
+        if not markers:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Create a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{format}') as temp_file:
+            temp_path = temp_file.name
+
+        if format == 'excel':
+            # Convert markers to DataFrame
+            df = pd.DataFrame(markers)
+            
+            # Create Excel writer
+            with pd.ExcelWriter(temp_path, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Markers')
+                
+            # Read the file and send it
+            with open(temp_path, 'rb') as f:
+                file_data = f.read()
+            
+            # Clean up
+            os.unlink(temp_path)
+            
+            return send_file(
+                io.BytesIO(file_data),
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name='markers.xlsx'
+            )
+            
+        elif format == 'csv':
+            # Convert markers to DataFrame
+            df = pd.DataFrame(markers)
+            
+            # Save to CSV
+            df.to_csv(temp_path, index=False)
+            
+            # Read the file and send it
+            with open(temp_path, 'rb') as f:
+                file_data = f.read()
+            
+            # Clean up
+            os.unlink(temp_path)
+            
+            return send_file(
+                io.BytesIO(file_data),
+                mimetype='text/csv',
+                as_attachment=True,
+                download_name='markers.csv'
+            )
+        else:
+            return jsonify({'error': 'Invalid export format'}), 400
+            
+    except Exception as e:
+        logger.error(f"Error exporting markers: {str(e)}")
+        return jsonify({'error': f'Export failed: {str(e)}'}), 500
 
 @app.route('/api/usage-stats', methods=['GET', 'POST'])
 def handle_usage_stats():
