@@ -121,10 +121,9 @@ def export_markers(format):
                 df = pd.DataFrame(markers)
                 logger.info(f"Created DataFrame with shape: {df.shape}")
                 
-                # Create Excel writer with explicit engine and options
-                with pd.ExcelWriter(temp_path, engine='openpyxl', mode='w') as writer:
-                    df.to_excel(writer, index=False, sheet_name='Markers')
-                    logger.info("Excel file written successfully")
+                # Save to Excel using to_excel directly
+                df.to_excel(temp_path, index=False, sheet_name='Markers', engine='openpyxl')
+                logger.info("Excel file written successfully")
                 
                 # Read the file and send it
                 with open(temp_path, 'rb') as f:
