@@ -26,8 +26,21 @@ let manualEdits = {};
 // Add at the top with other global variables
 let isSequenceReversed = false;
 
-// Add these variables at the top with other global variables
-let markedRows = new Set();
+// --- Marked Rows as Object with Color ---
+let markedRows = {}; // { rowIndex: 'yellow' | 'red' }
+
+// Load markedRows from localStorage on page load
+(function() {
+    try {
+        const savedMarkedRows = localStorage.getItem('markedRows');
+        if (savedMarkedRows) markedRows = JSON.parse(savedMarkedRows);
+    } catch (e) { markedRows = {}; }
+})();
+
+// Save markedRows to localStorage
+function saveMarkedRows() {
+    localStorage.setItem('markedRows', JSON.stringify(markedRows));
+}
 
 // Update default columns to include 'Title'
 const defaultMarkerColumns = [
@@ -637,10 +650,9 @@ function updateMarkerTable() {
         const actualIndex = isSequenceReversed ? markers.length - 1 - displayIndex : displayIndex;
         const row = document.createElement('tr');
         
-        // Add marked class if the row is marked
-        if (markedRows.has(actualIndex)) {
-            row.classList.add('marked-yellow');
-        }
+        // --- Apply color class if marked ---
+        if (markedRows[actualIndex] === 'yellow') row.classList.add('marked-yellow');
+        if (markedRows[actualIndex] === 'red') row.classList.add('marked-red');
         
         // Add checkbox cell
         const checkboxCell = document.createElement('td');
@@ -1475,8 +1487,10 @@ function initializeRowMarking() {
     const rowMarkBtn = document.getElementById('rowMarkBtn');
     const rowMarkModal = document.getElementById('rowMarkModal');
     const closeBtn = rowMarkModal.querySelector('.close');
-    const markButtons = rowMarkModal.querySelectorAll('.mark-btn');
-    
+    const markYellowBtn = rowMarkModal.querySelector('.mark-btn.yellow');
+    const markRedBtn = rowMarkModal.querySelector('.mark-btn.red');
+    const unmarkBtn = rowMarkModal.querySelector('.mark-btn.unmark');
+
     rowMarkBtn.addEventListener('click', () => {
         const selectedRows = document.querySelectorAll('.row-checkbox:checked');
         if (selectedRows.length === 0) {
@@ -1490,32 +1504,35 @@ function initializeRowMarking() {
         rowMarkModal.style.display = 'none';
     });
     
-    markButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const color = btn.classList.contains('yellow') ? 'yellow' : 'red';
-            const selectedRows = document.querySelectorAll('.row-checkbox:checked');
-            
-            selectedRows.forEach(checkbox => {
-                const row = checkbox.closest('tr');
-                const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
-                
-                // Remove existing marks
-                row.classList.remove('marked-yellow', 'marked-red');
-                
-                // Add new mark
-                row.classList.add(`marked-${color}`);
-                
-                // Update markedRows set
-                if (color === 'yellow') {
-                    markedRows.add(rowIndex);
-                } else {
-                    markedRows.delete(rowIndex);
-                }
-            });
-            
+    markYellowBtn.addEventListener('click', () => {
+        markSelectedRows('yellow');
+        rowMarkModal.style.display = 'none';
+    });
+    markRedBtn.addEventListener('click', () => {
+        markSelectedRows('red');
+        rowMarkModal.style.display = 'none';
+    });
+    if (unmarkBtn) {
+        unmarkBtn.addEventListener('click', () => {
+            markSelectedRows(null);
             rowMarkModal.style.display = 'none';
         });
+    }
+}
+
+function markSelectedRows(color) {
+    const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+        if (color) {
+            markedRows[rowIndex] = color;
+        } else {
+            delete markedRows[rowIndex];
+        }
     });
+    saveMarkedRows();
+    updateMarkerTable();
 }
 
 function initializeColumnResize() {
@@ -1635,4 +1652,11 @@ function exportWithSettings() {
         console.error('Error during export:', error);
         alert('Error during export: ' + error.message);
     }
+}
+
+// --- Add markColor to marker data for export ---
+function getMarkersWithMarkColor() {
+    return markers.map((marker, idx) => {
+        return { ...marker, markColor: markedRows[idx] || '' };
+    });
 } 

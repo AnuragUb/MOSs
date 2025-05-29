@@ -15,6 +15,7 @@ import vlc
 import sys
 import platform
 import openpyxl
+from openpyxl.styles import PatternFill
 import csv
 
 app = Flask(__name__)
@@ -128,6 +129,21 @@ def export_markers(format):
                 for row in markers:
                     ws.append(list(row.values()))
             # --- END: Write marker table ---
+
+            # --- BEGIN: Color marked rows ---
+            yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+            red_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
+            # Metadata rows + header row
+            start_row = len(header_rows) + 2 if markers else len(header_rows) + 1
+            for i, marker in enumerate(markers):
+                color = marker.get('markColor', '')
+                if color == 'yellow':
+                    for cell in ws[start_row + i]:
+                        cell.fill = yellow_fill
+                elif color == 'red':
+                    for cell in ws[start_row + i]:
+                        cell.fill = red_fill
+            # --- END: Color marked rows ---
 
             wb.save(temp_path)
             with open(temp_path, 'rb') as f:

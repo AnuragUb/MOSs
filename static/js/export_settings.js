@@ -369,7 +369,16 @@ function exportWithSettings() {
 
         // --- BEGIN: Prepare export payload with metadata and marker data ---
         const headerRows = JSON.parse(localStorage.getItem('headerRows')) || [];
-        const markers = JSON.parse(localStorage.getItem('markers')) || [];
+        // Get markers and add markColor
+        let markers = [];
+        if (typeof window.getMarkersWithMarkColor === 'function') {
+            markers = window.getMarkersWithMarkColor();
+        } else {
+            // Fallback: add markColor from localStorage.markedRows
+            const rawMarkers = JSON.parse(localStorage.getItem('markers')) || [];
+            const markedRows = JSON.parse(localStorage.getItem('markedRows')) || {};
+            markers = rawMarkers.map((marker, idx) => ({ ...marker, markColor: markedRows[idx] || '' }));
+        }
         const exportPayload = { headerRows, markers };
         // --- END: Prepare export payload with metadata and marker data ---
 
