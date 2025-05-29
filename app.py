@@ -107,55 +107,76 @@ def export_markers(format):
         if not markers:
             return jsonify({'error': 'No data provided'}), 400
 
+        logger.info(f"Received export request for format: {format}")
+        logger.info(f"Data received: {json.dumps(markers[:2], indent=2)}...")  # Log first two items
+
         # Create a temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{format}') as temp_file:
             temp_path = temp_file.name
+            logger.info(f"Created temporary file: {temp_path}")
 
-        if format == 'excel':
-            # Convert markers to DataFrame
-            df = pd.DataFrame(markers)
-            
-            # Create Excel writer
-            with pd.ExcelWriter(temp_path, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Markers')
+        try:
+            if format == 'excel':
+                # Convert markers to DataFrame
+                df = pd.DataFrame(markers)
+                logger.info(f"Created DataFrame with shape: {df.shape}")
                 
-            # Read the file and send it
-            with open(temp_path, 'rb') as f:
-                file_data = f.read()
-            
-            # Clean up
-            os.unlink(temp_path)
-            
-            return send_file(
-                io.BytesIO(file_data),
-                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                as_attachment=True,
-                download_name='markers.xlsx'
-            )
-            
-        elif format == 'csv':
-            # Convert markers to DataFrame
-            df = pd.DataFrame(markers)
-            
-            # Save to CSV
-            df.to_csv(temp_path, index=False)
-            
-            # Read the file and send it
-            with open(temp_path, 'rb') as f:
-                file_data = f.read()
-            
-            # Clean up
-            os.unlink(temp_path)
-            
-            return send_file(
-                io.BytesIO(file_data),
-                mimetype='text/csv',
-                as_attachment=True,
-                download_name='markers.csv'
-            )
-        else:
-            return jsonify({'error': 'Invalid export format'}), 400
-            
+                # Create Excel writer
+                with pd.ExcelWriter(temp_path, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Markers')
+                    logger.info("Excel file written successfully")
+                
+                # Read the file and send it
+                with open(temp_path, 'rb') as f:
+                    file_data = f.read()
+                logger.info(f"Read {len(file_data)} bytes from Excel file")
+                
+                # Clean up
+                os.unlink(temp_path)
+                logger.info("Temporary file cleaned up")
+                
+                return send_file(
+                    io.BytesIO(file_data),
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    as_attachment=True,
+                    download_name='markers.xlsx'
+                )
+                
+            elif format == 'csv':
+                # Convert markers to DataFrame
+                df = pd.DataFrame(markers)
+                logger.info(f"Created DataFrame with shape: {df.shape}")
+                
+                # Save to CSV
+                df.to_csv(temp_path, index=False)
+                logger.info("CSV file written successfully")
+                
+                # Read the file and send it
+                with open(temp_path, 'rb') as f:
+                    file_data = f.read()
+                logger.info(f"Read {len(file_data)} bytes from CSV file")
+                
+                # Clean up
+                os.unlink(temp_path)
+                logger.info("Temporary file cleaned up")
+                
+                return send_file(
+                    io.BytesIO(file_data),
+                    mimetype='text/csv',
+                    as_attachment=True,
+                    download_name='markers.csv'
+                )
+            else:
+                logger.error(f"Invalid export format requested: {format}")
+                return jsonify({'error': 'Invalid export format'}), 400
+                
+        except Exception as e:
+            logger.error(f"Error processing export: {str(e)}")
+            # Clean up temp file if it exists
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+            raise
+                
     except Exception as e:
         logger.error(f"Error exporting markers: {str(e)}")
         return jsonify({'error': f'Export failed: {str(e)}'}), 500

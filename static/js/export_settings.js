@@ -483,6 +483,8 @@ function formatTCR(timecode, format) {
 }
 
 function exportToExcelWorkbook(data) {
+    console.log('Starting Excel export with data:', data.slice(0, 2));  // Log first two items
+    
     // Send data to server for Excel export
     fetch('/api/export/excel', {
         method: 'POST',
@@ -492,12 +494,20 @@ function exportToExcelWorkbook(data) {
         body: JSON.stringify(data)
     })
     .then(response => {
+        console.log('Server response status:', response.status);
         if (!response.ok) {
-            throw new Error('Export failed');
+            return response.json().then(err => {
+                throw new Error(err.error || 'Export failed');
+            });
         }
         return response.blob();
     })
     .then(blob => {
+        console.log('Received blob of size:', blob.size);
+        if (blob.size === 0) {
+            throw new Error('Received empty file from server');
+        }
+        
         // Create download link
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -507,9 +517,11 @@ function exportToExcelWorkbook(data) {
         a.click();
         window.URL.revokeObjectURL(url);
         a.remove();
+        console.log('Excel file downloaded successfully');
     })
     .catch(error => {
         console.error('Excel export failed:', error);
+        alert('Export failed: ' + error.message);
         throw error;
     });
 }
