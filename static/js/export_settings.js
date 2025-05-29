@@ -262,28 +262,28 @@ function updateFileNamePreview() {
     try {
         const fileNameInput = document.getElementById('fileName');
         const preview = document.querySelector('.file-name-preview');
-        
         if (!fileNameInput || !preview) {
             console.warn('File name input or preview element not found');
             return;
         }
-        
-        // Get show name and episode info from localStorage or use defaults
         const showInfo = JSON.parse(localStorage.getItem('showInfo')) || {
             showName: 'Unknown_Show',
             season: '',
             episodeNumber: ''
         };
-        
+        if (!showInfo.showName || showInfo.showName === 'Unknown_Show') {
+            console.warn('Show name not found in localStorage. File name will use default.');
+        }
+        if (!showInfo.season) {
+            console.warn('Season not found in localStorage. File name will not include season.');
+        }
+        if (!showInfo.episodeNumber) {
+            console.warn('Episode number not found in localStorage. File name will not include episode number.');
+        }
         let fileName = showInfo.showName;
-        if (showInfo.season) {
-            fileName += `_Season${showInfo.season}`;
-        }
-        if (showInfo.episodeNumber) {
-            fileName += `_${showInfo.episodeNumber.padStart(4, '0')}`;
-        }
+        if (showInfo.season) fileName += `_Season${showInfo.season}`;
+        if (showInfo.episodeNumber) fileName += `_${showInfo.episodeNumber.padStart(4, '0')}`;
         fileName += '_Unmix HD_MusicCueSheet';
-        
         exportSettings.fileName = fileName;
         fileNameInput.value = fileName;
         preview.textContent = `Preview: ${fileName}.${exportSettings.fileType === 'csv' ? 'csv' : 'xlsx'}`;

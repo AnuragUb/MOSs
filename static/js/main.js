@@ -1198,6 +1198,24 @@ function loadCueSheetData(header, data) {
         }
     });
 
+    // --- BEGIN: Logging for show info extraction ---
+    if (!showInfo.showName || showInfo.showName === 'Unknown_Show') {
+        console.warn('Show name not found in imported file. Using default.');
+    } else {
+        console.log('Show name found:', showInfo.showName);
+    }
+    if (!showInfo.season) {
+        console.warn('Season not found in imported file.');
+    } else {
+        console.log('Season found:', showInfo.season);
+    }
+    if (!showInfo.episodeNumber) {
+        console.warn('Episode number not found in imported file.');
+    } else {
+        console.log('Episode number found:', showInfo.episodeNumber);
+    }
+    // --- END: Logging for show info extraction ---
+
     // Save show information to localStorage
     localStorage.setItem('showInfo', JSON.stringify(showInfo));
 
