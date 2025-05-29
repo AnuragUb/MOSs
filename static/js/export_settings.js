@@ -58,17 +58,26 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeExportSettings() {
-    // Get all available fields from the marker table
-    const tableHeaders = document.querySelectorAll('.table thead th');
-    const availableFields = Array.from(tableHeaders)
-        .map(th => ({
-            name: th.textContent.trim(),
-            key: th.dataset.field || th.textContent.toLowerCase().replace(/[^a-z0-9]/g, '')
-        }))
-        .filter(field => field.key && field.key !== 'seq' && field.key !== 'recognize');
-
-    // Set default fields to export
-    exportSettings.fieldsToExport = availableFields.map(field => field.key);
+    // Get fields from localStorage if available
+    const savedFields = localStorage.getItem('exportFields');
+    if (savedFields) {
+        exportSettings.fieldsToExport = JSON.parse(savedFields);
+    } else {
+        // Default fields if none are saved
+        exportSettings.fieldsToExport = [
+            'tcrIn',
+            'tcrOut',
+            'duration',
+            'usage',
+            'title',
+            'filmTitle',
+            'composer',
+            'lyricist',
+            'musicCo',
+            'nocId',
+            'nocTitle'
+        ];
+    }
 }
 
 function loadSavedSettings() {
@@ -180,30 +189,49 @@ function setupEventListeners() {
 
 function populateFieldsToExport() {
     const fieldsContainer = document.querySelector('.fields-container');
+    if (!fieldsContainer) return;
+
     fieldsContainer.innerHTML = '';
 
-    const tableHeaders = document.querySelectorAll('.table thead th');
-    Array.from(tableHeaders).forEach(th => {
-        const fieldKey = th.dataset.field || th.textContent.toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (fieldKey && fieldKey !== 'seq' && fieldKey !== 'recognize') {
-            const label = document.createElement('label');
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.value = fieldKey;
-            checkbox.checked = exportSettings.fieldsToExport.includes(fieldKey);
-            
-            checkbox.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    exportSettings.fieldsToExport.push(fieldKey);
-                } else {
-                    exportSettings.fieldsToExport = exportSettings.fieldsToExport.filter(f => f !== fieldKey);
-                }
-            });
+    // Use default fields if no saved fields
+    const fields = exportSettings.fieldsToExport.length > 0 ? 
+        exportSettings.fieldsToExport : 
+        ['tcrIn', 'tcrOut', 'duration', 'usage', 'title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'];
 
-            label.appendChild(checkbox);
-            label.appendChild(document.createTextNode(th.textContent.trim()));
-            fieldsContainer.appendChild(label);
-        }
+    const fieldLabels = {
+        'tcrIn': 'TCR In',
+        'tcrOut': 'TCR Out',
+        'duration': 'Duration',
+        'usage': 'Usage',
+        'title': 'Title',
+        'filmTitle': 'Film/Album Title',
+        'composer': 'Composer',
+        'lyricist': 'Lyricist',
+        'musicCo': 'Music Co',
+        'nocId': 'NOC ID',
+        'nocTitle': 'NOC Title'
+    };
+
+    fields.forEach(fieldKey => {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = fieldKey;
+        checkbox.checked = exportSettings.fieldsToExport.includes(fieldKey);
+        
+        checkbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                exportSettings.fieldsToExport.push(fieldKey);
+            } else {
+                exportSettings.fieldsToExport = exportSettings.fieldsToExport.filter(f => f !== fieldKey);
+            }
+            // Save fields to localStorage
+            localStorage.setItem('exportFields', JSON.stringify(exportSettings.fieldsToExport));
+        });
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(fieldLabels[fieldKey] || fieldKey));
+        fieldsContainer.appendChild(label);
     });
 }
 
@@ -217,17 +245,19 @@ function updateFileNamePreview() {
             return;
         }
         
-        // Extract show name and episode number from header rows
-        const showName = extractShowName();
-        const episodeNumber = extractEpisodeNumber();
-        const season = extractSeason();
+        // Get show name and episode info from localStorage or use defaults
+        const showInfo = JSON.parse(localStorage.getItem('showInfo')) || {
+            showName: 'Unknown_Show',
+            season: '',
+            episodeNumber: ''
+        };
         
-        let fileName = showName;
-        if (season) {
-            fileName += `_Season${season}`;
+        let fileName = showInfo.showName;
+        if (showInfo.season) {
+            fileName += `_Season${showInfo.season}`;
         }
-        if (episodeNumber) {
-            fileName += `_${episodeNumber.padStart(4, '0')}`;
+        if (showInfo.episodeNumber) {
+            fileName += `_${showInfo.episodeNumber.padStart(4, '0')}`;
         }
         fileName += '_Unmix HD_MusicCueSheet';
         
@@ -237,39 +267,6 @@ function updateFileNamePreview() {
     } catch (error) {
         console.error('Error updating file name preview:', error);
     }
-}
-
-function extractShowName() {
-    const headerRows = window.headerRows || [];
-    for (const row of headerRows) {
-        const seriesTitleIndex = row.findIndex(cell => cell.toLowerCase().includes('series title'));
-        if (seriesTitleIndex !== -1 && row[seriesTitleIndex + 1]) {
-            return row[seriesTitleIndex + 1].trim();
-        }
-    }
-    return 'Unknown_Show';
-}
-
-function extractEpisodeNumber() {
-    const headerRows = window.headerRows || [];
-    for (const row of headerRows) {
-        const episodeIndex = row.findIndex(cell => cell.toLowerCase().includes('episode number'));
-        if (episodeIndex !== -1 && row[episodeIndex + 1]) {
-            return row[episodeIndex + 1].trim();
-        }
-    }
-    return '0000';
-}
-
-function extractSeason() {
-    const headerRows = window.headerRows || [];
-    for (const row of headerRows) {
-        const seasonIndex = row.findIndex(cell => cell.toLowerCase().includes('season'));
-        if (seasonIndex !== -1 && row[seasonIndex + 1]) {
-            return row[seasonIndex + 1].trim();
-        }
-    }
-    return null;
 }
 
 function applySettingsToUI() {

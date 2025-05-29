@@ -1155,6 +1155,40 @@ function loadCueSheetData(header, data) {
         });
         return marker;
     });
+
+    // Extract and save show information
+    const showInfo = {
+        showName: 'Unknown_Show',
+        season: '',
+        episodeNumber: ''
+    };
+
+    // Look for show information in header rows
+    headerRows.forEach(row => {
+        const rowStr = row.join(' ').toLowerCase();
+        if (rowStr.includes('series title')) {
+            const titleIndex = row.findIndex(cell => cell.toLowerCase().includes('series title'));
+            if (titleIndex !== -1 && row[titleIndex + 1]) {
+                showInfo.showName = row[titleIndex + 1].trim();
+            }
+        }
+        if (rowStr.includes('season')) {
+            const seasonIndex = row.findIndex(cell => cell.toLowerCase().includes('season'));
+            if (seasonIndex !== -1 && row[seasonIndex + 1]) {
+                showInfo.season = row[seasonIndex + 1].trim();
+            }
+        }
+        if (rowStr.includes('episode number')) {
+            const episodeIndex = row.findIndex(cell => cell.toLowerCase().includes('episode number'));
+            if (episodeIndex !== -1 && row[episodeIndex + 1]) {
+                showInfo.episodeNumber = row[episodeIndex + 1].trim();
+            }
+        }
+    });
+
+    // Save show information to localStorage
+    localStorage.setItem('showInfo', JSON.stringify(showInfo));
+
     updateMarkerTable();
 }
 
