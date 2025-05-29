@@ -860,75 +860,71 @@ function initializeResizeHandles() {
 }
 
 function setupKeyboardShortcuts() {
+    let arrowInterval = null;
+    let arrowTimeout = null;
     document.addEventListener('keydown', function(e) {
         const videoPlayer = document.getElementById('videoPlayer');
         const tableBody = document.getElementById('markerTableBody');
         const activeElement = document.activeElement;
-        
-        // Handle space bar based on focused element
+        // If in input/select, let default behavior for arrows
+        if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
+            if (e.code === 'Space') return; // Let input handle space
+            return;
+        }
+        // Space bar toggles video
         if (e.code === 'Space') {
-            if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
-                return; // Let the input handle its own space
-            }
-            
             e.preventDefault();
             if (videoPlayer) {
-                if (videoPlayer.paused) {
-                    videoPlayer.play();
-                } else {
-                    videoPlayer.pause();
-                }
+                if (videoPlayer.paused) videoPlayer.play();
+                else videoPlayer.pause();
             }
             return;
         }
-        
-        // Handle delete key
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
-                return; // Let the input handle its own deletion
+        // Arrow keys for video seek
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            let seekAmount = 5;
+            let direction = e.key === 'ArrowRight' ? 1 : -1;
+            if (!arrowInterval) {
+                videoPlayer.currentTime += direction * seekAmount;
+                arrowInterval = setInterval(() => {
+                    videoPlayer.currentTime += direction * seekAmount;
+                }, 150);
             }
+            clearTimeout(arrowTimeout);
+            arrowTimeout = setTimeout(() => {
+                clearInterval(arrowInterval);
+                arrowInterval = null;
+            }, 400);
+            return;
+        }
+        // Frame-by-frame: > (period) and < (comma)
+        if (e.key === '>' || (e.shiftKey && e.key === '.')) {
+            e.preventDefault();
+            if (videoPlayer) {
+                videoPlayer.pause();
+                videoPlayer.currentTime += 1 / (window.frameRate || 25);
+            }
+            return;
+        }
+        if (e.key === '<' || (e.shiftKey && e.key === ',')) {
+            e.preventDefault();
+            if (videoPlayer) {
+                videoPlayer.pause();
+                videoPlayer.currentTime -= 1 / (window.frameRate || 25);
+            }
+            return;
+        }
+        // Delete key
+        if (e.key === 'Delete' || e.key === 'Backspace') {
             deleteSelectedRows();
             return;
         }
-        
-        // Arrow key controls for table navigation
-        if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
-            return; // Let inputs handle their own arrow keys
-        }
-        
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-            e.preventDefault();
-            const scrollAmount = 50;
-            if (e.key === 'ArrowLeft') {
-                tableBody.scrollLeft -= scrollAmount;
-            } else {
-                tableBody.scrollLeft += scrollAmount;
-            }
-        }
-        
-        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-            e.preventDefault();
-            const scrollAmount = 30;
-            if (e.key === 'ArrowUp') {
-                tableBody.scrollTop -= scrollAmount;
-            } else {
-                tableBody.scrollTop += scrollAmount;
-            }
-        }
-        
-        // Existing keyboard shortcuts
-        if (e.altKey) {
-            if (e.key === '1') {
-                e.preventDefault();
-                if (isSingleButtonMode) {
-                    markTCR(isNextMarkTcrIn ? 'in' : 'out');
-                } else {
-                    markTCR('in');
-                }
-            } else if (e.key === '2' && !isSingleButtonMode) {
-                e.preventDefault();
-                markTCR('out');
-            }
+    });
+    document.addEventListener('keyup', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            clearInterval(arrowInterval);
+            arrowInterval = null;
         }
     });
 }
@@ -1433,33 +1429,44 @@ function initializeRowMarking() {
 function initializeColumnResize() {
     const table = document.querySelector('.table');
     const headers = table.querySelectorAll('th');
-    
     headers.forEach(header => {
-        const handle = document.createElement('div');
-        handle.className = 'resize-handle';
-        header.appendChild(handle);
-        
         let startX, startWidth;
-        
+        let resizing = false;
+        let handle = header.querySelector('.resize-handle');
+        if (!handle) {
+            handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            header.appendChild(handle);
+        }
         handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            resizing = true;
             startX = e.pageX;
             startWidth = header.offsetWidth;
-            
-            const mouseMoveHandler = (e) => {
-                const width = startWidth + (e.pageX - startX);
-                if (width > 50) { // Minimum width
-                    header.style.width = `${width}px`;
-                }
-            };
-            
-            const mouseUpHandler = () => {
-                document.removeEventListener('mousemove', mouseMoveHandler);
-                document.removeEventListener('mouseup', mouseUpHandler);
-            };
-            
-            document.addEventListener('mousemove', mouseMoveHandler);
-            document.addEventListener('mouseup', mouseUpHandler);
+            document.body.style.cursor = 'col-resize';
+            document.addEventListener('mousemove', resize);
+            document.addEventListener('mouseup', stopResize);
         });
+        function resize(e) {
+            if (!resizing) return;
+            const width = startWidth + (e.pageX - startX);
+            if (width > 50) {
+                header.style.width = `${width}px`;
+                // Also set width for all cells in this column
+                const colIndex = Array.from(header.parentNode.children).indexOf(header);
+                document.querySelectorAll(`.table tr`).forEach(row => {
+                    if (row.children[colIndex]) {
+                        row.children[colIndex].style.width = `${width}px`;
+                    }
+                });
+            }
+        }
+        function stopResize() {
+            resizing = false;
+            document.body.style.cursor = '';
+            document.removeEventListener('mousemove', resize);
+            document.removeEventListener('mouseup', stopResize);
+        }
     });
 }
 
@@ -1474,5 +1481,38 @@ function setupSeqHeaderDoubleClick() {
 }
 
 function exportWithSettings() {
-    // Implementation of exportWithSettings function
+    // Ensure export_settings.js logic is available
+    if (typeof window.exportToExcelWorkbook !== 'function' || typeof window.exportToCSV !== 'function' || typeof window.exportToPlainExcel !== 'function') {
+        alert('Export logic is not loaded. Please refresh the page.');
+        return;
+    }
+    // Get settings from localStorage or default
+    const settings = JSON.parse(localStorage.getItem('exportSettings')) || {
+        fileName: '',
+        fileType: 'excel',
+        downloadLocation: 'ask',
+        customLocation: '',
+        includeHeader: true,
+        fieldsToExport: [],
+        tcrFormat: 'timecode'
+    };
+    // Make sure window.markers and window.headerRows are up to date
+    window.markers = markers;
+    window.headerRows = headerRows;
+    // Prepare the data based on settings
+    const data = typeof prepareExportData === 'function' ? prepareExportData(settings) : [];
+    // Export based on file type
+    switch (settings.fileType) {
+        case 'excel':
+            exportToExcelWorkbook(data, settings);
+            break;
+        case 'csv':
+            exportToCSV(data, settings);
+            break;
+        case 'plain':
+            exportToPlainExcel(data, settings);
+            break;
+        default:
+            alert('Unknown export file type.');
+    }
 } 
