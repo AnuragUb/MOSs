@@ -609,20 +609,33 @@ body {
     box-shadow: 0 0 0 2px var(--accent-color);
 }
 
-/* Resizable inputs */
+/* Table input styles */
 .table-input {
     width: 100%;
     min-width: 100px;
     min-height: 20px;
     resize: both;
     overflow: auto;
-    padding: 4px;
+    padding: 4px 8px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     background: var(--bg-tertiary);
     color: var(--text-primary);
     font-family: inherit;
     font-size: 1em;
+    transition: all 0.2s ease;
+}
+
+.table-input:hover {
+    border-color: var(--accent-color);
+    background: var(--bg-secondary);
+}
+
+.table-input:focus {
+    border-color: var(--accent-color);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(127, 156, 245, 0.2);
+    background: var(--bg-secondary);
 }
 
 /* Make title columns and onwards expandable */
@@ -642,32 +655,51 @@ body {
     min-height: 20px;
     resize: both;
     overflow: auto;
-    background: var(--bg-tertiary);
+}
+
+/* TCR Cell Styles */
+.tcr-cell {
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.tcr-cell:hover {
+    background-color: rgba(127, 156, 245, 0.1);
+}
+
+.tcr-cell .table-input {
+    cursor: pointer;
+    background-color: transparent;
+}
+
+.tcr-cell .table-input:focus {
+    background-color: var(--bg-secondary);
+}
+
+.tcr-cell::after {
+    content: "Click to jump";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--bg-tertiary);
     color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    padding: 4px 8px;
     border-radius: 4px;
-    padding: 4px;
-    font-family: inherit;
-    font-size: 1em;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    pointer-events: none;
+    z-index: 1000;
+    border: 1px solid var(--border-color);
 }
 
-/* Ensure resize handle is visible */
-.table-input:hover {
-    border-color: var(--accent-color);
-}
-
-.table-input:focus {
-    border-color: var(--accent-color);
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(127, 156, 245, 0.2);
-}
-
-/* Add resize handle styles */
-.table-input::-webkit-resizer {
-    border-width: 8px;
-    border-style: solid;
-    border-color: transparent var(--accent-color) var(--accent-color) transparent;
-    background: var(--bg-tertiary);
+.tcr-cell:hover::after {
+    opacity: 1;
+    visibility: visible;
 }
 
 /* Copy dropdown styles */
