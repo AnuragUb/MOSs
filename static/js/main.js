@@ -1421,7 +1421,7 @@ function initializeExportSettings() {
             try {
                 // Save current state to localStorage
                 localStorage.setItem('markers', JSON.stringify(markers));
-                localStorage.setItem('headerRows', JSON.stringify(headerRows));
+                localStorage.setItem('headerRows', JSON.stringify(headerRows || []));
                 
                 // Open the settings window
                 const settingsWindow = window.open('/export-settings', 'Export Settings', 'width=800,height=600');
@@ -1457,6 +1457,9 @@ function initializeExportSettings() {
         exportBtn.addEventListener('click', () => {
             console.log('Starting export process...');
             try {
+                // Always save latest data before exporting
+                localStorage.setItem('markers', JSON.stringify(markers));
+                localStorage.setItem('headerRows', JSON.stringify(headerRows || []));
                 exportWithSettings();
             } catch (error) {
                 console.error('Error during export:', error);
