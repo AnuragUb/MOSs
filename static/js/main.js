@@ -652,10 +652,31 @@ function updateMarkerTable() {
         
         // Add checkbox cell
         const checkboxCell = document.createElement('td');
+        checkboxCell.style.position = 'relative';
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'row-checkbox';
         checkboxCell.appendChild(checkbox);
+        
+        // --- Add mark indicator and remove button if marked ---
+        if (markedRows[actualIndex]) {
+            const markDot = document.createElement('span');
+            markDot.className = 'mark-dot';
+            markDot.style.backgroundColor = markedRows[actualIndex] === 'yellow' ? '#ffc107' : '#dc3545';
+            checkboxCell.appendChild(markDot);
+
+            const removeMarkBtn = document.createElement('button');
+            removeMarkBtn.className = 'remove-mark-btn';
+            removeMarkBtn.title = 'Remove mark';
+            removeMarkBtn.innerHTML = '&times;';
+            removeMarkBtn.onclick = (e) => {
+                e.stopPropagation();
+                delete markedRows[actualIndex];
+                saveMarkedRows();
+                updateMarkerTable();
+            };
+            checkboxCell.appendChild(removeMarkBtn);
+        }
         row.appendChild(checkboxCell);
         
         // Update sequence number display
@@ -1694,4 +1715,4 @@ function getMarkersWithMarkColor() {
     return markers.map((marker, idx) => {
         return { ...marker, markColor: markedRows[idx] || '' };
     });
-} 
+}

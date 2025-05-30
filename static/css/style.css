@@ -452,12 +452,28 @@ body {
 .table th.special, .table td.special { min-width: 140px; }
 
 /* Make only the Title column wider */
-.table th[data-field="title"], 
+.table th[data-field="title"],
 .table td[data-field="title"] {
-    min-width: 280px;
-    max-width: none;
+    min-width: 280px !important;
+    max-width: 280px !important;
     white-space: normal;
     word-wrap: break-word;
+}
+
+/* All other columns (except title) should be 140px */
+.table th:not([data-field="title"]),
+.table td:not([data-field="title"]) {
+    min-width: 140px !important;
+    max-width: 140px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Remove wide .special columns */
+.table th.special, .table td.special {
+    min-width: 140px !important;
+    max-width: 140px !important;
 }
 
 .table td[data-field="title"] .table-input {
@@ -1013,4 +1029,34 @@ body {
     background-color: #43d675 !important;
     color: #fff !important;
     border-bottom: 3px solid #43d675 !important;
+}
+
+/* Marked row indicator dot */
+.mark-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-left: 6px;
+    margin-right: 4px;
+    vertical-align: middle;
+    box-shadow: 0 0 2px #0002;
+}
+
+/* Remove mark button */
+.remove-mark-btn {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 14px;
+    margin-left: 2px;
+    cursor: pointer;
+    vertical-align: middle;
+    padding: 0 2px;
+    line-height: 1;
+}
+.remove-mark-btn:hover {
+    color: #dc3545;
+    background: #fff3;
+    border-radius: 2px;
 } 
