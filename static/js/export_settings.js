@@ -73,6 +73,7 @@ function initializeExportSettingsPage() {
         } else {
             // Default fields if none are saved
             exportSettings.fieldsToExport = [
+                'seq',
                 'tcrIn',
                 'tcrOut',
                 'duration',
