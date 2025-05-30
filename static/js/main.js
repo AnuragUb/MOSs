@@ -606,14 +606,10 @@ function getColumnName(index) {
 }
 
 function makeInputResizable(input) {
-    input.style.resize = 'both';
-    input.style.overflow = 'auto';
-    input.style.minWidth = '100px';
+    input.style.width = '100%';
     input.style.minHeight = '20px';
-    input.style.maxWidth = 'none';
-    input.style.maxHeight = 'none';
-    input.style.whiteSpace = 'normal';
-    input.style.wordWrap = 'break-word';
+    input.style.padding = '4px 8px';
+    input.style.boxSizing = 'border-box';
     
     // Add event listener for input changes to adjust height
     input.addEventListener('input', function() {
@@ -880,20 +876,30 @@ function setupKeyboardShortcuts() {
         const videoPlayer = document.getElementById('videoPlayer');
         const tableBody = document.getElementById('markerTableBody');
         const activeElement = document.activeElement;
+        
         // If in input/select, let default behavior for arrows
         if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
-            if (e.code === 'Space') return; // Let input handle space
             return;
         }
-        // Space bar toggles video
-        if (e.code === 'Space') {
+        
+        // Alt + 1 for TCR In (or both in single button mode)
+        if (e.altKey && e.key === '1') {
             e.preventDefault();
-            if (videoPlayer) {
-                if (videoPlayer.paused) videoPlayer.play();
-                else videoPlayer.pause();
+            if (isSingleButtonMode) {
+                markTCR(isNextMarkTcrIn ? 'in' : 'out');
+            } else {
+                markTCR('in');
             }
             return;
         }
+        
+        // Alt + 2 for TCR Out (only in two button mode)
+        if (e.altKey && e.key === '2' && !isSingleButtonMode) {
+            e.preventDefault();
+            markTCR('out');
+            return;
+        }
+        
         // Arrow keys for video seek
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             e.preventDefault();
@@ -912,6 +918,7 @@ function setupKeyboardShortcuts() {
             }, 400);
             return;
         }
+        
         // Frame-by-frame: > (period) and < (comma)
         if (e.key === '>' || (e.shiftKey && e.key === '.')) {
             e.preventDefault();
@@ -929,12 +936,14 @@ function setupKeyboardShortcuts() {
             }
             return;
         }
+        
         // Delete key
         if (e.key === 'Delete' || e.key === 'Backspace') {
             deleteSelectedRows();
             return;
         }
     });
+    
     document.addEventListener('keyup', function(e) {
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             clearInterval(arrowInterval);
@@ -1547,40 +1556,57 @@ function markSelectedRows(color) {
 function initializeColumnResize() {
     const table = document.querySelector('.table');
     const headers = table.querySelectorAll('th');
+    
     headers.forEach(header => {
         let startX, startWidth;
         let resizing = false;
         let handle = header.querySelector('.resize-handle');
+        
         if (!handle) {
             handle = document.createElement('div');
             handle.className = 'resize-handle';
             header.appendChild(handle);
         }
+
         handle.addEventListener('mousedown', (e) => {
             e.preventDefault();
             resizing = true;
             startX = e.pageX;
             startWidth = header.offsetWidth;
+            handle.classList.add('active');
             document.body.style.cursor = 'col-resize';
             document.addEventListener('mousemove', resize);
             document.addEventListener('mouseup', stopResize);
         });
+
         function resize(e) {
             if (!resizing) return;
-            const width = startWidth + (e.pageX - startX);
-            if (width > 50) {
-                header.style.width = `${width}px`;
-                // Also set width for all cells in this column
-                const colIndex = Array.from(header.parentNode.children).indexOf(header);
-                document.querySelectorAll(`.table tr`).forEach(row => {
-                    if (row.children[colIndex]) {
-                        row.children[colIndex].style.width = `${width}px`;
+            const width = Math.max(50, startWidth + (e.pageX - startX));
+            const columnIndex = Array.from(header.parentNode.children).indexOf(header);
+            
+            // Set width for header
+            header.style.width = `${width}px`;
+            header.style.setProperty('--column-width', `${width}px`);
+            
+            // Set width for all cells in this column
+            document.querySelectorAll(`.table tr`).forEach(row => {
+                const cell = row.children[columnIndex];
+                if (cell) {
+                    cell.style.width = `${width}px`;
+                    cell.style.setProperty('--column-width', `${width}px`);
+                    
+                    // Adjust input width if present
+                    const input = cell.querySelector('.table-input');
+                    if (input) {
+                        input.style.width = '100%';
                     }
-                });
-            }
+                }
+            });
         }
+
         function stopResize() {
             resizing = false;
+            handle.classList.remove('active');
             document.body.style.cursor = '';
             document.removeEventListener('mousemove', resize);
             document.removeEventListener('mouseup', stopResize);
