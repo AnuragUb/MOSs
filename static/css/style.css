@@ -167,6 +167,8 @@ body {
 .table tbody tr {
     background-color: var(--bg-secondary);
     transition: background-color 0.2s;
+    height: auto;
+    min-height: 40px;
 }
 
 .table tbody tr:hover {
@@ -614,8 +616,8 @@ body {
     width: 100%;
     min-width: 100px;
     min-height: 20px;
-    resize: both;
-    overflow: auto;
+    resize: none;
+    overflow: hidden;
     padding: 4px 8px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
@@ -624,6 +626,7 @@ body {
     font-family: inherit;
     font-size: 1em;
     transition: all 0.2s ease;
+    box-sizing: border-box;
 }
 
 .table-input:hover {
@@ -638,22 +641,52 @@ body {
     background: var(--bg-secondary);
 }
 
+/* Table Column Resize */
+.table th {
+    position: relative;
+    user-select: none;
+}
+
+.table th .resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    background-color: transparent;
+    transition: background-color 0.2s;
+    z-index: 10;
+}
+
+.table th .resize-handle:hover,
+.table th .resize-handle.active {
+    background-color: var(--accent-color);
+}
+
+/* Ensure table cells maintain their width */
+.table td {
+    width: var(--column-width, auto);
+    max-width: var(--column-width, none);
+    overflow: hidden;
+}
+
 /* Make title columns and onwards expandable */
 .table td.special {
-    min-width: 140px;
+    min-width: 280px;
     max-width: none;
     white-space: normal;
     word-wrap: break-word;
 }
 
 .table td.special .table-input {
-    min-width: 140px;
+    min-width: 280px;
     max-width: none;
     white-space: normal;
     word-wrap: break-word;
     height: auto;
     min-height: 20px;
-    resize: both;
+    resize: none;
     overflow: auto;
 }
 
@@ -940,26 +973,6 @@ body {
 /* Export Settings Button */
 #exportSettingsBtn {
     margin-right: 10px;
-}
-
-/* Table Column Resize */
-.table th {
-    position: relative;
-}
-
-.table th .resize-handle {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 5px;
-    cursor: col-resize;
-    background-color: transparent;
-    transition: background-color 0.2s;
-}
-
-.table th .resize-handle:hover {
-    background-color: #0d6efd;
 }
 
 /* Top Bar Layout */
