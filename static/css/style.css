@@ -449,7 +449,27 @@ body {
 .table th.seq, .table td.seq { min-width: 50px; }
 .table th.tcr, .table td.tcr { min-width: 90px; }
 .table th.usage, .table td.usage { min-width: 100px; }
-.table th.special, .table td.special { min-width: 280px; }
+.table th.special, .table td.special { min-width: 140px; }
+
+/* Make only the Title column wider */
+.table th[data-field="title"], 
+.table td[data-field="title"] {
+    min-width: 280px;
+    max-width: none;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.table td[data-field="title"] .table-input {
+    min-width: 280px;
+    max-width: none;
+    white-space: normal;
+    word-wrap: break-word;
+    height: auto;
+    min-height: 20px;
+    resize: none;
+    overflow: auto;
+}
 
 /* Flex layout for header cells with toggles */
 .table th.flex-header {
@@ -612,7 +632,7 @@ body {
 /* Table input styles */
 .table-input {
     width: 100%;
-    min-width: 280px;
+    min-width: 100px;
     min-height: 20px;
     resize: none;
     overflow: hidden;
