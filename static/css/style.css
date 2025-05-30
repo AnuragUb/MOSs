@@ -439,14 +439,12 @@ body {
 
 /* Table column min-widths for readability */
 .table th, .table td {
-    min-width: 110px;
+    min-width: 90px;
     padding: 0.75rem 1rem;
     font-size: 1rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: var(--text-primary);
-    border-right: 1px solid var(--border-color);
 }
 .table th.seq, .table td.seq { min-width: 50px; }
 .table th.tcr, .table td.tcr { min-width: 90px; }
@@ -499,7 +497,7 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.table th.special, .table td.special { min-width: 140px; }
+.table th.special, .table td.special { min-width: 280px; }
 
 .table thead th {
     background: var(--bg-tertiary);
