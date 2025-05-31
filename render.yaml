@@ -25,5 +25,7 @@ services:
       - ffmpeg
       - w32codecs
       - w64codecs
+      - ubuntu-restricted-extras
+      - libavcodec-extra
       # - vlc
       # - libvlc-dev 

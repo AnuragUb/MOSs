@@ -312,6 +312,7 @@ def recognize_audio():
                     # Parse the probe result to get file format
                     probe_data = json.loads(probe_result.stdout)
                     file_format = probe_data.get('format', {}).get('format_name', '').lower()
+                    logger.info(f"Detected file format: {file_format}")
                     
                     # Try to fix the video file using a different approach
                     try:
@@ -320,20 +321,67 @@ def recognize_audio():
                         
                         # For WMV files, use specific WMV codec settings
                         if 'wmv' in file_format:
+                            logger.info("Processing WMV file with WMV-specific settings")
+                            # First try direct copy
                             fix_cmd = [
                                 'ffmpeg',
                                 '-y',
                                 '-v', 'error',
                                 '-i', input_path,
-                                '-c:v', 'wmv2',  # Use WMV2 codec for better compatibility
-                                '-c:a', 'wmav2',  # Use WMAV2 codec for audio
-                                '-b:v', '2M',     # Set video bitrate
-                                '-b:a', '192k',   # Set audio bitrate
-                                '-movflags', '+faststart',
+                                '-c:v', 'copy',
+                                '-c:a', 'copy',
                                 fixed_path
                             ]
+                            
+                            logger.info(f"Running WMV direct copy attempt: {' '.join(fix_cmd)}")
+                            fix_result = subprocess.run(fix_cmd, capture_output=True, text=True)
+                            
+                            if fix_result.returncode != 0:
+                                logger.warning(f"WMV direct copy failed: {fix_result.stderr}")
+                                logger.info("Attempting WMV re-encoding")
+                                # If direct copy fails, try re-encoding with WMV codecs
+                                fix_cmd = [
+                                    'ffmpeg',
+                                    '-y',
+                                    '-v', 'error',
+                                    '-i', input_path,
+                                    '-c:v', 'wmv2',
+                                    '-c:a', 'wmav2',
+                                    '-b:v', '2M',
+                                    '-b:a', '192k',
+                                    fixed_path
+                                ]
+                                
+                                logger.info(f"Running WMV re-encoding attempt: {' '.join(fix_cmd)}")
+                                fix_result = subprocess.run(fix_cmd, capture_output=True, text=True)
+                                
+                                if fix_result.returncode != 0:
+                                    logger.warning(f"WMV re-encoding failed: {fix_result.stderr}")
+                                    # If WMV-specific encoding fails, try generic encoding
+                                    logger.info("Attempting generic encoding for WMV")
+                                    fix_cmd = [
+                                        'ffmpeg',
+                                        '-y',
+                                        '-v', 'error',
+                                        '-i', input_path,
+                                        '-c:v', 'libx264',
+                                        '-c:a', 'aac',
+                                        '-preset', 'medium',
+                                        '-crf', '23',
+                                        fixed_path
+                                    ]
+                                    
+                                    logger.info(f"Running generic encoding attempt: {' '.join(fix_cmd)}")
+                                    fix_result = subprocess.run(fix_cmd, capture_output=True, text=True)
+                                    
+                                    if fix_result.returncode != 0:
+                                        logger.error(f"All WMV processing attempts failed: {fix_result.stderr}")
+                                        return jsonify({
+                                            'status': 'error',
+                                            'message': 'Could not process the WMV file. Please try uploading a different file.'
+                                        }), 400
                         else:
-                            # First try: Use -movflags +faststart
+                            # Original handling for non-WMV files
                             fix_cmd = [
                                 'ffmpeg',
                                 '-y',
@@ -359,8 +407,8 @@ def recognize_audio():
                                 '-i', input_path,
                                 '-c:v', 'libx264',
                                 '-c:a', 'aac',
-                                '-preset', 'medium',  # Balance between speed and quality
-                                '-crf', '23',         # Constant Rate Factor for quality
+                                '-preset', 'medium',
+                                '-crf', '23',
                                 '-movflags', '+faststart',
                                 fixed_path
                             ]
@@ -477,28 +525,76 @@ def recognize_audio():
                     # Parse the probe result to get file format
                     probe_data = json.loads(probe_result.stdout)
                     file_format = probe_data.get('format', {}).get('format_name', '').lower()
+                    logger.info(f"Detected file format: {file_format}")
                     
-                    # Try to fix the video file
+                    # Try to fix the video file using a different approach
                     try:
                         logger.info("Attempting to fix video file format")
                         fixed_path = os.path.join(upload_dir, 'fixed.mp4')
                         
                         # For WMV files, use specific WMV codec settings
                         if 'wmv' in file_format:
+                            logger.info("Processing WMV file with WMV-specific settings")
+                            # First try direct copy
                             fix_cmd = [
                                 'ffmpeg',
                                 '-y',
                                 '-v', 'error',
                                 '-i', input_path,
-                                '-c:v', 'wmv2',  # Use WMV2 codec for better compatibility
-                                '-c:a', 'wmav2',  # Use WMAV2 codec for audio
-                                '-b:v', '2M',     # Set video bitrate
-                                '-b:a', '192k',   # Set audio bitrate
-                                '-movflags', '+faststart',
+                                '-c:v', 'copy',
+                                '-c:a', 'copy',
                                 fixed_path
                             ]
+                            
+                            logger.info(f"Running WMV direct copy attempt: {' '.join(fix_cmd)}")
+                            fix_result = subprocess.run(fix_cmd, capture_output=True, text=True)
+                            
+                            if fix_result.returncode != 0:
+                                logger.warning(f"WMV direct copy failed: {fix_result.stderr}")
+                                logger.info("Attempting WMV re-encoding")
+                                # If direct copy fails, try re-encoding with WMV codecs
+                                fix_cmd = [
+                                    'ffmpeg',
+                                    '-y',
+                                    '-v', 'error',
+                                    '-i', input_path,
+                                    '-c:v', 'wmv2',
+                                    '-c:a', 'wmav2',
+                                    '-b:v', '2M',
+                                    '-b:a', '192k',
+                                    fixed_path
+                                ]
+                                
+                                logger.info(f"Running WMV re-encoding attempt: {' '.join(fix_cmd)}")
+                                fix_result = subprocess.run(fix_cmd, capture_output=True, text=True)
+                                
+                                if fix_result.returncode != 0:
+                                    logger.warning(f"WMV re-encoding failed: {fix_result.stderr}")
+                                    # If WMV-specific encoding fails, try generic encoding
+                                    logger.info("Attempting generic encoding for WMV")
+                                    fix_cmd = [
+                                        'ffmpeg',
+                                        '-y',
+                                        '-v', 'error',
+                                        '-i', input_path,
+                                        '-c:v', 'libx264',
+                                        '-c:a', 'aac',
+                                        '-preset', 'medium',
+                                        '-crf', '23',
+                                        fixed_path
+                                    ]
+                                    
+                                    logger.info(f"Running generic encoding attempt: {' '.join(fix_cmd)}")
+                                    fix_result = subprocess.run(fix_cmd, capture_output=True, text=True)
+                                    
+                                    if fix_result.returncode != 0:
+                                        logger.error(f"All WMV processing attempts failed: {fix_result.stderr}")
+                                        return jsonify({
+                                            'status': 'error',
+                                            'message': 'Could not process the WMV file. Please try uploading a different file.'
+                                        }), 400
                         else:
-                            # First try: Use -movflags +faststart
+                            # Original handling for non-WMV files
                             fix_cmd = [
                                 'ffmpeg',
                                 '-y',
@@ -524,8 +620,8 @@ def recognize_audio():
                                 '-i', input_path,
                                 '-c:v', 'libx264',
                                 '-c:a', 'aac',
-                                '-preset', 'medium',  # Balance between speed and quality
-                                '-crf', '23',         # Constant Rate Factor for quality
+                                '-preset', 'medium',
+                                '-crf', '23',
                                 '-movflags', '+faststart',
                                 fixed_path
                             ]
@@ -537,7 +633,7 @@ def recognize_audio():
                                 logger.error(f"Second fix attempt failed: {fix_result2.stderr}")
                                 return jsonify({
                                     'status': 'error',
-                                    'message': 'Could not process the downloaded video file.'
+                                    'message': 'Could not process the video file. Please try uploading a different file.'
                                 }), 400
                         
                         # Replace original input path with fixed file
@@ -549,7 +645,7 @@ def recognize_audio():
                         logger.error(f"Error fixing video file: {str(e)}")
                         return jsonify({
                             'status': 'error',
-                            'message': 'Error processing downloaded video file.'
+                            'message': 'Error processing video file. Please try uploading again.'
                         }), 500
                     
                 except Exception as e:
