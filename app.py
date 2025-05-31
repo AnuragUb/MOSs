@@ -21,9 +21,28 @@ import csv
 app = Flask(__name__)
 CORS(app)
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging for Render server
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)  # This ensures logs go to stdout for Render
+    ]
+)
 logger = logging.getLogger(__name__)
+
+# Log server startup information
+logger.info("Server starting up...")
+logger.info(f"Python version: {sys.version}")
+logger.info(f"Platform: {platform.platform()}")
+logger.info(f"Current working directory: {os.getcwd()}")
+
+# Test FFmpeg availability and version
+try:
+    ffmpeg_version = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
+    logger.info(f"FFmpeg version: {ffmpeg_version.stdout.split('\n')[0]}")
+except Exception as e:
+    logger.error(f"Error checking FFmpeg: {str(e)}")
 
 # Initialize VLC instance with proper error handling
 # try:
@@ -69,22 +88,140 @@ def main():
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
+    logger.info("Received upload request")
     if 'video' not in request.files:
+        logger.error("No video file in request")
         return jsonify({'error': 'No video file provided'}), 400
     
     video_file = request.files['video']
     if video_file.filename == '':
+        logger.error("Empty filename received")
         return jsonify({'error': 'No selected file'}), 400
     
     if video_file:
+        logger.info(f"Processing file: {video_file.filename}")
         filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{video_file.filename}"
         filepath = os.path.join(UPLOADS_DIR, filename)
-        video_file.save(filepath)
-        return jsonify({'filename': filename})
+        
+        try:
+            video_file.save(filepath)
+            logger.info(f"File saved successfully at: {filepath}")
+            
+            # Check file size and format
+            file_size = os.path.getsize(filepath)
+            logger.info(f"File size: {file_size} bytes")
+            
+            # Run ffprobe to get file information
+            probe_cmd = [
+                'ffprobe',
+                '-v', 'error',
+                '-print_format', 'json',
+                '-show_format',
+                '-show_streams',
+                filepath
+            ]
+            logger.info(f"Running ffprobe: {' '.join(probe_cmd)}")
+            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+            
+            if probe_result.returncode == 0:
+                probe_data = json.loads(probe_result.stdout)
+                logger.info(f"File format: {probe_data.get('format', {}).get('format_name', 'unknown')}")
+                logger.info(f"Duration: {probe_data.get('format', {}).get('duration', 'unknown')} seconds")
+                logger.info(f"Size: {probe_data.get('format', {}).get('size', 'unknown')} bytes")
+            else:
+                logger.error(f"FFprobe error: {probe_result.stderr}")
+            
+            return jsonify({'filename': filename})
+            
+        except Exception as e:
+            logger.error(f"Error saving file: {str(e)}")
+            return jsonify({'error': f'Error saving file: {str(e)}'}), 500
 
 @app.route('/uploads/<filename>')
 def serve_video(filename):
-    return send_file(os.path.join(UPLOADS_DIR, filename))
+    logger.info(f"Attempting to serve video: {filename}")
+    filepath = os.path.join(UPLOADS_DIR, filename)
+    
+    if not os.path.exists(filepath):
+        logger.error(f"File not found: {filepath}")
+        return jsonify({'error': 'File not found'}), 404
+    
+    try:
+        # Get file information
+        file_size = os.path.getsize(filepath)
+        logger.info(f"File size: {file_size} bytes")
+        
+        # Check if it's a WMV file
+        is_wmv = filename.lower().endswith('.wmv')
+        logger.info(f"Is WMV file: {is_wmv}")
+        
+        if is_wmv:
+            logger.info("Processing WMV file...")
+            # Run ffprobe to get file information
+            probe_cmd = [
+                'ffprobe',
+                '-v', 'error',
+                '-print_format', 'json',
+                '-show_format',
+                '-show_streams',
+                filepath
+            ]
+            logger.info(f"Running ffprobe: {' '.join(probe_cmd)}")
+            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+            
+            if probe_result.returncode == 0:
+                probe_data = json.loads(probe_result.stdout)
+                logger.info(f"WMV file details: {json.dumps(probe_data, indent=2)}")
+            else:
+                logger.error(f"FFprobe error: {probe_result.stderr}")
+            
+            # Try to serve the WMV file directly first
+            try:
+                logger.info("Attempting to serve WMV file directly...")
+                return send_file(filepath, mimetype='video/x-ms-wmv')
+            except Exception as e:
+                logger.error(f"Error serving WMV directly: {str(e)}")
+                logger.info("Falling back to FFmpeg processing...")
+                
+                # If direct serving fails, try FFmpeg processing
+                try:
+                    # Create a temporary file for the processed video
+                    temp_dir = tempfile.gettempdir()
+                    temp_output = os.path.join(temp_dir, f"processed_{filename}")
+                    logger.info(f"Creating temporary output file: {temp_output}")
+                    
+                    # Use FFmpeg to process the WMV file
+                    ffmpeg_cmd = [
+                        'ffmpeg',
+                        '-i', filepath,
+                        '-c:v', 'libx264',
+                        '-c:a', 'aac',
+                        '-strict', 'experimental',
+                        '-b:a', '192k',
+                        '-y',  # Overwrite output file if it exists
+                        temp_output
+                    ]
+                    logger.info(f"Running FFmpeg command: {' '.join(ffmpeg_cmd)}")
+                    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+                    
+                    if result.returncode == 0:
+                        logger.info("FFmpeg processing successful")
+                        return send_file(temp_output, mimetype='video/mp4')
+                    else:
+                        logger.error(f"FFmpeg processing failed: {result.stderr}")
+                        return jsonify({'error': 'Error processing video'}), 500
+                        
+                except Exception as e:
+                    logger.error(f"Error in FFmpeg processing: {str(e)}")
+                    return jsonify({'error': f'Error processing video: {str(e)}'}), 500
+        else:
+            # For non-WMV files, serve directly
+            logger.info("Serving non-WMV file directly")
+            return send_file(filepath)
+            
+    except Exception as e:
+        logger.error(f"Error serving video: {str(e)}")
+        return jsonify({'error': f'Error serving video: {str(e)}'}), 500
 
 @app.route('/api/markers', methods=['GET', 'POST'])
 def handle_markers():
