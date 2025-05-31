@@ -40,7 +40,8 @@ logger.info(f"Current working directory: {os.getcwd()}")
 # Test FFmpeg availability and version
 try:
     ffmpeg_version = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
-    logger.info(f"FFmpeg version: {ffmpeg_version.stdout.split('\n')[0]}")
+    first_line = ffmpeg_version.stdout.splitlines()[0]
+    logger.info(f"FFmpeg version: {first_line}")
 except Exception as e:
     logger.error(f"Error checking FFmpeg: {str(e)}")
 
