@@ -11,7 +11,7 @@ import pandas as pd
 import ffmpeg
 import logging
 import io
-import vlc
+# import vlc  # Commented out VLC import
 import sys
 import platform
 import openpyxl
@@ -26,22 +26,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize VLC instance with proper error handling
-try:
-    # Create a basic vlc instance
-    vlc_instance = vlc.Instance()
-    if not vlc_instance:
-        raise Exception("Failed to create VLC instance")
+# try:
+#     # Create a basic vlc instance
+#     vlc_instance = vlc.Instance()
+#     if not vlc_instance:
+#         raise Exception("Failed to create VLC instance")
         
-    # Create an empty vlc media player
-    player = vlc_instance.media_player_new()
-    if not player:
-        raise Exception("Failed to create media player")
+#     # Create an empty vlc media player
+#     player = vlc_instance.media_player_new()
+#     if not player:
+#         raise Exception("Failed to create media player")
         
-    logger.info("VLC initialized successfully")
-except Exception as e:
-    logger.error(f"Error initializing VLC: {str(e)}")
-    vlc_instance = None
-    player = None
+#     logger.info("VLC initialized successfully")
+# except Exception as e:
+#     logger.error(f"Error initializing VLC: {str(e)}")
+#     vlc_instance = None
+#     player = None
 
 # Store usage statistics
 USAGE_STATS = {
@@ -309,29 +309,48 @@ def recognize_audio():
                     # Log the probe result for debugging
                     logger.info(f"FFprobe result: {probe_result.stdout}")
                     
+                    # Parse the probe result to get file format
+                    probe_data = json.loads(probe_result.stdout)
+                    file_format = probe_data.get('format', {}).get('format_name', '').lower()
+                    
                     # Try to fix the video file using a different approach
                     try:
                         logger.info("Attempting to fix video file format")
                         fixed_path = os.path.join(upload_dir, 'fixed.mp4')
                         
-                        # First try: Use -movflags +faststart
-                        fix_cmd1 = [
-                            'ffmpeg',
-                            '-y',
-                            '-v', 'error',
-                            '-i', input_path,
-                            '-c', 'copy',
-                            '-movflags', '+faststart',
-                            fixed_path
-                        ]
+                        # For WMV files, use specific WMV codec settings
+                        if 'wmv' in file_format:
+                            fix_cmd = [
+                                'ffmpeg',
+                                '-y',
+                                '-v', 'error',
+                                '-i', input_path,
+                                '-c:v', 'wmv2',  # Use WMV2 codec for better compatibility
+                                '-c:a', 'wmav2',  # Use WMAV2 codec for audio
+                                '-b:v', '2M',     # Set video bitrate
+                                '-b:a', '192k',   # Set audio bitrate
+                                '-movflags', '+faststart',
+                                fixed_path
+                            ]
+                        else:
+                            # First try: Use -movflags +faststart
+                            fix_cmd = [
+                                'ffmpeg',
+                                '-y',
+                                '-v', 'error',
+                                '-i', input_path,
+                                '-c', 'copy',
+                                '-movflags', '+faststart',
+                                fixed_path
+                            ]
                         
-                        logger.info(f"Running first fix attempt: {' '.join(fix_cmd1)}")
-                        fix_result1 = subprocess.run(fix_cmd1, capture_output=True, text=True)
+                        logger.info(f"Running fix attempt: {' '.join(fix_cmd)}")
+                        fix_result = subprocess.run(fix_cmd, capture_output=True, text=True)
                         
-                        if fix_result1.returncode != 0:
-                            logger.warning(f"First fix attempt failed: {fix_result1.stderr}")
+                        if fix_result.returncode != 0:
+                            logger.warning(f"First fix attempt failed: {fix_result.stderr}")
                             
-                            # Second try: Re-encode the video
+                            # Second try: Re-encode the video with more compatible settings
                             logger.info("Attempting re-encoding fix")
                             fix_cmd2 = [
                                 'ffmpeg',
@@ -340,6 +359,8 @@ def recognize_audio():
                                 '-i', input_path,
                                 '-c:v', 'libx264',
                                 '-c:a', 'aac',
+                                '-preset', 'medium',  # Balance between speed and quality
+                                '-crf', '23',         # Constant Rate Factor for quality
                                 '-movflags', '+faststart',
                                 fixed_path
                             ]
@@ -453,29 +474,48 @@ def recognize_audio():
                     
                     logger.info(f"FFprobe result: {probe_result.stdout}")
                     
+                    # Parse the probe result to get file format
+                    probe_data = json.loads(probe_result.stdout)
+                    file_format = probe_data.get('format', {}).get('format_name', '').lower()
+                    
                     # Try to fix the video file
                     try:
                         logger.info("Attempting to fix video file format")
                         fixed_path = os.path.join(upload_dir, 'fixed.mp4')
                         
-                        # First try: Use -movflags +faststart
-                        fix_cmd1 = [
-                            'ffmpeg',
-                            '-y',
-                            '-v', 'error',
-                            '-i', input_path,
-                            '-c', 'copy',
-                            '-movflags', '+faststart',
-                            fixed_path
-                        ]
+                        # For WMV files, use specific WMV codec settings
+                        if 'wmv' in file_format:
+                            fix_cmd = [
+                                'ffmpeg',
+                                '-y',
+                                '-v', 'error',
+                                '-i', input_path,
+                                '-c:v', 'wmv2',  # Use WMV2 codec for better compatibility
+                                '-c:a', 'wmav2',  # Use WMAV2 codec for audio
+                                '-b:v', '2M',     # Set video bitrate
+                                '-b:a', '192k',   # Set audio bitrate
+                                '-movflags', '+faststart',
+                                fixed_path
+                            ]
+                        else:
+                            # First try: Use -movflags +faststart
+                            fix_cmd = [
+                                'ffmpeg',
+                                '-y',
+                                '-v', 'error',
+                                '-i', input_path,
+                                '-c', 'copy',
+                                '-movflags', '+faststart',
+                                fixed_path
+                            ]
                         
-                        logger.info(f"Running first fix attempt: {' '.join(fix_cmd1)}")
-                        fix_result1 = subprocess.run(fix_cmd1, capture_output=True, text=True)
+                        logger.info(f"Running fix attempt: {' '.join(fix_cmd)}")
+                        fix_result = subprocess.run(fix_cmd, capture_output=True, text=True)
                         
-                        if fix_result1.returncode != 0:
-                            logger.warning(f"First fix attempt failed: {fix_result1.stderr}")
+                        if fix_result.returncode != 0:
+                            logger.warning(f"First fix attempt failed: {fix_result.stderr}")
                             
-                            # Second try: Re-encode the video
+                            # Second try: Re-encode the video with more compatible settings
                             logger.info("Attempting re-encoding fix")
                             fix_cmd2 = [
                                 'ffmpeg',
@@ -484,6 +524,8 @@ def recognize_audio():
                                 '-i', input_path,
                                 '-c:v', 'libx264',
                                 '-c:a', 'aac',
+                                '-preset', 'medium',  # Balance between speed and quality
+                                '-crf', '23',         # Constant Rate Factor for quality
                                 '-movflags', '+faststart',
                                 fixed_path
                             ]
@@ -706,92 +748,81 @@ def test_ffmpeg():
             'message': f'Error checking FFmpeg: {str(e)}'
         }), 500
 
-@app.route('/api/vlc/play', methods=['POST'])
-def vlc_play():
-    try:
-        video_path = request.json.get('video_path')
-        if not video_path:
-            return jsonify({'error': 'No video path provided'}), 400
-
-        # Create media from path
-        media = vlc_instance.media_new(video_path)
-        player.set_media(media)
-        player.play()
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'Video started playing',
-            'duration': player.get_length() / 1000  # Convert to seconds
-        })
-    except Exception as e:
-        logger.error(f"Error playing video with VLC: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/vlc/pause', methods=['POST'])
-def vlc_pause():
-    try:
-        player.pause()
-        return jsonify({'status': 'success', 'message': 'Video paused'})
-    except Exception as e:
-        logger.error(f"Error pausing video: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/vlc/stop', methods=['POST'])
-def vlc_stop():
-    try:
-        player.stop()
-        return jsonify({'status': 'success', 'message': 'Video stopped'})
-    except Exception as e:
-        logger.error(f"Error stopping video: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/vlc/seek', methods=['POST'])
-def vlc_seek():
-    try:
-        position = request.json.get('position')  # Position in seconds
-        if position is None:
-            return jsonify({'error': 'No position provided'}), 400
+# @app.route('/api/vlc/play', methods=['POST'])
+# def vlc_play():
+#     try:
+#         data = request.json
+#         video_path = data.get('videoPath')
+#         if not video_path:
+#             return jsonify({'error': 'No video path provided'}), 400
             
-        # Convert position to milliseconds
-        position_ms = int(position * 1000)
-        player.set_time(position_ms)
-        
-        return jsonify({'status': 'success', 'message': f'Seeked to {position} seconds'})
-    except Exception as e:
-        logger.error(f"Error seeking video: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+#         media = vlc_instance.media_new(video_path)
+#         player.set_media(media)
+#         player.play()
+#         return jsonify({'status': 'success'})
+#     except Exception as e:
+#         logger.error(f"Error playing video: {str(e)}")
+#         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/vlc/status', methods=['GET'])
-def vlc_status():
-    try:
-        state = player.get_state()
-        position = player.get_time() / 1000  # Convert to seconds
-        duration = player.get_length() / 1000  # Convert to seconds
-        
-        return jsonify({
-            'status': 'success',
-            'state': str(state),
-            'position': position,
-            'duration': duration
-        })
-    except Exception as e:
-        logger.error(f"Error getting VLC status: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+# @app.route('/api/vlc/pause', methods=['POST'])
+# def vlc_pause():
+#     try:
+#         player.pause()
+#         return jsonify({'status': 'success'})
+#     except Exception as e:
+#         logger.error(f"Error pausing video: {str(e)}")
+#         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/vlc/volume', methods=['POST'])
-def vlc_volume():
-    try:
-        volume = request.json.get('volume')
-        if volume is None:
-            return jsonify({'error': 'No volume provided'}), 400
+# @app.route('/api/vlc/stop', methods=['POST'])
+# def vlc_stop():
+#     try:
+#         player.stop()
+#         return jsonify({'status': 'success'})
+#     except Exception as e:
+#         logger.error(f"Error stopping video: {str(e)}")
+#         return jsonify({'error': str(e)}), 500
+
+# @app.route('/api/vlc/seek', methods=['POST'])
+# def vlc_seek():
+#     try:
+#         data = request.json
+#         position = data.get('position')
+#         if position is None:
+#             return jsonify({'error': 'No position provided'}), 400
             
-        # Set volume (0-100)
-        player.audio_set_volume(int(volume * 100))
-        
-        return jsonify({'status': 'success', 'message': f'Volume set to {volume * 100}%'})
-    except Exception as e:
-        logger.error(f"Error setting volume: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+#         player.set_position(position)
+#         return jsonify({'status': 'success'})
+#     except Exception as e:
+#         logger.error(f"Error seeking video: {str(e)}")
+#         return jsonify({'error': str(e)}), 500
+
+# @app.route('/api/vlc/status', methods=['GET'])
+# def vlc_status():
+#     try:
+#         status = {
+#             'is_playing': player.is_playing(),
+#             'position': player.get_position(),
+#             'time': player.get_time(),
+#             'length': player.get_length()
+#         }
+#         return jsonify(status)
+#     except Exception as e:
+#         logger.error(f"Error getting video status: {str(e)}")
+#         return jsonify({'error': str(e)}), 500
+
+# @app.route('/api/vlc/volume', methods=['POST'])
+# def vlc_volume():
+#     try:
+#         data = request.json
+#         volume = data.get('volume')
+#         if volume is None:
+#             return jsonify({'error': 'No volume provided'}), 400
+            
+#         player.audio_set_volume(volume)
+#         return jsonify({'status': 'success'})
+#     except Exception as e:
+#         logger.error(f"Error setting volume: {str(e)}")
+#         return jsonify({'error': str(e)}), 500
 
 @app.route('/export-settings')
 def export_settings():
