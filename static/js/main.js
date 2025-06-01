@@ -106,10 +106,23 @@ function initializeVideoPlayer() {
     const videoUrlInput = document.getElementById('videoUrlInput');
     const loadUrlBtn = document.getElementById('loadUrlBtn');
 
+    // Initialize frame rate
+    window.frameRate = 25; // Default frame rate
+
     videoPlayer.addEventListener('loadedmetadata', function() {
         currentVideo = videoPlayer.src;
-        // Get the video's frame rate
-        frameRate = videoPlayer.getVideoPlaybackQuality()?.totalVideoFrames / videoPlayer.duration || 30;
+        // Try to get the actual frame rate from the video
+        try {
+            const videoTrack = videoPlayer.videoTracks?.[0];
+            if (videoTrack) {
+                const settings = videoTrack.getSettings();
+                if (settings.frameRate) {
+                    window.frameRate = settings.frameRate;
+                }
+            }
+        } catch (e) {
+            console.warn('Could not detect frame rate, using default:', window.frameRate);
+        }
     });
 
     tcrInBtn.addEventListener('click', () => markTCR('in'));
@@ -940,20 +953,31 @@ function setupKeyboardShortcuts() {
             return;
         }
         
-        // Frame-by-frame: > (period) and < (comma)
-        if (e.key === '>' || (e.shiftKey && e.key === '.')) {
+        // Frame-by-frame controls
+        if (e.key === 'Period' || e.key === '>' || (e.shiftKey && e.key === '.')) {
             e.preventDefault();
             if (videoPlayer) {
+                // Ensure video is paused
                 videoPlayer.pause();
-                videoPlayer.currentTime += 1 / (window.frameRate || 25);
+                // Calculate frame duration
+                const frameDuration = 1 / window.frameRate;
+                // Round to nearest frame
+                const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
+                videoPlayer.currentTime = (currentFrame + 1) * frameDuration;
             }
             return;
         }
-        if (e.key === '<' || (e.shiftKey && e.key === ',')) {
+        
+        if (e.key === 'Comma' || e.key === '<' || (e.shiftKey && e.key === ',')) {
             e.preventDefault();
             if (videoPlayer) {
+                // Ensure video is paused
                 videoPlayer.pause();
-                videoPlayer.currentTime -= 1 / (window.frameRate || 25);
+                // Calculate frame duration
+                const frameDuration = 1 / window.frameRate;
+                // Round to nearest frame
+                const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
+                videoPlayer.currentTime = Math.max(0, (currentFrame - 1) * frameDuration);
             }
             return;
         }
