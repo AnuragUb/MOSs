@@ -9,8 +9,8 @@ let exportSettings = {
     fieldsToExport: [],
     tcrFormat: 'timecode',
     importFilmTitle: true,
-    useTitlePrefix: false,
-    titlePrefix: ''
+    useTitleSuffix: false,
+    titleSuffix: ''
 };
 
 // Check if we're on the export settings page
@@ -209,17 +209,17 @@ function setupEventListeners() {
             });
         }
 
-        // Title Prefix checkbox and input
-        const useTitlePrefixCheckbox = document.getElementById('useTitlePrefix');
-        const titlePrefixInput = document.getElementById('titlePrefix');
-        if (useTitlePrefixCheckbox && titlePrefixInput) {
-            useTitlePrefixCheckbox.addEventListener('change', (e) => {
-                exportSettings.useTitlePrefix = e.target.checked;
-                titlePrefixInput.disabled = !e.target.checked;
+        // Title Suffix checkbox and input
+        const useTitleSuffixCheckbox = document.getElementById('useTitleSuffix');
+        const titleSuffixInput = document.getElementById('titleSuffix');
+        if (useTitleSuffixCheckbox && titleSuffixInput) {
+            useTitleSuffixCheckbox.addEventListener('change', (e) => {
+                exportSettings.useTitleSuffix = e.target.checked;
+                titleSuffixInput.disabled = !e.target.checked;
             });
 
-            titlePrefixInput.addEventListener('change', (e) => {
-                exportSettings.titlePrefix = e.target.value;
+            titleSuffixInput.addEventListener('change', (e) => {
+                exportSettings.titleSuffix = e.target.value;
             });
         }
 
@@ -379,13 +379,13 @@ function applySettingsToUI() {
             importFilmTitleCheckbox.checked = exportSettings.importFilmTitle;
         }
 
-        // Apply title prefix settings
-        const useTitlePrefixCheckbox = document.getElementById('useTitlePrefix');
-        const titlePrefixInput = document.getElementById('titlePrefix');
-        if (useTitlePrefixCheckbox && titlePrefixInput) {
-            useTitlePrefixCheckbox.checked = exportSettings.useTitlePrefix;
-            titlePrefixInput.value = exportSettings.titlePrefix;
-            titlePrefixInput.disabled = !exportSettings.useTitlePrefix;
+        // Apply title suffix settings
+        const useTitleSuffixCheckbox = document.getElementById('useTitleSuffix');
+        const titleSuffixInput = document.getElementById('titleSuffix');
+        if (useTitleSuffixCheckbox && titleSuffixInput) {
+            useTitleSuffixCheckbox.checked = exportSettings.useTitleSuffix;
+            titleSuffixInput.value = exportSettings.titleSuffix;
+            titleSuffixInput.disabled = !exportSettings.useTitleSuffix;
         }
         
         // Update file name preview
@@ -410,8 +410,8 @@ function resetSettings() {
         fieldsToExport: [],
         tcrFormat: 'timecode',
         importFilmTitle: true,
-        useTitlePrefix: false,
-        titlePrefix: ''
+        useTitleSuffix: false,
+        titleSuffix: ''
     };
     
     initializeExportSettingsPage();
@@ -443,19 +443,21 @@ function exportWithSettings() {
 
         // Apply film title import if enabled
         if (settings.importFilmTitle) {
-            const showInfo = JSON.parse(localStorage.getItem('showInfo')) || {};
-            const showName = showInfo.showName || '';
-            markers = markers.map(marker => ({
-                ...marker,
-                filmTitle: showName
-            }));
+            // Get show name from the first header row (assuming it's in the first cell)
+            const showName = headerRows[0] && headerRows[0][0] ? headerRows[0][0] : '';
+            if (showName) {
+                markers = markers.map(marker => ({
+                    ...marker,
+                    filmTitle: showName
+                }));
+            }
         }
 
-        // Apply title prefix if enabled
-        if (settings.useTitlePrefix && settings.titlePrefix) {
+        // Apply title suffix if enabled
+        if (settings.useTitleSuffix && settings.titleSuffix) {
             markers = markers.map(marker => ({
                 ...marker,
-                title: `${marker.title}-(${settings.titlePrefix})`
+                title: `${marker.title}-(${settings.titleSuffix})`
             }));
         }
 
