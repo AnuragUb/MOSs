@@ -5,8 +5,12 @@ let exportSettings = {
     downloadLocation: 'ask',
     customLocation: '',
     includeHeader: true,
+    blankLines: 0,
     fieldsToExport: [],
-    tcrFormat: 'timecode'
+    tcrFormat: 'timecode',
+    importFilmTitle: true,
+    useTitlePrefix: false,
+    titlePrefix: ''
 };
 
 // Check if we're on the export settings page
@@ -98,6 +102,15 @@ function initializeExportSettingsPage() {
         if (savedHeaderRows) {
             window.headerRows = JSON.parse(savedHeaderRows);
         }
+
+        // Initialize blank lines input
+        const blankLinesInput = document.getElementById('blankLines');
+        if (blankLinesInput) {
+            blankLinesInput.value = exportSettings.blankLines;
+            blankLinesInput.addEventListener('change', (e) => {
+                exportSettings.blankLines = parseInt(e.target.value) || 0;
+            });
+        }
     } catch (error) {
         console.error('Error in initializeExportSettingsPage:', error);
         throw error;
@@ -185,6 +198,28 @@ function setupEventListeners() {
                 radio.addEventListener('change', (e) => {
                     exportSettings.tcrFormat = e.target.value;
                 });
+            });
+        }
+
+        // Import Film Title checkbox
+        const importFilmTitleCheckbox = document.getElementById('importFilmTitle');
+        if (importFilmTitleCheckbox) {
+            importFilmTitleCheckbox.addEventListener('change', (e) => {
+                exportSettings.importFilmTitle = e.target.checked;
+            });
+        }
+
+        // Title Prefix checkbox and input
+        const useTitlePrefixCheckbox = document.getElementById('useTitlePrefix');
+        const titlePrefixInput = document.getElementById('titlePrefix');
+        if (useTitlePrefixCheckbox && titlePrefixInput) {
+            useTitlePrefixCheckbox.addEventListener('change', (e) => {
+                exportSettings.useTitlePrefix = e.target.checked;
+                titlePrefixInput.disabled = !e.target.checked;
+            });
+
+            titlePrefixInput.addEventListener('change', (e) => {
+                exportSettings.titlePrefix = e.target.value;
             });
         }
 
@@ -323,6 +358,12 @@ function applySettingsToUI() {
         if (includeHeaderCheckbox) {
             includeHeaderCheckbox.checked = exportSettings.includeHeader;
         }
+
+        // Apply blank lines
+        const blankLinesInput = document.getElementById('blankLines');
+        if (blankLinesInput) {
+            blankLinesInput.value = exportSettings.blankLines;
+        }
         
         // Apply TCR format
         const tcrFormatRadios = document.querySelectorAll('input[name="tcrFormat"]');
@@ -330,6 +371,21 @@ function applySettingsToUI() {
             tcrFormatRadios.forEach(radio => {
                 radio.checked = radio.value === exportSettings.tcrFormat;
             });
+        }
+        
+        // Apply import film title setting
+        const importFilmTitleCheckbox = document.getElementById('importFilmTitle');
+        if (importFilmTitleCheckbox) {
+            importFilmTitleCheckbox.checked = exportSettings.importFilmTitle;
+        }
+
+        // Apply title prefix settings
+        const useTitlePrefixCheckbox = document.getElementById('useTitlePrefix');
+        const titlePrefixInput = document.getElementById('titlePrefix');
+        if (useTitlePrefixCheckbox && titlePrefixInput) {
+            useTitlePrefixCheckbox.checked = exportSettings.useTitlePrefix;
+            titlePrefixInput.value = exportSettings.titlePrefix;
+            titlePrefixInput.disabled = !exportSettings.useTitlePrefix;
         }
         
         // Update file name preview
@@ -350,8 +406,12 @@ function resetSettings() {
         downloadLocation: 'ask',
         customLocation: '',
         includeHeader: true,
+        blankLines: 0,
         fieldsToExport: [],
-        tcrFormat: 'timecode'
+        tcrFormat: 'timecode',
+        importFilmTitle: true,
+        useTitlePrefix: false,
+        titlePrefix: ''
     };
     
     initializeExportSettingsPage();
@@ -380,7 +440,30 @@ function exportWithSettings() {
             const markedRows = JSON.parse(localStorage.getItem('markedRows')) || {};
             markers = rawMarkers.map((marker, idx) => ({ ...marker, markColor: markedRows[idx] || '' }));
         }
-        const exportPayload = { headerRows, markers };
+
+        // Apply film title import if enabled
+        if (settings.importFilmTitle) {
+            const showInfo = JSON.parse(localStorage.getItem('showInfo')) || {};
+            const showName = showInfo.showName || '';
+            markers = markers.map(marker => ({
+                ...marker,
+                filmTitle: showName
+            }));
+        }
+
+        // Apply title prefix if enabled
+        if (settings.useTitlePrefix && settings.titlePrefix) {
+            markers = markers.map(marker => ({
+                ...marker,
+                title: `${marker.title}-(${settings.titlePrefix})`
+            }));
+        }
+
+        const exportPayload = { 
+            headerRows, 
+            markers,
+            blankLines: settings.blankLines
+        };
         // --- END: Prepare export payload with metadata and marker data ---
 
         // Get file type from settings

@@ -109,6 +109,7 @@ def export_markers(format):
         payload = request.json
         header_rows = payload.get('headerRows', [])
         markers = payload.get('markers', [])
+        blank_lines = payload.get('blankLines', 0)
 
         if format == 'excel':
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
@@ -123,6 +124,10 @@ def export_markers(format):
                 ws.append(row)
             # --- END: Write metadata rows ---
 
+            # Add blank lines if specified
+            for _ in range(blank_lines):
+                ws.append([])
+
             # --- BEGIN: Write marker table ---
             if markers:
                 ws.append(list(markers[0].keys()))
@@ -133,8 +138,8 @@ def export_markers(format):
             # --- BEGIN: Color marked rows ---
             yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
             red_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
-            # Metadata rows + header row
-            start_row = len(header_rows) + 2 if markers else len(header_rows) + 1
+            # Metadata rows + header row + blank lines
+            start_row = len(header_rows) + blank_lines + 2 if markers else len(header_rows) + blank_lines + 1
             for i, marker in enumerate(markers):
                 color = marker.get('markColor', '')
                 if color == 'yellow':
@@ -167,6 +172,10 @@ def export_markers(format):
                 for row in header_rows:
                     writer.writerow(row)
                 # --- END: Write metadata rows ---
+
+                # Add blank lines if specified
+                for _ in range(blank_lines):
+                    writer.writerow([])
 
                 # --- BEGIN: Write marker table ---
                 if markers:
