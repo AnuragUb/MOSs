@@ -453,13 +453,23 @@ function exportWithSettings() {
             markers = rawMarkers.map((marker, idx) => ({ ...marker, markColor: markedRows[idx] || '' }));
         }
 
-        // --- Find the Series Title from headerRows ---
+        // Debug logging
+        console.log('headerRows:', headerRows);
+        // --- Find the Series Title from headerRows (robust) ---
         let seriesTitle = '';
         for (const row of headerRows) {
-            if (row[0] && row[0].toLowerCase().includes('series title')) {
-                seriesTitle = row[1] || '';
+            if (row[0] && row[0].toLowerCase().replace(/\s/g, '').includes('seriestitle')) {
+                seriesTitle = row[1] ? row[1].trim() : '';
                 break;
             }
+        }
+        console.log('seriesTitle found:', seriesTitle);
+        console.log('settings.importFilmTitle:', settings.importFilmTitle);
+        console.log('settings.addSeriesTitlePrefix:', settings.addSeriesTitlePrefix);
+
+        // Log a sample marker before mapping
+        if (markers.length > 0) {
+            console.log('Sample marker before mapping:', markers[0]);
         }
 
         // Apply film title import if enabled
@@ -476,6 +486,11 @@ function exportWithSettings() {
                 ...marker,
                 title: `${seriesTitle} - (${marker.title || ''})`
             }));
+        }
+
+        // Log a sample marker after mapping
+        if (markers.length > 0) {
+            console.log('Sample marker after mapping:', markers[0]);
         }
 
         // Ensure usage is a string for export
