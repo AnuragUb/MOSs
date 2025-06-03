@@ -458,15 +458,21 @@ function exportWithSettings() {
         headerRows.forEach((row, idx) => {
             console.log(`headerRows[${idx}][0]:`, row[0]);
         });
-        // --- Find the Series Title from headerRows (very robust) ---
+        // --- Find the Series Title from headerRows (search entire row for label, then first non-empty cell after) ---
         let seriesTitle = '';
         for (const row of headerRows) {
-            for (let i = 0; i < 2; i++) {
+            for (let i = 0; i < row.length; i++) {
                 if (
                     row[i] &&
                     row[i].toLowerCase().replace(/[^a-z0-9]/g, '') === 'seriestitle'
                 ) {
-                    seriesTitle = row[i + 1] ? row[i + 1].trim() : '';
+                    // Find the first non-empty cell after the label cell
+                    for (let j = i + 1; j < row.length; j++) {
+                        if (row[j] && row[j].trim() !== '') {
+                            seriesTitle = row[j].trim();
+                            break;
+                        }
+                    }
                     break;
                 }
             }
