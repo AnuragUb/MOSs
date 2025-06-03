@@ -473,6 +473,22 @@ function exportWithSettings() {
             }));
         }
 
+        // Ensure usage is a string for export
+        markers = markers.map(marker => {
+            if (Array.isArray(marker.usage)) {
+                return { ...marker, usage: marker.usage.join(',') };
+            }
+            if (typeof marker.usage === 'string' && marker.usage.startsWith('[') && marker.usage.endsWith(']')) {
+                try {
+                    const arr = JSON.parse(marker.usage);
+                    if (Array.isArray(arr)) {
+                        return { ...marker, usage: arr.join(',') };
+                    }
+                } catch (e) {}
+            }
+            return marker;
+        });
+
         const exportPayload = { 
             headerRows, 
             markers,
