@@ -111,32 +111,35 @@ function initializeExportSettingsPage() {
             });
         }
 
-        // Add checkbox for addSeriesTitlePrefix
-        // Find the section by heading text
-        const headings = document.querySelectorAll('.settings-section h3');
-        let contentSettingsSection = null;
-        headings.forEach(h => {
-            if (h.textContent.trim() === 'Content Settings') {
-                contentSettingsSection = h.parentElement;
-            }
-        });
-        if (contentSettingsSection) {
-            const prefixGroup = document.createElement('div');
-            prefixGroup.className = 'setting-group';
-            prefixGroup.innerHTML = `
-                <label>
-                    <input type="checkbox" id="addSeriesTitlePrefix">
-                    Add Series Title as Prefix to Title ("Series Title - (User Title)")
-                </label>
-                <span class="help-text">If enabled, exported title will be: Series Title - (User Title)</span>
-            `;
-            contentSettingsSection.appendChild(prefixGroup);
-            const prefixCheckbox = document.getElementById('addSeriesTitlePrefix');
-            prefixCheckbox.checked = exportSettings.addSeriesTitlePrefix;
-            prefixCheckbox.addEventListener('change', (e) => {
-                exportSettings.addSeriesTitlePrefix = e.target.checked;
-                localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
+        // Add checkbox for addSeriesTitlePrefix only if it doesn't exist
+        const existingPrefixCheckbox = document.getElementById('addSeriesTitlePrefix');
+        if (!existingPrefixCheckbox) {
+            // Find the section by heading text
+            const headings = document.querySelectorAll('.settings-section h3');
+            let contentSettingsSection = null;
+            headings.forEach(h => {
+                if (h.textContent.trim() === 'Content Settings') {
+                    contentSettingsSection = h.parentElement;
+                }
             });
+            if (contentSettingsSection) {
+                const prefixGroup = document.createElement('div');
+                prefixGroup.className = 'setting-group';
+                prefixGroup.innerHTML = `
+                    <label>
+                        <input type="checkbox" id="addSeriesTitlePrefix">
+                        Add Series Title as Prefix to Title ("Series Title - (User Title)")
+                    </label>
+                    <span class="help-text">If enabled, exported title will be: Series Title - (User Title)</span>
+                `;
+                contentSettingsSection.appendChild(prefixGroup);
+                const prefixCheckbox = document.getElementById('addSeriesTitlePrefix');
+                prefixCheckbox.checked = exportSettings.addSeriesTitlePrefix;
+                prefixCheckbox.addEventListener('change', (e) => {
+                    exportSettings.addSeriesTitlePrefix = e.target.checked;
+                    localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
+                });
+            }
         }
     } catch (error) {
         console.error('Error in initializeExportSettingsPage:', error);
@@ -265,10 +268,8 @@ function populateFieldsToExport() {
 
     fieldsContainer.innerHTML = '';
 
-    // Use default fields if no saved fields
-    const fields = exportSettings.fieldsToExport.length > 0 ? 
-        exportSettings.fieldsToExport : 
-        ['tcrIn', 'tcrOut', 'duration', 'usage', 'title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'];
+    // Always use all available fields
+    const fields = ['tcrIn', 'tcrOut', 'duration', 'usage', 'title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'];
 
     const fieldLabels = {
         'tcrIn': 'TCR In',
@@ -293,7 +294,9 @@ function populateFieldsToExport() {
         
         checkbox.addEventListener('change', (e) => {
             if (e.target.checked) {
-                exportSettings.fieldsToExport.push(fieldKey);
+                if (!exportSettings.fieldsToExport.includes(fieldKey)) {
+                    exportSettings.fieldsToExport.push(fieldKey);
+                }
             } else {
                 exportSettings.fieldsToExport = exportSettings.fieldsToExport.filter(f => f !== fieldKey);
             }
