@@ -74,6 +74,9 @@ const columnNameMap = {
     'noc title': 'nocTitle'
 };
 
+// Add a new variable to track the pauseWithTCRMark toggle
+let pauseWithTCRMark = false;
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing main page components...');
@@ -101,6 +104,7 @@ function initializeVideoPlayer() {
     const tcrInBtn = document.getElementById('tcrInBtn');
     const tcrOutBtn = document.getElementById('tcrOutBtn');
     const singleButtonMode = document.getElementById('singleButtonMode');
+    const pauseWithTCRMarkToggle = document.getElementById('pauseWithTCRMark');
     const loadVideoBtn = document.getElementById('loadVideoBtn');
     const videoFileInput = document.getElementById('videoFileInput');
     const videoUrlInput = document.getElementById('videoUrlInput');
@@ -108,6 +112,20 @@ function initializeVideoPlayer() {
 
     // Initialize frame rate
     window.frameRate = 25; // Default frame rate
+
+    // Restore pauseWithTCRMark from localStorage if available
+    const savedPauseWithTCRMark = localStorage.getItem('pauseWithTCRMark');
+    if (savedPauseWithTCRMark !== null) {
+        pauseWithTCRMark = savedPauseWithTCRMark === 'true';
+        if (pauseWithTCRMarkToggle) pauseWithTCRMarkToggle.checked = pauseWithTCRMark;
+    }
+
+    if (pauseWithTCRMarkToggle) {
+        pauseWithTCRMarkToggle.addEventListener('change', function() {
+            pauseWithTCRMark = this.checked;
+            localStorage.setItem('pauseWithTCRMark', pauseWithTCRMark);
+        });
+    }
 
     videoPlayer.addEventListener('loadedmetadata', function() {
         currentVideo = videoPlayer.src;
@@ -452,6 +470,11 @@ function markTCR(type) {
     const videoPlayer = document.getElementById('videoPlayer');
     const currentTime = videoPlayer.currentTime;
     
+    // Pause video if toggle is enabled
+    if (pauseWithTCRMark && videoPlayer && !videoPlayer.paused) {
+        videoPlayer.pause();
+    }
+
     // Get selected rows
     const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
     const selectedRows = Array.from(selectedCheckboxes).map(checkbox => {
@@ -1217,6 +1240,8 @@ function extractFieldValue(headerRows, fieldName) {
 function loadCueSheetData(header, data) {
     // Map file columns to app columns using mapping
     let lowerHeader = header.map(h => h.trim().toLowerCase());
+    // Extract show name (series title) from headerRows
+    const showName = extractFieldValue(headerRows, 'series title');
     markers = data.map(row => {
         let marker = {};
         defaultMarkerColumns.forEach(col => {
@@ -1229,16 +1254,20 @@ function loadCueSheetData(header, data) {
         });
         // Normalize TCR fields
         ['tcrIn', 'tcrOut'].forEach(field => {
-            if (marker[field] && marker[field].match(/^\d{2}:\d{2}:\d{2}$/)) {
+            if (marker[field] && marker[field].match(/^[0-9]{2}:[0-9]{2}:[0-9]{2}$/)) {
                 marker[field] += ':00';
             }
         });
+        // Set filmTitle to showName if available
+        if (showName) {
+            marker.filmTitle = showName;
+        }
         return marker;
     });
 
     // Extract and save show information
     const showInfo = {
-        showName: extractFieldValue(headerRows, 'series title'),
+        showName: showName,
         season: extractFieldValue(headerRows, 'season'),
         episodeNumber: extractFieldValue(headerRows, 'episode number')
     };
