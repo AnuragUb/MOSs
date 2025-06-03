@@ -257,6 +257,16 @@ function setupEventListeners() {
                 }
             });
         }
+
+        // File name input change
+        const fileNameInput = document.getElementById('fileName');
+        if (fileNameInput) {
+            fileNameInput.addEventListener('input', (e) => {
+                exportSettings.fileName = e.target.value;
+                localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
+                updateFileNamePreview();
+            });
+        }
     } catch (error) {
         console.error('Error setting up event listeners:', error);
     }
@@ -310,7 +320,7 @@ function populateFieldsToExport() {
     });
 }
 
-function updateFileNamePreview() {
+function updateFileNamePreview(autoOnly = false) {
     try {
         const fileNameInput = document.getElementById('fileName');
         const preview = document.querySelector('.file-name-preview');
@@ -323,20 +333,14 @@ function updateFileNamePreview() {
             season: '',
             episodeNumber: ''
         };
-        if (!showInfo.showName || showInfo.showName === 'Unknown_Show') {
-            console.warn('Show name not found in localStorage. File name will use default.');
-        }
-        if (!showInfo.season) {
-            console.warn('Season not found in localStorage. File name will not include season.');
-        }
-        if (!showInfo.episodeNumber) {
-            console.warn('Episode number not found in localStorage. File name will not include episode number.');
-        }
-        let fileName = showInfo.showName;
-        if (showInfo.season) fileName += `_Season${showInfo.season}`;
-        if (showInfo.episodeNumber) fileName += `_${showInfo.episodeNumber.padStart(4, '0')}`;
-        fileName += '_Unmix HD_MusicCueSheet';
-        exportSettings.fileName = fileName;
+        let autoFileName = showInfo.showName;
+        if (showInfo.season) autoFileName += `_Season${showInfo.season}`;
+        if (showInfo.episodeNumber) autoFileName += `_${showInfo.episodeNumber.padStart(4, '0')}`;
+        autoFileName += '_Unmix HD_MusicCueSheet';
+
+        // If user has entered a custom filename, use it; otherwise use auto
+        let fileName = exportSettings.fileName && exportSettings.fileName.trim() !== '' ? exportSettings.fileName : autoFileName;
+        if (autoOnly) fileName = autoFileName;
         fileNameInput.value = fileName;
         preview.textContent = `Preview: ${fileName}.${exportSettings.fileType === 'csv' ? 'csv' : 'xlsx'}`;
     } catch (error) {
@@ -399,6 +403,12 @@ function applySettingsToUI() {
         const addSeriesTitlePrefixCheckbox = document.getElementById('addSeriesTitlePrefix');
         if (addSeriesTitlePrefixCheckbox) {
             addSeriesTitlePrefixCheckbox.checked = exportSettings.addSeriesTitlePrefix;
+        }
+        
+        // Apply file name
+        const fileNameInput = document.getElementById('fileName');
+        if (fileNameInput) {
+            fileNameInput.value = exportSettings.fileName || '';
         }
         
         // Update file name preview
