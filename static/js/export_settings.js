@@ -453,23 +453,28 @@ function exportWithSettings() {
             markers = rawMarkers.map((marker, idx) => ({ ...marker, markColor: markedRows[idx] || '' }));
         }
 
-        // Apply film title import if enabled
-        if (settings.importFilmTitle) {
-            // Get show name from the first header row (assuming it's in the first cell)
-            const showName = headerRows[0] && headerRows[0][0] ? headerRows[0][0] : '';
-            if (showName) {
-                markers = markers.map(marker => ({
-                    ...marker,
-                    filmTitle: showName
-                }));
+        // --- Find the Series Title from headerRows ---
+        let seriesTitle = '';
+        for (const row of headerRows) {
+            if (row[0] && row[0].toLowerCase().includes('series title')) {
+                seriesTitle = row[1] || '';
+                break;
             }
         }
 
-        // Apply addSeriesTitlePrefix if enabled
-        if (settings.addSeriesTitlePrefix) {
+        // Apply film title import if enabled
+        if (settings.importFilmTitle && seriesTitle) {
             markers = markers.map(marker => ({
                 ...marker,
-                title: `Series Title - (${marker.title || ''})`
+                filmTitle: seriesTitle
+            }));
+        }
+
+        // Apply addSeriesTitlePrefix if enabled
+        if (settings.addSeriesTitlePrefix && seriesTitle) {
+            markers = markers.map(marker => ({
+                ...marker,
+                title: marker.title ? `${seriesTitle} - (${marker.title})` : ''
             }));
         }
 
