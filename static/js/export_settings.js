@@ -9,8 +9,7 @@ let exportSettings = {
     fieldsToExport: [],
     tcrFormat: 'timecode',
     importFilmTitle: true,
-    useTitleSuffix: false,
-    titleSuffix: ''
+    addSeriesTitlePrefix: true,
 };
 
 // Check if we're on the export settings page
@@ -111,6 +110,25 @@ function initializeExportSettingsPage() {
                 exportSettings.blankLines = parseInt(e.target.value) || 0;
             });
         }
+
+        // Add checkbox for addSeriesTitlePrefix
+        const contentSettingsSection = document.querySelector('.settings-section h3:contains("Content Settings")').parentElement;
+        const prefixGroup = document.createElement('div');
+        prefixGroup.className = 'setting-group';
+        prefixGroup.innerHTML = `
+            <label>
+                <input type="checkbox" id="addSeriesTitlePrefix">
+                Add Series Title as Prefix to Title ("Series Title - (User Title)")
+            </label>
+            <span class="help-text">If enabled, exported title will be: Series Title - (User Title)</span>
+        `;
+        contentSettingsSection.appendChild(prefixGroup);
+        const prefixCheckbox = document.getElementById('addSeriesTitlePrefix');
+        prefixCheckbox.checked = exportSettings.addSeriesTitlePrefix;
+        prefixCheckbox.addEventListener('change', (e) => {
+            exportSettings.addSeriesTitlePrefix = e.target.checked;
+            localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
+        });
     } catch (error) {
         console.error('Error in initializeExportSettingsPage:', error);
         throw error;
@@ -206,20 +224,6 @@ function setupEventListeners() {
         if (importFilmTitleCheckbox) {
             importFilmTitleCheckbox.addEventListener('change', (e) => {
                 exportSettings.importFilmTitle = e.target.checked;
-            });
-        }
-
-        // Title Suffix checkbox and input
-        const useTitleSuffixCheckbox = document.getElementById('useTitleSuffix');
-        const titleSuffixInput = document.getElementById('titleSuffix');
-        if (useTitleSuffixCheckbox && titleSuffixInput) {
-            useTitleSuffixCheckbox.addEventListener('change', (e) => {
-                exportSettings.useTitleSuffix = e.target.checked;
-                titleSuffixInput.disabled = !e.target.checked;
-            });
-
-            titleSuffixInput.addEventListener('change', (e) => {
-                exportSettings.titleSuffix = e.target.value;
             });
         }
 
@@ -379,13 +383,10 @@ function applySettingsToUI() {
             importFilmTitleCheckbox.checked = exportSettings.importFilmTitle;
         }
 
-        // Apply title suffix settings
-        const useTitleSuffixCheckbox = document.getElementById('useTitleSuffix');
-        const titleSuffixInput = document.getElementById('titleSuffix');
-        if (useTitleSuffixCheckbox && titleSuffixInput) {
-            useTitleSuffixCheckbox.checked = exportSettings.useTitleSuffix;
-            titleSuffixInput.value = exportSettings.titleSuffix;
-            titleSuffixInput.disabled = !exportSettings.useTitleSuffix;
+        // Apply addSeriesTitlePrefix setting
+        const addSeriesTitlePrefixCheckbox = document.getElementById('addSeriesTitlePrefix');
+        if (addSeriesTitlePrefixCheckbox) {
+            addSeriesTitlePrefixCheckbox.checked = exportSettings.addSeriesTitlePrefix;
         }
         
         // Update file name preview
@@ -410,8 +411,7 @@ function resetSettings() {
         fieldsToExport: [],
         tcrFormat: 'timecode',
         importFilmTitle: true,
-        useTitleSuffix: false,
-        titleSuffix: ''
+        addSeriesTitlePrefix: true,
     };
     
     initializeExportSettingsPage();
@@ -453,11 +453,11 @@ function exportWithSettings() {
             }
         }
 
-        // Apply title suffix if enabled
-        if (settings.useTitleSuffix && settings.titleSuffix) {
+        // Apply addSeriesTitlePrefix if enabled
+        if (settings.addSeriesTitlePrefix) {
             markers = markers.map(marker => ({
                 ...marker,
-                title: `${marker.title}-(${settings.titleSuffix})`
+                title: `Series Title - (${marker.title || ''})`
             }));
         }
 
@@ -581,4 +581,23 @@ function exportToCSV(payload) {
 
 function exportToPlainExcel(payload) {
     exportToExcelWorkbook(payload);
+}
+
+function prepareExportData(settings) {
+    let showName = '';
+    if (window.headerRows) {
+        showName = extractFieldValue(window.headerRows, 'series title');
+    }
+    if (!showName) {
+        const showInfo = JSON.parse(localStorage.getItem('showInfo') || '{}');
+        showName = showInfo.showName || '';
+    }
+    let markers = window.getMarkersWithMarkColor ? window.getMarkersWithMarkColor() : (window.markers || []);
+    if (settings.addSeriesTitlePrefix && showName) {
+        markers = markers.map(marker => ({
+            ...marker,
+            title: `${showName} - (${marker.title || ''})`
+        }));
+    }
+    return { headerRows: window.headerRows, markers, blankLines: settings.blankLines };
 } 
