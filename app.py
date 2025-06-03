@@ -110,6 +110,7 @@ def export_markers(format):
         header_rows = payload.get('headerRows', [])
         markers = payload.get('markers', [])
         blank_lines = payload.get('blankLines', 0)
+        fields_to_export = payload.get('fieldsToExport')
 
         if format == 'excel':
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
@@ -130,20 +131,36 @@ def export_markers(format):
 
             # --- BEGIN: Write marker table ---
             if markers:
-                ws.append(list(markers[0].keys()))
-                for row in markers:
-                    # Convert usage array or stringified array to comma-separated string if it exists
-                    if 'usage' in row:
-                        if isinstance(row['usage'], list):
-                            row['usage'] = ','.join(row['usage'])
-                        elif isinstance(row['usage'], str) and row['usage'].startswith('[') and row['usage'].endswith(']'):
-                            try:
-                                arr = json.loads(row['usage'])
-                                if isinstance(arr, list):
-                                    row['usage'] = ','.join(arr)
-                            except Exception:
-                                pass
-                    ws.append(list(row.values()))
+                if fields_to_export:
+                    ws.append(fields_to_export)
+                    for row in markers:
+                        # Convert usage array or stringified array to comma-separated string if it exists
+                        if 'usage' in row:
+                            if isinstance(row['usage'], list):
+                                row['usage'] = ','.join(row['usage'])
+                            elif isinstance(row['usage'], str) and row['usage'].startswith('[') and row['usage'].endswith(']'):
+                                try:
+                                    arr = json.loads(row['usage'])
+                                    if isinstance(arr, list):
+                                        row['usage'] = ','.join(arr)
+                                except Exception:
+                                    pass
+                        ws.append([row.get(field, '') for field in fields_to_export])
+                else:
+                    ws.append(list(markers[0].keys()))
+                    for row in markers:
+                        # Convert usage array or stringified array to comma-separated string if it exists
+                        if 'usage' in row:
+                            if isinstance(row['usage'], list):
+                                row['usage'] = ','.join(row['usage'])
+                            elif isinstance(row['usage'], str) and row['usage'].startswith('[') and row['usage'].endswith(']'):
+                                try:
+                                    arr = json.loads(row['usage'])
+                                    if isinstance(arr, list):
+                                        row['usage'] = ','.join(arr)
+                                except Exception:
+                                    pass
+                        ws.append(list(row.values()))
             # --- END: Write marker table ---
 
             # --- BEGIN: Color marked rows ---
@@ -190,20 +207,36 @@ def export_markers(format):
 
                 # --- BEGIN: Write marker table ---
                 if markers:
-                    writer.writerow(list(markers[0].keys()))
-                    for row in markers:
-                        # Convert usage array or stringified array to comma-separated string if it exists
-                        if 'usage' in row:
-                            if isinstance(row['usage'], list):
-                                row['usage'] = ','.join(row['usage'])
-                            elif isinstance(row['usage'], str) and row['usage'].startswith('[') and row['usage'].endswith(']'):
-                                try:
-                                    arr = json.loads(row['usage'])
-                                    if isinstance(arr, list):
-                                        row['usage'] = ','.join(arr)
-                                except Exception:
-                                    pass
-                        writer.writerow(list(row.values()))
+                    if fields_to_export:
+                        writer.writerow(fields_to_export)
+                        for row in markers:
+                            # Convert usage array or stringified array to comma-separated string if it exists
+                            if 'usage' in row:
+                                if isinstance(row['usage'], list):
+                                    row['usage'] = ','.join(row['usage'])
+                                elif isinstance(row['usage'], str) and row['usage'].startswith('[') and row['usage'].endswith(']'):
+                                    try:
+                                        arr = json.loads(row['usage'])
+                                        if isinstance(arr, list):
+                                            row['usage'] = ','.join(arr)
+                                    except Exception:
+                                        pass
+                            writer.writerow([row.get(field, '') for field in fields_to_export])
+                    else:
+                        writer.writerow(list(markers[0].keys()))
+                        for row in markers:
+                            # Convert usage array or stringified array to comma-separated string if it exists
+                            if 'usage' in row:
+                                if isinstance(row['usage'], list):
+                                    row['usage'] = ','.join(row['usage'])
+                                elif isinstance(row['usage'], str) and row['usage'].startswith('[') and row['usage'].endswith(']'):
+                                    try:
+                                        arr = json.loads(row['usage'])
+                                        if isinstance(arr, list):
+                                            row['usage'] = ','.join(arr)
+                                    except Exception:
+                                        pass
+                            writer.writerow(list(row.values()))
                 # --- END: Write marker table ---
 
             with open(temp_path, 'rb') as f:

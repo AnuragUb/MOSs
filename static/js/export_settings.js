@@ -492,7 +492,8 @@ function exportWithSettings() {
         const exportPayload = { 
             headerRows, 
             markers,
-            blankLines: settings.blankLines
+            blankLines: settings.blankLines,
+            fieldsToExport: settings.fieldsToExport
         };
         // --- END: Prepare export payload with metadata and marker data ---
 
