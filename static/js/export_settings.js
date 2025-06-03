@@ -112,23 +112,32 @@ function initializeExportSettingsPage() {
         }
 
         // Add checkbox for addSeriesTitlePrefix
-        const contentSettingsSection = document.querySelector('.settings-section h3:contains("Content Settings")').parentElement;
-        const prefixGroup = document.createElement('div');
-        prefixGroup.className = 'setting-group';
-        prefixGroup.innerHTML = `
-            <label>
-                <input type="checkbox" id="addSeriesTitlePrefix">
-                Add Series Title as Prefix to Title ("Series Title - (User Title)")
-            </label>
-            <span class="help-text">If enabled, exported title will be: Series Title - (User Title)</span>
-        `;
-        contentSettingsSection.appendChild(prefixGroup);
-        const prefixCheckbox = document.getElementById('addSeriesTitlePrefix');
-        prefixCheckbox.checked = exportSettings.addSeriesTitlePrefix;
-        prefixCheckbox.addEventListener('change', (e) => {
-            exportSettings.addSeriesTitlePrefix = e.target.checked;
-            localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
+        // Find the section by heading text
+        const headings = document.querySelectorAll('.settings-section h3');
+        let contentSettingsSection = null;
+        headings.forEach(h => {
+            if (h.textContent.trim() === 'Content Settings') {
+                contentSettingsSection = h.parentElement;
+            }
         });
+        if (contentSettingsSection) {
+            const prefixGroup = document.createElement('div');
+            prefixGroup.className = 'setting-group';
+            prefixGroup.innerHTML = `
+                <label>
+                    <input type="checkbox" id="addSeriesTitlePrefix">
+                    Add Series Title as Prefix to Title ("Series Title - (User Title)")
+                </label>
+                <span class="help-text">If enabled, exported title will be: Series Title - (User Title)</span>
+            `;
+            contentSettingsSection.appendChild(prefixGroup);
+            const prefixCheckbox = document.getElementById('addSeriesTitlePrefix');
+            prefixCheckbox.checked = exportSettings.addSeriesTitlePrefix;
+            prefixCheckbox.addEventListener('change', (e) => {
+                exportSettings.addSeriesTitlePrefix = e.target.checked;
+                localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
+            });
+        }
     } catch (error) {
         console.error('Error in initializeExportSettingsPage:', error);
         throw error;
