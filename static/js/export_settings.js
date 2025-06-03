@@ -453,15 +453,24 @@ function exportWithSettings() {
             markers = rawMarkers.map((marker, idx) => ({ ...marker, markColor: markedRows[idx] || '' }));
         }
 
-        // Debug logging
-        console.log('headerRows:', headerRows);
-        // --- Find the Series Title from headerRows (robust) ---
+        // Detailed debug logging
+        console.log('headerRows:', JSON.stringify(headerRows, null, 2));
+        headerRows.forEach((row, idx) => {
+            console.log(`headerRows[${idx}][0]:`, row[0]);
+        });
+        // --- Find the Series Title from headerRows (very robust) ---
         let seriesTitle = '';
         for (const row of headerRows) {
-            if (row[0] && row[0].toLowerCase().replace(/\s/g, '').includes('seriestitle')) {
-                seriesTitle = row[1] ? row[1].trim() : '';
-                break;
+            for (let i = 0; i < 2; i++) {
+                if (
+                    row[i] &&
+                    row[i].toLowerCase().replace(/[^a-z0-9]/g, '') === 'seriestitle'
+                ) {
+                    seriesTitle = row[i + 1] ? row[i + 1].trim() : '';
+                    break;
+                }
             }
+            if (seriesTitle) break;
         }
         console.log('seriesTitle found:', seriesTitle);
         console.log('settings.importFilmTitle:', settings.importFilmTitle);
