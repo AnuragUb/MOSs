@@ -111,6 +111,7 @@ def export_markers(format):
         markers = payload.get('markers', [])
         blank_lines = payload.get('blankLines', 0)
         fields_to_export = payload.get('fieldsToExport')
+        field_labels = payload.get('fieldLabels', {})
 
         if format == 'excel':
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
@@ -132,7 +133,7 @@ def export_markers(format):
             # --- BEGIN: Write marker table ---
             if markers:
                 if fields_to_export:
-                    ws.append(fields_to_export)
+                    ws.append([field_labels.get(field, field) for field in fields_to_export])
                     for row in markers:
                         # Convert usage array or stringified array to comma-separated string if it exists
                         if 'usage' in row:
@@ -208,7 +209,7 @@ def export_markers(format):
                 # --- BEGIN: Write marker table ---
                 if markers:
                     if fields_to_export:
-                        writer.writerow(fields_to_export)
+                        writer.writerow([field_labels.get(field, field) for field in fields_to_export])
                         for row in markers:
                             # Convert usage array or stringified array to comma-separated string if it exists
                             if 'usage' in row:

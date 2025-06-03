@@ -474,7 +474,7 @@ function exportWithSettings() {
         if (settings.addSeriesTitlePrefix && seriesTitle) {
             markers = markers.map(marker => ({
                 ...marker,
-                title: marker.title ? `${seriesTitle} - (${marker.title})` : ''
+                title: `${seriesTitle} - (${marker.title || ''})`
             }));
         }
 
@@ -494,11 +494,27 @@ function exportWithSettings() {
             return marker;
         });
 
+        // Field labels for export header
+        const fieldLabels = {
+            tcrIn: 'TCR In',
+            tcrOut: 'TCR Out',
+            duration: 'Duration',
+            usage: 'Usage',
+            title: 'Title',
+            filmTitle: 'Film/Album Title',
+            composer: 'Composer',
+            lyricist: 'Lyricist',
+            musicCo: 'Music Co',
+            nocId: 'NOC ID',
+            nocTitle: 'NOC Title'
+        };
+
         const exportPayload = { 
             headerRows, 
             markers,
             blankLines: settings.blankLines,
-            fieldsToExport: settings.fieldsToExport
+            fieldsToExport: settings.fieldsToExport,
+            fieldLabels // send field labels for header row
         };
         // --- END: Prepare export payload with metadata and marker data ---
 
