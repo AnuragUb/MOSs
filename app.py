@@ -149,12 +149,11 @@ def export_markers(format):
 
         def convert_time_fields(row):
             new_row = row.copy()
-            if 'tcrIn' in new_row:
-                seconds = parse_time(new_row['tcrIn'])
-                new_row['tcrIn'] = format_time(seconds, time_format == 'HH:MM:SS:FF')
-            if 'tcrOut' in new_row:
-                seconds = parse_time(new_row['tcrOut'])
-                new_row['tcrOut'] = format_time(seconds, time_format == 'HH:MM:SS:FF')
+            time_fields = ['tcrIn', 'tcrOut', 'duration']  # Add duration to the list of time fields
+            for field in time_fields:
+                if field in new_row:
+                    seconds = parse_time(new_row[field])
+                    new_row[field] = format_time(seconds, time_format == 'HH:MM:SS:FF')
             return new_row
 
         if format == 'excel':
@@ -183,7 +182,7 @@ def export_markers(format):
                     
                     # Add SEQ# to field labels if not present
                     if 'seq' not in field_labels:
-                        field_labels['seq'] = 'SEQ#'
+                        field_labels['seq'] = 'Seq#'
                     
                     ws.append([field_labels.get(field, field) for field in fields_to_export])
                     for i, row in enumerate(markers):
@@ -281,7 +280,7 @@ def export_markers(format):
                         
                         # Add SEQ# to field labels if not present
                         if 'seq' not in field_labels:
-                            field_labels['seq'] = 'SEQ#'
+                            field_labels['seq'] = 'Seq#'
                         
                         writer.writerow([field_labels.get(field, field) for field in fields_to_export])
                         for i, row in enumerate(markers):
