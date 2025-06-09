@@ -123,12 +123,38 @@ def export_markers(format):
                 return f"{hours:02d}:{minutes:02d}:{secs:02d}:{frames:02d}"
             return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
+        def parse_time(time_str):
+            try:
+                # If it's already a float, return it
+                if isinstance(time_str, (int, float)):
+                    return float(time_str)
+                
+                # Handle HH:MM:SS:FF format
+                if ':' in time_str:
+                    parts = time_str.split(':')
+                    if len(parts) == 4:  # HH:MM:SS:FF
+                        hours = int(parts[0])
+                        minutes = int(parts[1])
+                        seconds = int(parts[2])
+                        frames = int(parts[3])
+                        return hours * 3600 + minutes * 60 + seconds + frames / 25.0
+                    elif len(parts) == 3:  # HH:MM:SS
+                        hours = int(parts[0])
+                        minutes = int(parts[1])
+                        seconds = int(parts[2])
+                        return hours * 3600 + minutes * 60 + seconds
+                return float(time_str)
+            except (ValueError, TypeError):
+                return 0.0
+
         def convert_time_fields(row):
             new_row = row.copy()
             if 'tcrIn' in new_row:
-                new_row['tcrIn'] = format_time(float(new_row['tcrIn']), time_format == 'HH:MM:SS:FF')
+                seconds = parse_time(new_row['tcrIn'])
+                new_row['tcrIn'] = format_time(seconds, time_format == 'HH:MM:SS:FF')
             if 'tcrOut' in new_row:
-                new_row['tcrOut'] = format_time(float(new_row['tcrOut']), time_format == 'HH:MM:SS:FF')
+                seconds = parse_time(new_row['tcrOut'])
+                new_row['tcrOut'] = format_time(seconds, time_format == 'HH:MM:SS:FF')
             return new_row
 
         if format == 'excel':
