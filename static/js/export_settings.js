@@ -554,7 +554,9 @@ function exportWithSettings() {
             markers,
             blankLines: settings.blankLines,
             fieldsToExport: settings.fieldsToExport,
-            fieldLabels // send field labels for header row
+            fieldLabels, // send field labels for header row
+            importFilmTitle: settings.importFilmTitle,
+            addSeriesTitlePrefix: settings.addSeriesTitlePrefix
         };
         // --- END: Prepare export payload with metadata and marker data ---
 

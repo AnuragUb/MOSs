@@ -113,6 +113,32 @@ def export_markers(format):
         fields_to_export = payload.get('fieldsToExport')
         field_labels = payload.get('fieldLabels', {})
         time_format = payload.get('timeFormat', 'HH:MM:SS')  # Default to HH:MM:SS
+        importFilmTitle = payload.get('importFilmTitle', False)
+        addSeriesTitlePrefix = payload.get('addSeriesTitlePrefix', False)
+
+        # Find series title from headerRows
+        series_title = ''
+        for row in header_rows:
+            for i, cell in enumerate(row):
+                if isinstance(cell, str) and cell.lower().replace(' ', '').replace('-', '') == 'seriestitle':
+                    # Find the first non-empty cell after the label cell
+                    for j in range(i + 1, len(row)):
+                        if row[j] and str(row[j]).strip() != '':
+                            series_title = str(row[j]).strip()
+                            break
+                    break
+            if series_title:
+                break
+
+        # Apply film title import if enabled
+        if importFilmTitle and series_title:
+            for marker in markers:
+                marker['filmTitle'] = series_title
+
+        # Apply addSeriesTitlePrefix if enabled
+        if addSeriesTitlePrefix and series_title:
+            for marker in markers:
+                marker['title'] = f'{series_title} - ({marker.get("title", "")})'
 
         def format_time(seconds, include_frames=False):
             hours = int(seconds // 3600)
