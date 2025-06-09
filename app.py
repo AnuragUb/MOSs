@@ -112,6 +112,24 @@ def export_markers(format):
         blank_lines = payload.get('blankLines', 0)
         fields_to_export = payload.get('fieldsToExport')
         field_labels = payload.get('fieldLabels', {})
+        time_format = payload.get('timeFormat', 'HH:MM:SS')  # Default to HH:MM:SS
+
+        def format_time(seconds, include_frames=False):
+            hours = int(seconds // 3600)
+            minutes = int((seconds % 3600) // 60)
+            secs = int(seconds % 60)
+            if include_frames:
+                frames = int((seconds % 1) * 25)  # Assuming 25 fps
+                return f"{hours:02d}:{minutes:02d}:{secs:02d}:{frames:02d}"
+            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+        def convert_time_fields(row):
+            new_row = row.copy()
+            if 'tcrIn' in new_row:
+                new_row['tcrIn'] = format_time(float(new_row['tcrIn']), time_format == 'HH:MM:SS:FF')
+            if 'tcrOut' in new_row:
+                new_row['tcrOut'] = format_time(float(new_row['tcrOut']), time_format == 'HH:MM:SS:FF')
+            return new_row
 
         if format == 'excel':
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
@@ -133,8 +151,20 @@ def export_markers(format):
             # --- BEGIN: Write marker table ---
             if markers:
                 if fields_to_export:
+                    # Add SEQ# to the beginning of fields_to_export if not already present
+                    if 'seq' not in fields_to_export:
+                        fields_to_export.insert(0, 'seq')
+                    
+                    # Add SEQ# to field labels if not present
+                    if 'seq' not in field_labels:
+                        field_labels['seq'] = 'SEQ#'
+                    
                     ws.append([field_labels.get(field, field) for field in fields_to_export])
-                    for row in markers:
+                    for i, row in enumerate(markers):
+                        # Convert time fields to the selected format
+                        row = convert_time_fields(row)
+                        # Add SEQ# to the beginning of the row data
+                        row_data = [i + 1]  # SEQ# is index + 1
                         # Convert usage array or stringified array to comma-separated string if it exists
                         if 'usage' in row:
                             if isinstance(row['usage'], list):
@@ -146,10 +176,18 @@ def export_markers(format):
                                         row['usage'] = ','.join(arr)
                                 except Exception:
                                     pass
-                        ws.append([row.get(field, '') for field in fields_to_export])
+                        # Add the rest of the fields
+                        row_data.extend([row.get(field, '') for field in fields_to_export[1:]])
+                        ws.append(row_data)
                 else:
-                    ws.append(list(markers[0].keys()))
-                    for row in markers:
+                    # Add SEQ# to the beginning of the keys
+                    keys = ['seq'] + list(markers[0].keys())
+                    ws.append(keys)
+                    for i, row in enumerate(markers):
+                        # Convert time fields to the selected format
+                        row = convert_time_fields(row)
+                        # Add SEQ# to the beginning of the row data
+                        row_data = [i + 1]  # SEQ# is index + 1
                         # Convert usage array or stringified array to comma-separated string if it exists
                         if 'usage' in row:
                             if isinstance(row['usage'], list):
@@ -161,7 +199,9 @@ def export_markers(format):
                                         row['usage'] = ','.join(arr)
                                 except Exception:
                                     pass
-                        ws.append(list(row.values()))
+                        # Add the rest of the values
+                        row_data.extend(list(row.values()))
+                        ws.append(row_data)
             # --- END: Write marker table ---
 
             # --- BEGIN: Color marked rows ---
@@ -209,8 +249,20 @@ def export_markers(format):
                 # --- BEGIN: Write marker table ---
                 if markers:
                     if fields_to_export:
+                        # Add SEQ# to the beginning of fields_to_export if not already present
+                        if 'seq' not in fields_to_export:
+                            fields_to_export.insert(0, 'seq')
+                        
+                        # Add SEQ# to field labels if not present
+                        if 'seq' not in field_labels:
+                            field_labels['seq'] = 'SEQ#'
+                        
                         writer.writerow([field_labels.get(field, field) for field in fields_to_export])
-                        for row in markers:
+                        for i, row in enumerate(markers):
+                            # Convert time fields to the selected format
+                            row = convert_time_fields(row)
+                            # Add SEQ# to the beginning of the row data
+                            row_data = [i + 1]  # SEQ# is index + 1
                             # Convert usage array or stringified array to comma-separated string if it exists
                             if 'usage' in row:
                                 if isinstance(row['usage'], list):
@@ -222,10 +274,18 @@ def export_markers(format):
                                             row['usage'] = ','.join(arr)
                                     except Exception:
                                         pass
-                            writer.writerow([row.get(field, '') for field in fields_to_export])
+                            # Add the rest of the fields
+                            row_data.extend([row.get(field, '') for field in fields_to_export[1:]])
+                            writer.writerow(row_data)
                     else:
-                        writer.writerow(list(markers[0].keys()))
-                        for row in markers:
+                        # Add SEQ# to the beginning of the keys
+                        keys = ['seq'] + list(markers[0].keys())
+                        writer.writerow(keys)
+                        for i, row in enumerate(markers):
+                            # Convert time fields to the selected format
+                            row = convert_time_fields(row)
+                            # Add SEQ# to the beginning of the row data
+                            row_data = [i + 1]  # SEQ# is index + 1
                             # Convert usage array or stringified array to comma-separated string if it exists
                             if 'usage' in row:
                                 if isinstance(row['usage'], list):
@@ -237,7 +297,9 @@ def export_markers(format):
                                             row['usage'] = ','.join(arr)
                                     except Exception:
                                         pass
-                            writer.writerow(list(row.values()))
+                            # Add the rest of the values
+                            row_data.extend(list(row.values()))
+                            writer.writerow(row_data)
                 # --- END: Write marker table ---
 
             with open(temp_path, 'rb') as f:
