@@ -7,4 +7,7 @@ ffmpeg-python==0.2.0
 requests==2.31.0
 openpyxl==3.1.2
 xlsxwriter==3.1.9
-python-vlc==3.0.20123 
+google-cloud-storage==2.14.0
+google-cloud-firestore==2.14.0
+google-cloud-logging==3.9.0 
+python-vlc==3.0.20123
