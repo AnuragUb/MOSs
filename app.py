@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, send_file
 from flask_cors import CORS
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 import tempfile
 import subprocess
@@ -18,6 +18,7 @@ import openpyxl
 from openpyxl.styles import PatternFill
 import csv
 from video_utils import convert_wmv_to_mp4, upload_to_gcs
+from google.cloud import storage
 
 app = Flask(__name__)
 CORS(app)
@@ -997,6 +998,61 @@ def vlc_volume():
 @app.route('/export-settings')
 def export_settings():
     return render_template('export_settings.html')
+
+@app.route('/generate-upload-url', methods=['POST'])
+def generate_upload_url():
+    data = request.json
+    filename = data['filename']
+    bucket_name = 'mos-aat'
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(f'uploads/{filename}')
+    url = blob.generate_signed_url(
+        version='v4',
+        expiration=timedelta(minutes=15),
+        method='PUT',
+        content_type='application/octet-stream',
+    )
+    return jsonify({'url': url})
+
+@app.route('/process-uploaded-video', methods=['POST'])
+def process_uploaded_video():
+    data = request.json
+    filename = data['filename']
+    bucket_name = 'mos-aat'
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(f'uploads/{filename}')
+    local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    blob.download_to_filename(local_path)
+    # Convert if WMV, else just copy
+    if filename.lower().endswith('.wmv'):
+        output_filename = f"{os.path.splitext(filename)[0]}.mp4"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        convert_wmv_to_mp4(local_path, output_path)
+        # Upload converted file
+        converted_blob = bucket.blob(f'converted/{output_filename}')
+        converted_blob.upload_from_filename(output_path)
+        # Clean up
+        os.remove(local_path)
+        os.remove(output_path)
+        # Generate signed URL for converted file
+        url = converted_blob.generate_signed_url(
+            version='v4',
+            expiration=timedelta(hours=1),
+            method='GET',
+        )
+        return jsonify({'converted_url': url})
+    else:
+        # For non-WMV, just move to converted/
+        converted_blob = bucket.blob(f'converted/{filename}')
+        converted_blob.rewrite(blob)
+        url = converted_blob.generate_signed_url(
+            version='v4',
+            expiration=timedelta(hours=1),
+            method='GET',
+        )
+        return jsonify({'converted_url': url})
 
 if __name__ == '__main__':
     app.run(debug=True) 

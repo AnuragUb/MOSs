@@ -157,68 +157,47 @@ function initializeVideoPlayer() {
     });
 
     // Handle video file upload
-    document.getElementById('videoFileInput').addEventListener('change', function(e) {
+    document.getElementById('videoFileInput').addEventListener('change', async function(e) {
         const file = e.target.files[0];
         if (file) {
-            // Check file size before upload (500MB limit)
-            const maxSize = 500 * 1024 * 1024; // 500MB in bytes
-            if (file.size > maxSize) {
+            // Step 1: Get signed upload URL
+            const res = await fetch('/generate-upload-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: file.name })
+            });
+            const { url } = await res.json();
+            // Step 2: Upload file to GCS
+            const uploadRes = await fetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/octet-stream' },
+                body: file
+            });
+            if (!uploadRes.ok) {
                 playerStatus.style.display = 'block';
                 playerStatus.className = 'alert alert-danger';
-                playerStatus.textContent = `File too large. Maximum size is ${maxSize / (1024*1024)}MB`;
+                playerStatus.textContent = 'Upload to GCS failed.';
                 return;
             }
-
-            const formData = new FormData();
-            formData.append('video', file);
-            
-            // Show conversion status if it's a WMV file
-            if (file.type === 'video/wmv' || file.type === 'video/x-ms-wmv' || file.name.toLowerCase().endsWith('.wmv')) {
-                conversionStatus.style.display = 'block';
-                playerStatus.style.display = 'block';
-                playerStatus.className = 'alert alert-info';
-                playerStatus.textContent = 'Converting WMV file to MP4...';
-            } else {
-                playerStatus.style.display = 'block';
-                playerStatus.className = 'alert alert-info';
-                playerStatus.textContent = 'Uploading video...';
-            }
-            
-            fetch('/upload', {
+            // Step 3: Trigger backend processing
+            playerStatus.style.display = 'block';
+            playerStatus.className = 'alert alert-info';
+            playerStatus.textContent = 'Processing video...';
+            const processRes = await fetch('/process-uploaded-video', {
                 method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(data => {
-                        throw new Error(data.error || `Upload failed: ${response.statusText}`);
-                    }).catch(err => {
-                        throw new Error(`Upload failed: ${response.statusText}`);
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                // Load the converted video
-                loadVideo(data.filename);
-                conversionStatus.style.display = 'none';
-                playerStatus.style.display = 'block';
-                playerStatus.className = 'alert alert-success';
-                playerStatus.textContent = 'Video loaded successfully';
-                setTimeout(() => {
-                    playerStatus.style.display = 'none';
-                }, 3000);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                conversionStatus.style.display = 'none';
-                playerStatus.style.display = 'block';
-                playerStatus.className = 'alert alert-danger';
-                playerStatus.textContent = 'Error: ' + error.message;
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: file.name })
             });
+            const processData = await processRes.json();
+            if (processData.converted_url) {
+                loadVideo(processData.converted_url);
+                playerStatus.className = 'alert alert-success';
+                playerStatus.textContent = 'Video ready!';
+                setTimeout(() => { playerStatus.style.display = 'none'; }, 3000);
+            } else {
+                playerStatus.className = 'alert alert-danger';
+                playerStatus.textContent = 'Video processing failed.';
+            }
         }
     });
 
