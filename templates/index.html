@@ -30,26 +30,24 @@
         <!-- Video Player Section -->
         <div class="video-section" id="videoSection">
             <div class="video-container">
-                <div class="player-type-selector mb-3">
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="playerType" id="defaultPlayer" value="default" checked>
-                        <label class="form-check-label" for="defaultPlayer">Default Player</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="playerType" id="advancedPlayer" value="advanced">
-                        <label class="form-check-label" for="advancedPlayer">Advanced Player</label>
-                    </div>
-                </div>
-                <video id="videoPlayer" controls>
+                <video id="videoPlayer">
                     <source src="" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
-                <div id="advancedControls" style="display: none;" class="mt-2">
+                <div id="advancedControls" class="mt-2">
                     <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-primary" id="playBtn">Play</button>
                         <button type="button" class="btn btn-primary" id="frameBackBtn">Frame Back</button>
                         <button type="button" class="btn btn-primary" id="frameForwardBtn">Frame Forward</button>
                         <button type="button" class="btn btn-warning" id="pauseBtn">Pause</button>
                         <button type="button" class="btn btn-danger" id="stopBtn">Stop</button>
+                    </div>
+                    <div class="progress mt-2">
+                        <input type="range" class="form-range" id="videoProgress" min="0" max="100" value="0">
+                    </div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <span id="currentTime">00:00:00</span>
+                        <span id="duration">00:00:00</span>
                     </div>
                     <div id="playerStatus" class="alert alert-info mt-2" style="display: none;"></div>
                 </div>
@@ -185,55 +183,108 @@
     <script>
         // Initialize video player and controls
         document.addEventListener('DOMContentLoaded', function() {
-            const playerTypeRadios = document.querySelectorAll('input[name="playerType"]');
             const videoPlayer = document.getElementById('videoPlayer');
             const advancedControls = document.getElementById('advancedControls');
             const conversionStatus = document.getElementById('conversionStatus');
             const playerStatus = document.getElementById('playerStatus');
+            const playBtn = document.getElementById('playBtn');
+            const videoProgress = document.getElementById('videoProgress');
+            const currentTimeDisplay = document.getElementById('currentTime');
+            const durationDisplay = document.getElementById('duration');
             
-            // Initialize Plyr player
-            const player = new Plyr('#videoPlayer', {
-                controls: [
-                    'play-large',
-                    'play',
-                    'progress',
-                    'current-time',
-                    'mute',
-                    'volume',
-                    'captions',
-                    'settings',
-                    'pip',
-                    'airplay',
-                    'fullscreen'
-                ]
-            });
-
-            // Set default frame rate (can be updated based on video metadata)
+            // Set default frame rate
             window.frameRate = 30;
 
-            // Handle player type selection
-            playerTypeRadios.forEach(radio => {
-                radio.addEventListener('change', function() {
-                    if (this.value === 'advanced') {
-                        advancedControls.style.display = 'block';
-                        player.config.controls = player.config.controls.concat(['frame-by-frame']);
-                    } else {
-                        advancedControls.style.display = 'none';
-                        player.config.controls = [
-                            'play-large',
-                            'play',
-                            'progress',
-                            'current-time',
-                            'mute',
-                            'volume',
-                            'captions',
-                            'settings',
-                            'pip',
-                            'airplay',
-                            'fullscreen'
-                        ];
-                    }
-                });
+            // Always show advanced controls
+            advancedControls.style.display = 'block';
+
+            // Play/Pause functionality
+            playBtn.addEventListener('click', () => {
+                if (videoPlayer.paused) {
+                    videoPlayer.play();
+                    playBtn.textContent = 'Pause';
+                } else {
+                    videoPlayer.pause();
+                    playBtn.textContent = 'Play';
+                }
+            });
+
+            // Update progress bar
+            videoPlayer.addEventListener('timeupdate', () => {
+                const progress = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+                videoProgress.value = progress;
+                currentTimeDisplay.textContent = formatTime(videoPlayer.currentTime);
+            });
+
+            // Update duration when metadata is loaded
+            videoPlayer.addEventListener('loadedmetadata', () => {
+                durationDisplay.textContent = formatTime(videoPlayer.duration);
+                if (videoPlayer.videoHeight) {
+                    window.frameRate = 30; // Default frame rate
+                }
+            });
+
+            // Handle progress bar seeking
+            videoProgress.addEventListener('input', () => {
+                const time = (videoProgress.value / 100) * videoPlayer.duration;
+                videoPlayer.currentTime = time;
+            });
+
+            // Format time helper function
+            function formatTime(seconds) {
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                const s = Math.floor(seconds % 60);
+                return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+
+            // Frame navigation functions
+            document.getElementById('frameBackBtn').addEventListener('click', () => {
+                videoPlayer.pause();
+                playBtn.textContent = 'Play';
+                const frameDuration = 1 / window.frameRate;
+                const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
+                videoPlayer.currentTime = Math.max(0, (currentFrame - 1) * frameDuration);
+            });
+
+            document.getElementById('frameForwardBtn').addEventListener('click', () => {
+                videoPlayer.pause();
+                playBtn.textContent = 'Play';
+                const frameDuration = 1 / window.frameRate;
+                const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
+                videoPlayer.currentTime = (currentFrame + 1) * frameDuration;
+            });
+
+            document.getElementById('pauseBtn').addEventListener('click', () => {
+                videoPlayer.pause();
+                playBtn.textContent = 'Play';
+            });
+
+            document.getElementById('stopBtn').addEventListener('click', () => {
+                videoPlayer.pause();
+                videoPlayer.currentTime = 0;
+                playBtn.textContent = 'Play';
+            });
+
+            // Keyboard shortcuts for frame-by-frame navigation
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Period' || e.key === '>' || (e.shiftKey && e.key === '.')) {
+                    e.preventDefault();
+                    videoPlayer.pause();
+                    playBtn.textContent = 'Play';
+                    const frameDuration = 1 / window.frameRate;
+                    const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
+                    videoPlayer.currentTime = (currentFrame + 1) * frameDuration;
+                }
+                
+                if (e.key === 'Comma' || e.key === '<' || (e.shiftKey && e.key === ',')) {
+                    e.preventDefault();
+                    videoPlayer.pause();
+                    playBtn.textContent = 'Play';
+                    const frameDuration = 1 / window.frameRate;
+                    const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
+                    videoPlayer.currentTime = Math.max(0, (currentFrame - 1) * frameDuration);
+                }
             });
 
             // Handle video file upload
@@ -270,8 +321,15 @@
                     })
                     .then(response => {
                         if (!response.ok) {
-                            return response.json().then(data => {
-                                throw new Error(data.error || 'Upload failed');
+                            // Try to parse error as JSON first
+                            return response.text().then(text => {
+                                try {
+                                    const data = JSON.parse(text);
+                                    throw new Error(data.error || 'Upload failed');
+                                } catch (e) {
+                                    // If not JSON, use status text or default message
+                                    throw new Error(response.statusText || 'Upload failed');
+                                }
                             });
                         }
                         return response.json();
@@ -297,72 +355,6 @@
                         playerStatus.className = 'alert alert-danger';
                         playerStatus.textContent = 'Error: ' + error.message;
                     });
-                }
-            });
-
-            // Advanced control functions
-            document.getElementById('frameBackBtn').addEventListener('click', () => {
-                if (player) {
-                    player.pause();
-                    const frameDuration = 1 / window.frameRate;
-                    const currentFrame = Math.round(player.currentTime * window.frameRate);
-                    player.currentTime = Math.max(0, (currentFrame - 1) * frameDuration);
-                }
-            });
-
-            document.getElementById('frameForwardBtn').addEventListener('click', () => {
-                if (player) {
-                    player.pause();
-                    const frameDuration = 1 / window.frameRate;
-                    const currentFrame = Math.round(player.currentTime * window.frameRate);
-                    player.currentTime = (currentFrame + 1) * frameDuration;
-                }
-            });
-
-            document.getElementById('pauseBtn').addEventListener('click', () => {
-                if (player) {
-                    player.pause();
-                }
-            });
-
-            document.getElementById('stopBtn').addEventListener('click', () => {
-                if (player) {
-                    player.stop();
-                }
-            });
-
-            // Keyboard shortcuts for frame-by-frame navigation
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Period' || e.key === '>' || (e.shiftKey && e.key === '.')) {
-                    e.preventDefault();
-                    if (player) {
-                        player.pause();
-                        const frameDuration = 1 / window.frameRate;
-                        const currentFrame = Math.round(player.currentTime * window.frameRate);
-                        player.currentTime = (currentFrame + 1) * frameDuration;
-                    }
-                }
-                
-                if (e.key === 'Comma' || e.key === '<' || (e.shiftKey && e.key === ',')) {
-                    e.preventDefault();
-                    if (player) {
-                        player.pause();
-                        const frameDuration = 1 / window.frameRate;
-                        const currentFrame = Math.round(player.currentTime * window.frameRate);
-                        player.currentTime = Math.max(0, (currentFrame - 1) * frameDuration);
-                    }
-                }
-            });
-
-            // Update frame rate when video metadata is loaded
-            player.on('loadedmetadata', () => {
-                if (player.media) {
-                    // Try to get frame rate from video metadata
-                    const videoElement = player.media;
-                    if (videoElement.videoHeight) {
-                        // If we can't get the actual frame rate, use a default
-                        window.frameRate = 30;
-                    }
                 }
             });
         });
