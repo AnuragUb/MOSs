@@ -17,9 +17,12 @@ import platform
 import openpyxl
 from openpyxl.styles import PatternFill
 import csv
+from video_utils import convert_wmv_to_mp4, upload_to_gcs
 
 app = Flask(__name__)
 CORS(app)
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -68,19 +71,84 @@ def main():
     return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
-def upload_video():
-    if 'video' not in request.files:
-        return jsonify({'error': 'No video file provided'}), 400
-    
-    video_file = request.files['video']
-    if video_file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if video_file:
-        filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{video_file.filename}"
-        filepath = os.path.join(UPLOADS_DIR, filename)
-        video_file.save(filepath)
-        return jsonify({'filename': filename})
+def upload_file():
+    try:
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video file provided'}), 400
+        
+        file = request.files['video']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+
+        # Check file size
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size > app.config['MAX_CONTENT_LENGTH']:
+            return jsonify({
+                'error': f'File too large. Maximum size is {app.config["MAX_CONTENT_LENGTH"] / (1024*1024)}MB'
+            }), 413
+
+        # Create uploads directory if it doesn't exist
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
+        # Save the uploaded file
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{timestamp}_{secure_filename(file.filename)}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        # Check if it's a WMV file
+        if filename.lower().endswith('.wmv'):
+            try:
+                # Convert WMV to MP4
+                output_filename = f"{os.path.splitext(filename)[0]}.mp4"
+                output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+                
+                # Convert the file
+                convert_wmv_to_mp4(filepath, output_path)
+                
+                # Upload to GCS
+                gcs_filename = f"videos/{output_filename}"
+                upload_to_gcs(output_path, gcs_filename)
+                
+                # Clean up temporary files
+                os.remove(filepath)
+                os.remove(output_path)
+                
+                # Generate signed URL
+                url = generate_signed_url(gcs_filename)
+                return jsonify({'filename': url})
+                
+            except Exception as e:
+                # Clean up on error
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+                return jsonify({'error': f'Error converting video: {str(e)}'}), 500
+        else:
+            # For non-WMV files, just upload to GCS
+            try:
+                gcs_filename = f"videos/{filename}"
+                upload_to_gcs(filepath, gcs_filename)
+                
+                # Clean up temporary file
+                os.remove(filepath)
+                
+                # Generate signed URL
+                url = generate_signed_url(gcs_filename)
+                return jsonify({'filename': url})
+                
+            except Exception as e:
+                # Clean up on error
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                return jsonify({'error': f'Error uploading video: {str(e)}'}), 500
+                
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/uploads/<filename>')
 def serve_video(filename):
@@ -125,10 +193,16 @@ def export_markers(format):
 
         def convert_time_fields(row):
             new_row = row.copy()
-            if 'tcrIn' in new_row:
-                new_row['tcrIn'] = format_time(float(new_row['tcrIn']), time_format == 'HH:MM:SS:FF')
-            if 'tcrOut' in new_row:
-                new_row['tcrOut'] = format_time(float(new_row['tcrOut']), time_format == 'HH:MM:SS:FF')
+            if 'tcrIn' in new_row and new_row['tcrIn']:
+                try:
+                    new_row['tcrIn'] = format_time(float(new_row['tcrIn']), time_format == 'HH:MM:SS:FF')
+                except (ValueError, TypeError):
+                    new_row['tcrIn'] = ''
+            if 'tcrOut' in new_row and new_row['tcrOut']:
+                try:
+                    new_row['tcrOut'] = format_time(float(new_row['tcrOut']), time_format == 'HH:MM:SS:FF')
+                except (ValueError, TypeError):
+                    new_row['tcrOut'] = ''
             return new_row
 
         if format == 'excel':

@@ -156,22 +156,24 @@ function initializeVideoPlayer() {
         videoFileInput.click();
     });
 
-    videoFileInput.addEventListener('change', async function(e) {
+    // Handle video file upload
+    document.getElementById('videoFileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
-        if (!file) return;
+        if (file) {
+            // Check file size before upload (500MB limit)
+            const maxSize = 500 * 1024 * 1024; // 500MB in bytes
+            if (file.size > maxSize) {
+                playerStatus.style.display = 'block';
+                playerStatus.className = 'alert alert-danger';
+                playerStatus.textContent = `File too large. Maximum size is ${maxSize / (1024*1024)}MB`;
+                return;
+            }
 
-        // Show loading state
-        const conversionStatus = document.getElementById('conversionStatus');
-        const playerStatus = document.getElementById('playerStatus');
-        
-        try {
-            // Create FormData
             const formData = new FormData();
             formData.append('video', file);
             
             // Show conversion status if it's a WMV file
-            const isWmv = file.type === 'video/wmv' || file.type === 'video/x-ms-wmv' || file.name.toLowerCase().endsWith('.wmv');
-            if (isWmv) {
+            if (file.type === 'video/wmv' || file.type === 'video/x-ms-wmv' || file.name.toLowerCase().endsWith('.wmv')) {
                 conversionStatus.style.display = 'block';
                 playerStatus.style.display = 'block';
                 playerStatus.className = 'alert alert-info';
@@ -182,42 +184,41 @@ function initializeVideoPlayer() {
                 playerStatus.textContent = 'Uploading video...';
             }
             
-            // Upload the file
-            const response = await fetch('/upload', {
+            fetch('/upload', {
                 method: 'POST',
                 body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || `Upload failed: ${response.statusText}`);
+                    }).catch(err => {
+                        throw new Error(`Upload failed: ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                // Load the converted video
+                loadVideo(data.filename);
+                conversionStatus.style.display = 'none';
+                playerStatus.style.display = 'block';
+                playerStatus.className = 'alert alert-success';
+                playerStatus.textContent = 'Video loaded successfully';
+                setTimeout(() => {
+                    playerStatus.style.display = 'none';
+                }, 3000);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                conversionStatus.style.display = 'none';
+                playerStatus.style.display = 'block';
+                playerStatus.className = 'alert alert-danger';
+                playerStatus.textContent = 'Error: ' + error.message;
             });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Upload failed');
-            }
-            
-            const data = await response.json();
-            
-            // Update video player with the new URL
-            videoPlayer.src = data.url;
-            videoPlayer.load();
-            currentVideo = data.url;
-            currentVideoFile = null; // Clear local file reference
-            
-            // Update status
-            conversionStatus.style.display = 'none';
-            playerStatus.style.display = 'block';
-            playerStatus.className = 'alert alert-success';
-            playerStatus.textContent = isWmv ? 'Video converted and loaded successfully' : 'Video loaded successfully';
-            
-            // Hide status after 3 seconds
-            setTimeout(() => {
-                playerStatus.style.display = 'none';
-            }, 3000);
-            
-        } catch (error) {
-            console.error('Error:', error);
-            conversionStatus.style.display = 'none';
-            playerStatus.style.display = 'block';
-            playerStatus.className = 'alert alert-danger';
-            playerStatus.textContent = 'Error: ' + error.message;
         }
     });
 
