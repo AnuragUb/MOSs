@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     vlc \
     libvlc-dev \
+    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -14,8 +15,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and nginx configuration
 COPY . .
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Create uploads directory
 RUN mkdir -p /tmp/uploads
@@ -23,14 +25,14 @@ RUN mkdir -p /tmp/uploads
 # Set environment variables
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
-ENV MEMORY_LIMIT=256Mi
+ENV MEMORY_LIMIT=1Gi
 ENV CPU_LIMIT=1
 ENV MAX_CONCURRENCY=80
 ENV TIMEOUT=300
 
-# Run the application with optimized settings for free tier
-CMD exec gunicorn \
-    --bind :$PORT \
+# Start both Nginx and Gunicorn
+CMD service nginx start && exec gunicorn \
+    --bind :10000 \
     --workers 1 \
     --threads 8 \
     --timeout $TIMEOUT \
