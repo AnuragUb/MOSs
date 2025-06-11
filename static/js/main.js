@@ -156,14 +156,68 @@ function initializeVideoPlayer() {
         videoFileInput.click();
     });
 
-    videoFileInput.addEventListener('change', function(e) {
+    videoFileInput.addEventListener('change', async function(e) {
         const file = e.target.files[0];
-        if (file) {
-            const videoURL = URL.createObjectURL(file);
-            videoPlayer.src = videoURL;
+        if (!file) return;
+
+        // Show loading state
+        const conversionStatus = document.getElementById('conversionStatus');
+        const playerStatus = document.getElementById('playerStatus');
+        
+        try {
+            // Create FormData
+            const formData = new FormData();
+            formData.append('video', file);
+            
+            // Show conversion status if it's a WMV file
+            const isWmv = file.type === 'video/wmv' || file.type === 'video/x-ms-wmv' || file.name.toLowerCase().endsWith('.wmv');
+            if (isWmv) {
+                conversionStatus.style.display = 'block';
+                playerStatus.style.display = 'block';
+                playerStatus.className = 'alert alert-info';
+                playerStatus.textContent = 'Converting WMV file to MP4...';
+            } else {
+                playerStatus.style.display = 'block';
+                playerStatus.className = 'alert alert-info';
+                playerStatus.textContent = 'Uploading video...';
+            }
+            
+            // Upload the file
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Upload failed');
+            }
+            
+            const data = await response.json();
+            
+            // Update video player with the new URL
+            videoPlayer.src = data.url;
             videoPlayer.load();
-            currentVideoFile = file; // Store the File object
-            currentVideo = videoURL;
+            currentVideo = data.url;
+            currentVideoFile = null; // Clear local file reference
+            
+            // Update status
+            conversionStatus.style.display = 'none';
+            playerStatus.style.display = 'block';
+            playerStatus.className = 'alert alert-success';
+            playerStatus.textContent = isWmv ? 'Video converted and loaded successfully' : 'Video loaded successfully';
+            
+            // Hide status after 3 seconds
+            setTimeout(() => {
+                playerStatus.style.display = 'none';
+            }, 3000);
+            
+        } catch (error) {
+            console.error('Error:', error);
+            conversionStatus.style.display = 'none';
+            playerStatus.style.display = 'block';
+            playerStatus.className = 'alert alert-danger';
+            playerStatus.textContent = 'Error: ' + error.message;
         }
     });
 

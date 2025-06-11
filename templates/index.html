@@ -50,11 +50,20 @@
                 </div>
                 <div class="video-upload-controls mt-2">
                     <button type="button" class="btn btn-secondary" id="loadVideoBtn">Load Local Video</button>
-                    <input type="file" id="videoFileInput" accept="video/mp4" style="display: none;">
+                    <input type="file" id="videoFileInput" accept="video/mp4,video/wmv,video/x-ms-wmv" style="display: none;">
                     <div class="input-group mt-2">
                         <input type="text" class="form-control" id="videoUrlInput" placeholder="Enter video URL">
                         <button class="btn btn-primary" type="button" id="loadUrlBtn">Load URL</button>
                     </div>
+                    <div id="conversionStatus" class="alert alert-info mt-2" style="display: none;">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span>Converting video format...</span>
+                        </div>
+                    </div>
+                    <div id="playerStatus" class="alert alert-info mt-2" style="display: none;"></div>
                 </div>
             </div>
             <div class="resize-handle horizontal" id="videoSectionResize"></div>
