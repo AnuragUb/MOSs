@@ -157,47 +157,22 @@ function initializeVideoPlayer() {
     });
 
     // Handle video file upload
-    document.getElementById('videoFileInput').addEventListener('change', async function(e) {
+    document.getElementById('videoFileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
-        if (file) {
-            // Step 1: Get signed upload URL
-            const res = await fetch('/generate-upload-url', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: file.name })
-            });
-            const { url } = await res.json();
-            // Step 2: Upload file to GCS
-            const uploadRes = await fetch(url, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/octet-stream' },
-                body: file
-            });
-            if (!uploadRes.ok) {
-                playerStatus.style.display = 'block';
-                playerStatus.className = 'alert alert-danger';
-                playerStatus.textContent = 'Upload to GCS failed.';
-                return;
-            }
-            // Step 3: Trigger backend processing
+        const videoPlayer = document.getElementById('videoPlayer');
+        const playerStatus = document.getElementById('playerStatus');
+        if (file && file.type === 'video/mp4') {
+            const url = URL.createObjectURL(file);
+            videoPlayer.src = url;
+            videoPlayer.load();
             playerStatus.style.display = 'block';
-            playerStatus.className = 'alert alert-info';
-            playerStatus.textContent = 'Processing video...';
-            const processRes = await fetch('/process-uploaded-video', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: file.name })
-            });
-            const processData = await processRes.json();
-            if (processData.converted_url) {
-                loadVideo(processData.converted_url);
-                playerStatus.className = 'alert alert-success';
-                playerStatus.textContent = 'Video ready!';
-                setTimeout(() => { playerStatus.style.display = 'none'; }, 3000);
-            } else {
-                playerStatus.className = 'alert alert-danger';
-                playerStatus.textContent = 'Video processing failed.';
-            }
+            playerStatus.className = 'alert alert-success';
+            playerStatus.textContent = 'Local MP4 loaded!';
+            setTimeout(() => { playerStatus.style.display = 'none'; }, 3000);
+        } else {
+            playerStatus.style.display = 'block';
+            playerStatus.className = 'alert alert-danger';
+            playerStatus.textContent = 'Please select a valid MP4 file.';
         }
     });
 
