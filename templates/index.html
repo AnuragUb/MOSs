@@ -240,6 +240,15 @@
             document.getElementById('videoFileInput').addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
+                    // Check file size before upload (1000MB limit)
+                    const maxSize = 1000 * 1024 * 1024; // 1000MB in bytes
+                    if (file.size > maxSize) {
+                        playerStatus.style.display = 'block';
+                        playerStatus.className = 'alert alert-danger';
+                        playerStatus.textContent = `File too large. Maximum size is ${maxSize / (1024*1024)}MB`;
+                        return;
+                    }
+
                     const formData = new FormData();
                     formData.append('video', file);
                     
@@ -249,13 +258,24 @@
                         playerStatus.style.display = 'block';
                         playerStatus.className = 'alert alert-info';
                         playerStatus.textContent = 'Converting WMV file to MP4...';
+                    } else {
+                        playerStatus.style.display = 'block';
+                        playerStatus.className = 'alert alert-info';
+                        playerStatus.textContent = 'Uploading video...';
                     }
                     
                     fetch('/upload', {
                         method: 'POST',
                         body: formData
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.error || 'Upload failed');
+                            });
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         if (data.error) {
                             throw new Error(data.error);

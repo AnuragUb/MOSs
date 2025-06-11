@@ -21,6 +21,9 @@ import csv
 app = Flask(__name__)
 CORS(app)
 
+# Configure maximum file size (1000MB)
+app.config['MAX_CONTENT_LENGTH'] = 1000 * 1024 * 1024  # 1000MB in bytes
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -69,18 +72,47 @@ def main():
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
-    if 'video' not in request.files:
-        return jsonify({'error': 'No video file provided'}), 400
-    
-    video_file = request.files['video']
-    if video_file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if video_file:
-        filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{video_file.filename}"
-        filepath = os.path.join(UPLOADS_DIR, filename)
-        video_file.save(filepath)
-        return jsonify({'filename': filename})
+    try:
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video file provided'}), 400
+        
+        video_file = request.files['video']
+        if video_file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        
+        if video_file:
+            # Check file size before saving
+            file_size = 0
+            chunk_size = 8192
+            while True:
+                chunk = video_file.read(chunk_size)
+                if not chunk:
+                    break
+                file_size += len(chunk)
+            
+            if file_size > app.config['MAX_CONTENT_LENGTH']:
+                return jsonify({
+                    'error': f'File too large. Maximum size is {app.config["MAX_CONTENT_LENGTH"] / (1024*1024)}MB'
+                }), 413
+            
+            # Reset file pointer after size check
+            video_file.seek(0)
+            
+            filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(video_file.filename)}"
+            filepath = os.path.join(UPLOADS_DIR, filename)
+            
+            # Save file in chunks
+            with open(filepath, 'wb') as f:
+                while True:
+                    chunk = video_file.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            
+            return jsonify({'filename': filename})
+    except Exception as e:
+        logger.error(f"Error in upload_video: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/uploads/<filename>')
 def serve_video(filename):
