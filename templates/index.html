@@ -30,10 +30,28 @@
         <!-- Video Player Section -->
         <div class="video-section" id="videoSection">
             <div class="video-container">
+                <div class="player-type-selector mb-3">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="playerType" id="defaultPlayer" value="default" checked>
+                        <label class="form-check-label" for="defaultPlayer">Default Player</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="playerType" id="vlcPlayer" value="vlc">
+                        <label class="form-check-label" for="vlcPlayer">VLC Player</label>
+                    </div>
+                </div>
                 <video id="videoPlayer" controls>
                     <source src="" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
+                <div id="vlcControls" style="display: none;" class="mt-2">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-primary" id="vlcPlayBtn">Play</button>
+                        <button type="button" class="btn btn-warning" id="vlcPauseBtn">Pause</button>
+                        <button type="button" class="btn btn-danger" id="vlcStopBtn">Stop</button>
+                    </div>
+                    <div id="vlcStatus" class="alert alert-info mt-2" style="display: none;"></div>
+                </div>
             </div>
             <div class="controls mt-3">
                 <div class="btn-group" role="group">
@@ -154,166 +172,150 @@
     <script src="{{ url_for('static', filename='js/main.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/export_settings.js') }}?v=2"></script>
     <script>
-        // Initialize VLC player
-        function initVLCPlayer() {
-            const videoContainer = document.querySelector('.video-container');
-            const videoElement = document.getElementById('videoPlayer');
-            
-            // Create VLC player instance
-            const vlcPlayer = new VLCPlayer({
-                container: videoContainer,
-                video: videoElement,
-                autoplay: false,
-                controls: false,  // We'll use our custom controls
-                onReady: () => {
-                    console.log('VLC player ready');
-                },
-                onError: (error) => {
-                    console.error('VLC player error:', error);
+        // Add VLC player type handling
+        document.querySelectorAll('input[name="playerType"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const videoPlayer = document.getElementById('videoPlayer');
+                const vlcControls = document.getElementById('vlcControls');
+                
+                if (this.value === 'vlc') {
+                    videoPlayer.style.display = 'none';
+                    vlcControls.style.display = 'block';
+                    // Initialize VLC player if not already initialized
+                    if (!window.vlcInstance) {
+                        initVLCPlayer();
+                    }
+                } else {
+                    videoPlayer.style.display = 'block';
+                    vlcControls.style.display = 'none';
+                    // Stop VLC playback if active
+                    if (window.vlcInstance) {
+                        stopVLC();
+                    }
                 }
             });
+        });
 
-            // Override the existing video player functions to use VLC
-            window.loadVideo = function(videoPath) {
-                currentVideo = videoPath;
-                fetch('/api/vlc/play', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
+        // VLC Player Functions
+        let vlcInstance = null;
+
+        function initVLCPlayer() {
+            if (!vlcInstance) {
+                vlcInstance = new VLCPlayer({
+                    container: document.querySelector('.video-container'),
+                    autoplay: false,
+                    controls: false,
+                    onReady: () => {
+                        console.log('VLC player ready');
+                        document.getElementById('vlcStatus').style.display = 'block';
+                        document.getElementById('vlcStatus').textContent = 'VLC player ready';
                     },
-                    body: JSON.stringify({ video_path: videoPath })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        isPlaying = true;
-                        if (!updateInterval) {
-                            updateInterval = setInterval(updateProgress, 1000);
-                        }
+                    onError: (error) => {
+                        console.error('VLC player error:', error);
+                        document.getElementById('vlcStatus').style.display = 'block';
+                        document.getElementById('vlcStatus').className = 'alert alert-danger';
+                        document.getElementById('vlcStatus').textContent = `VLC Error: ${error}`;
                     }
-                })
-                .catch(error => console.error('Error playing video:', error));
-            };
-
-            // Update the existing control functions to use VLC
-            document.getElementById('playBtn').onclick = () => {
-                fetch('/api/vlc/play', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ video_path: currentVideo })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        isPlaying = true;
-                        if (!updateInterval) {
-                            updateInterval = setInterval(updateProgress, 1000);
-                        }
-                    }
-                })
-                .catch(error => console.error('Error playing video:', error));
-            };
-
-            document.getElementById('pauseBtn').onclick = () => {
-                fetch('/api/vlc/pause', {
-                    method: 'POST'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        isPlaying = false;
-                    }
-                })
-                .catch(error => console.error('Error pausing video:', error));
-            };
-
-            document.getElementById('stopBtn').onclick = () => {
-                fetch('/api/vlc/stop', {
-                    method: 'POST'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        isPlaying = false;
-                        clearInterval(updateInterval);
-                        updateInterval = null;
-                        document.querySelector('.progress-bar').style.width = '0%';
-                        document.getElementById('currentTime').textContent = '0:00';
-                    }
-                })
-                .catch(error => console.error('Error stopping video:', error));
-            };
-
-            // Update progress function to use VLC status
-            function updateProgress() {
-                fetch('/api/vlc/status')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            const position = data.position;
-                            const duration = data.duration;
-                            const progress = (position / duration) * 100;
-                            
-                            document.querySelector('.progress-bar').style.width = `${progress}%`;
-                            document.getElementById('currentTime').textContent = formatTime(position);
-                            document.getElementById('duration').textContent = formatTime(duration);
-                            
-                            isPlaying = data.state === 'State.Playing';
-                        }
-                    })
-                    .catch(error => console.error('Error updating progress:', error));
+                });
             }
-
-            // Handle volume control
-            document.getElementById('volumeSlider').oninput = (e) => {
-                const volume = e.target.value / 100;
-                fetch('/api/vlc/volume', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ volume: volume })
-                })
-                .catch(error => console.error('Error setting volume:', error));
-            };
-
-            // Handle seeking
-            document.querySelector('.progress').onclick = (e) => {
-                if (!currentVideo) return;
-                
-                const rect = e.target.getBoundingClientRect();
-                const pos = (e.clientX - rect.left) / rect.width;
-                
-                fetch('/api/vlc/status')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            const duration = data.duration;
-                            const newPosition = pos * duration;
-                            
-                            return fetch('/api/vlc/seek', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({ position: newPosition })
-                            });
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            updateProgress();
-                        }
-                    })
-                    .catch(error => console.error('Error seeking video:', error));
-            };
         }
 
-        // Initialize VLC player when the page loads
-        document.addEventListener('DOMContentLoaded', initVLCPlayer);
+        // VLC Control Functions
+        document.getElementById('vlcPlayBtn').addEventListener('click', () => {
+            if (currentVideo) {
+                playVLC();
+            }
+        });
+
+        document.getElementById('vlcPauseBtn').addEventListener('click', () => {
+            if (vlcInstance) {
+                vlcInstance.pause();
+                document.getElementById('vlcStatus').textContent = 'Video paused';
+            }
+        });
+
+        document.getElementById('vlcStopBtn').addEventListener('click', () => {
+            if (vlcInstance) {
+                stopVLC();
+            }
+        });
+
+        async function playVLC() {
+            try {
+                const response = await fetch('/api/play-video', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        video_path: currentVideo
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    document.getElementById('vlcStatus').style.display = 'block';
+                    document.getElementById('vlcStatus').className = 'alert alert-info';
+                    document.getElementById('vlcStatus').textContent = 'Video is playing';
+                    
+                    // Update video information if available
+                    if (data.video_info) {
+                        const videoDetails = document.createElement('div');
+                        videoDetails.innerHTML = `
+                            <p>Duration: ${Math.floor(data.video_info.duration / 1000)} seconds</p>
+                            <p>Resolution: ${data.video_info.width}x${data.video_info.height}</p>
+                        `;
+                        document.getElementById('vlcStatus').appendChild(videoDetails);
+                    }
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                document.getElementById('vlcStatus').style.display = 'block';
+                document.getElementById('vlcStatus').className = 'alert alert-danger';
+                document.getElementById('vlcStatus').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function stopVLC() {
+            try {
+                const response = await fetch('/api/stop-video', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        player_id: 'current'
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    document.getElementById('vlcStatus').style.display = 'block';
+                    document.getElementById('vlcStatus').className = 'alert alert-info';
+                    document.getElementById('vlcStatus').textContent = 'Video playback stopped';
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                document.getElementById('vlcStatus').style.display = 'block';
+                document.getElementById('vlcStatus').className = 'alert alert-danger';
+                document.getElementById('vlcStatus').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        // Modify the existing loadVideo function to handle both players
+        const originalLoadVideo = window.loadVideo;
+        window.loadVideo = function(videoPath) {
+            currentVideo = videoPath;
+            const playerType = document.querySelector('input[name="playerType"]:checked').value;
+            
+            if (playerType === 'vlc') {
+                playVLC();
+            } else {
+                originalLoadVideo(videoPath);
+            }
+        };
 
         // Self-referencing reloader: ping the server every 12 minutes
         setInterval(function() {

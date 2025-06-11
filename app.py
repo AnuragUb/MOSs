@@ -924,5 +924,82 @@ def vlc_volume():
 def export_settings():
     return render_template('export_settings.html')
 
+def create_vlc_instance():
+    """Create and configure a VLC instance"""
+    try:
+        instance = vlc.Instance('--no-xlib')  # Headless mode for server
+        return instance
+    except Exception as e:
+        logger.error(f"Error creating VLC instance: {str(e)}")
+        return None
+
+@app.route('/api/play-video', methods=['POST'])
+def play_video():
+    try:
+        data = request.get_json()
+        if not data or 'video_path' not in data:
+            return jsonify({'error': 'No video path provided'}), 400
+
+        video_path = data['video_path']
+        if not os.path.exists(video_path):
+            return jsonify({'error': 'Video file not found'}), 404
+
+        # Create VLC instance
+        instance = create_vlc_instance()
+        if not instance:
+            return jsonify({'error': 'Failed to initialize VLC'}), 500
+
+        # Create media player
+        player = instance.media_player_new()
+        media = instance.media_new(video_path)
+        player.set_media(media)
+
+        # Start playback
+        player.play()
+
+        # Get video information
+        media.parse()
+        duration = media.get_duration()
+        width = media.get_video_track_info()[0].width if media.get_video_track_info() else 0
+        height = media.get_video_track_info()[0].height if media.get_video_track_info() else 0
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Video playback started',
+            'video_info': {
+                'duration': duration,
+                'width': width,
+                'height': height
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error in video playback: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/stop-video', methods=['POST'])
+def stop_video():
+    try:
+        data = request.get_json()
+        if not data or 'player_id' not in data:
+            return jsonify({'error': 'No player ID provided'}), 400
+
+        # Stop playback
+        player = vlc.MediaPlayer()
+        player.stop()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Video playback stopped'
+        })
+
+    except Exception as e:
+        logger.error(f"Error stopping video: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/video-player')
+def video_player():
+    return render_template('video_player.html')
+
 if __name__ == '__main__':
     app.run(debug=True) 

@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Video Player</h3>
+                </div>
+                <div class="card-body">
+                    <!-- Player Selection -->
+                    <div class="form-group mb-3">
+                        <label for="playerType">Select Player:</label>
+                        <select class="form-control" id="playerType">
+                            <option value="default">Default Player</option>
+                            <option value="vlc">VLC Player</option>
+                        </select>
+                    </div>
+
+                    <!-- Video Player Container -->
+                    <div id="videoContainer" class="mb-3">
+                        <!-- Default Player -->
+                        <video id="defaultPlayer" class="w-100" controls style="display: none;">
+                            <source src="" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+
+                        <!-- VLC Player -->
+                        <div id="vlcPlayer" style="display: none;">
+                            <div id="vlcControls" class="mb-2">
+                                <button class="btn btn-primary" onclick="playVLC()">Play</button>
+                                <button class="btn btn-danger" onclick="stopVLC()">Stop</button>
+                            </div>
+                            <div id="vlcStatus" class="alert alert-info" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Video Information -->
+                    <div id="videoInfo" class="mt-3">
+                        <h4>Video Information</h4>
+                        <div id="videoDetails"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentVideoPath = '';
+
+function switchPlayer() {
+    const playerType = document.getElementById('playerType').value;
+    const defaultPlayer = document.getElementById('defaultPlayer');
+    const vlcPlayer = document.getElementById('vlcPlayer');
+
+    if (playerType === 'default') {
+        defaultPlayer.style.display = 'block';
+        vlcPlayer.style.display = 'none';
+    } else {
+        defaultPlayer.style.display = 'none';
+        vlcPlayer.style.display = 'block';
+    }
+}
+
+async function playVLC() {
+    try {
+        const response = await fetch('/api/play-video', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                video_path: currentVideoPath
+            })
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            document.getElementById('vlcStatus').style.display = 'block';
+            document.getElementById('vlcStatus').textContent = 'Video is playing';
+            
+            // Update video information
+            const videoDetails = document.getElementById('videoDetails');
+            videoDetails.innerHTML = `
+                <p>Duration: ${Math.floor(data.video_info.duration / 1000)} seconds</p>
+                <p>Resolution: ${data.video_info.width}x${data.video_info.height}</p>
+            `;
+        } else {
+            throw new Error(data.error);
+        }
+    } catch (error) {
+        document.getElementById('vlcStatus').style.display = 'block';
+        document.getElementById('vlcStatus').className = 'alert alert-danger';
+        document.getElementById('vlcStatus').textContent = `Error: ${error.message}`;
+    }
+}
+
+async function stopVLC() {
+    try {
+        const response = await fetch('/api/stop-video', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                player_id: 'current'  // You might want to implement proper player ID tracking
+            })
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            document.getElementById('vlcStatus').style.display = 'block';
+            document.getElementById('vlcStatus').className = 'alert alert-info';
+            document.getElementById('vlcStatus').textContent = 'Video playback stopped';
+        } else {
+            throw new Error(data.error);
+        }
+    } catch (error) {
+        document.getElementById('vlcStatus').style.display = 'block';
+        document.getElementById('vlcStatus').className = 'alert alert-danger';
+        document.getElementById('vlcStatus').textContent = `Error: ${error.message}`;
+    }
+}
+
+// Event Listeners
+document.getElementById('playerType').addEventListener('change', switchPlayer);
+
+// Initialize player type
+switchPlayer();
+</script>
+{% endblock %} 
