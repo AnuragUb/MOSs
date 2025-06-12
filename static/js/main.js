@@ -807,22 +807,78 @@ function updateMarkerTable() {
         // Add other cells with resizable inputs
         ['title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'].forEach(field => {
             const cell = document.createElement('td');
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'table-input';
-            input.value = marker[field] || '';
-            input.dataset.field = field;
-            makeInputResizable(input);
-            input.addEventListener('change', (e) => {
-                const newValue = e.target.value;
-                marker[field] = newValue;
-                if (activePasteColumns[field]) {
-                    if (!manualEdits[field]) manualEdits[field] = {};
-                    // Mark as manually edited if the value is different from the original
-                    manualEdits[field][actualIndex] = true;
-                }
-            });
-            cell.appendChild(input);
+            if (field === 'musicCo') {
+                // Searchable dropdown for Music Co
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'table-input';
+                input.value = marker[field] || '';
+                input.dataset.field = field;
+                input.setAttribute('autocomplete', 'off');
+                makeInputResizable(input);
+                // Dropdown for suggestions
+                const dropdown = document.createElement('div');
+                dropdown.className = 'musicco-dropdown';
+                dropdown.style.position = 'absolute';
+                dropdown.style.zIndex = 1000;
+                dropdown.style.background = '#fff';
+                dropdown.style.border = '1px solid #ccc';
+                dropdown.style.display = 'none';
+                cell.style.position = 'relative';
+                input.addEventListener('input', function(e) {
+                    const val = e.target.value.trim();
+                    if (!val) { dropdown.style.display = 'none'; return; }
+                    fetch(`/api/music-co?search=${encodeURIComponent(val)}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            dropdown.innerHTML = '';
+                            if (data.length === 0) { dropdown.style.display = 'none'; return; }
+                            data.forEach(item => {
+                                const opt = document.createElement('div');
+                                opt.className = 'musicco-option';
+                                opt.textContent = item.name;
+                                opt.style.padding = '2px 8px';
+                                opt.style.cursor = 'pointer';
+                                opt.onclick = function() {
+                                    input.value = item.name;
+                                    marker[field] = item.name;
+                                    dropdown.style.display = 'none';
+                                    input.dispatchEvent(new Event('change'));
+                                };
+                                dropdown.appendChild(opt);
+                            });
+                            dropdown.style.display = 'block';
+                        });
+                });
+                input.addEventListener('blur', function() {
+                    setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+                });
+                input.addEventListener('change', (e) => {
+                    marker[field] = e.target.value;
+                    if (activePasteColumns[field]) {
+                        if (!manualEdits[field]) manualEdits[field] = {};
+                        manualEdits[field][actualIndex] = true;
+                    }
+                });
+                cell.appendChild(input);
+                cell.appendChild(dropdown);
+            } else {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'table-input';
+                input.value = marker[field] || '';
+                input.dataset.field = field;
+                makeInputResizable(input);
+                input.addEventListener('change', (e) => {
+                    const newValue = e.target.value;
+                    marker[field] = newValue;
+                    if (activePasteColumns[field]) {
+                        if (!manualEdits[field]) manualEdits[field] = {};
+                        manualEdits[field][actualIndex] = true;
+                    }
+                });
+                cell.appendChild(input);
+            }
             row.appendChild(cell);
         });
         
