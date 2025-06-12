@@ -19,6 +19,7 @@ from openpyxl.styles import PatternFill
 import csv
 from video_utils import convert_wmv_to_mp4, upload_to_gcs
 from google.cloud import storage
+from google.cloud import firestore
 
 app = Flask(__name__)
 CORS(app)
@@ -62,6 +63,10 @@ if not os.path.exists(UPLOADS_DIR):
     os.makedirs(UPLOADS_DIR)
 
 AUDD_API_TOKEN = '04e48a84490a8a2f0bf327b274404905'  # Replace with your actual API token
+
+# Firestore client
+firestore_client = firestore.Client()
+MUSIC_CO_COLLECTION = 'music_companies'
 
 @app.route('/')
 def index():
@@ -1066,6 +1071,40 @@ def process_uploaded_video():
             method='GET',
         )
         return jsonify({'converted_url': url})
+
+@app.route('/api/music-co', methods=['GET'])
+def list_music_co():
+    search = request.args.get('search', '').lower()
+    docs = firestore_client.collection(MUSIC_CO_COLLECTION).stream()
+    results = []
+    for doc in docs:
+        data = doc.to_dict()
+        name = data.get('name', '')
+        if not search or search in name.lower():
+            results.append({'id': doc.id, 'name': name})
+    return jsonify(results)
+
+@app.route('/api/music-co', methods=['POST'])
+def add_music_co():
+    data = request.json
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+    # Prevent duplicates
+    docs = firestore_client.collection(MUSIC_CO_COLLECTION).where('name', '==', name).stream()
+    if any(True for _ in docs):
+        return jsonify({'error': 'Music Co already exists'}), 400
+    doc_ref = firestore_client.collection(MUSIC_CO_COLLECTION).document()
+    doc_ref.set({'name': name})
+    return jsonify({'id': doc_ref.id, 'name': name})
+
+@app.route('/api/music-co/<id>', methods=['DELETE'])
+def delete_music_co(id):
+    doc_ref = firestore_client.collection(MUSIC_CO_COLLECTION).document(id)
+    if not doc_ref.get().exists:
+        return jsonify({'error': 'Music Co not found'}), 404
+    doc_ref.delete()
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
     app.run(debug=True) 
