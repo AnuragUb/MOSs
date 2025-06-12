@@ -1201,6 +1201,40 @@ function parseCueSheetFile(mode) {
             return;
         }
         headerRows = result.metadata || [];
+        // --- Extract Series Title and Episode Number for export file name ---
+        let seriesTitle = '';
+        let episodeNumber = '';
+        for (const row of headerRows) {
+            for (let i = 0; i < row.length; i++) {
+                if (row[i] && row[i].toLowerCase().replace(/[^a-z0-9]/g, '') === 'seriestitle') {
+                    for (let j = i + 1; j < row.length; j++) {
+                        if (row[j] && row[j].trim() !== '') {
+                            seriesTitle = row[j].trim();
+                            break;
+                        }
+                    }
+                }
+                if (row[i] && row[i].toLowerCase().replace(/[^a-z0-9]/g, '') === 'episodenumber') {
+                    for (let j = i + 1; j < row.length; j++) {
+                        if (row[j] && row[j].trim() !== '') {
+                            episodeNumber = row[j].trim();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if (seriesTitle && episodeNumber) {
+            const paddedEp = episodeNumber.padStart(4, '0');
+            const exportFileName = `${seriesTitle}_${paddedEp}_Unmix HD_MusicCueSheet`;
+            let exportSettings = JSON.parse(localStorage.getItem('exportSettings')) || {};
+            exportSettings.fileName = exportFileName;
+            localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
+            // Update export settings UI if present
+            const fileNameInput = document.getElementById('fileName');
+            if (fileNameInput) fileNameInput.value = exportFileName;
+        }
+        // --- End file name extraction ---
         if (mode === 'structure') {
             loadCueSheetStructure(result.header);
         } else if (mode === 'data') {
