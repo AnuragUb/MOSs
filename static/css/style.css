@@ -1127,12 +1127,18 @@ body {
     max-height: 200px;
     overflow-y: auto;
     z-index: 1000;
+    min-width: 220px;
+    width: max-content;
 }
 .musicco-option {
     padding: 4px 12px;
     cursor: pointer;
     color: #fff !important;
     background: #222 !important;
+    white-space: normal;
+    word-break: break-word;
+    min-width: 220px;
+    max-width: 400px;
 }
 .musicco-option:hover {
     background: #444 !important;
