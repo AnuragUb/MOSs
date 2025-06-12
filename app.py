@@ -188,19 +188,20 @@ def export_markers(format):
             minutes = int((seconds % 3600) // 60)
             secs = int(seconds % 60)
             if include_frames:
-                frames = int((seconds % 1) * 25)  # Assuming 25 fps
+                frames = int(round((seconds % 1) * 25))  # Assuming 25 fps
                 return f"{hours:02d}:{minutes:02d}:{secs:02d}:{frames:02d}"
             return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
         def convert_time_fields(row):
             new_row = row.copy()
             def is_timecode_string(val):
-                # Accepts HH:MM:SS or HH:MM:SS:FF
                 import re
                 return isinstance(val, str) and re.match(r"^\d{2}:\d{2}:\d{2}(:\d{2})?$", val)
             if 'tcrIn' in new_row and new_row['tcrIn']:
                 if is_timecode_string(new_row['tcrIn']):
-                    pass  # Already formatted, leave as is
+                    # If user selected HH:MM:SS, strip frames if present
+                    if time_format == 'HH:MM:SS' and len(new_row['tcrIn'].split(':')) == 4:
+                        new_row['tcrIn'] = ':'.join(new_row['tcrIn'].split(':')[:3])
                 else:
                     try:
                         new_row['tcrIn'] = format_time(float(new_row['tcrIn']), time_format == 'HH:MM:SS:FF')
@@ -208,7 +209,8 @@ def export_markers(format):
                         new_row['tcrIn'] = ''
             if 'tcrOut' in new_row and new_row['tcrOut']:
                 if is_timecode_string(new_row['tcrOut']):
-                    pass  # Already formatted, leave as is
+                    if time_format == 'HH:MM:SS' and len(new_row['tcrOut'].split(':')) == 4:
+                        new_row['tcrOut'] = ':'.join(new_row['tcrOut'].split(':')[:3])
                 else:
                     try:
                         new_row['tcrOut'] = format_time(float(new_row['tcrOut']), time_format == 'HH:MM:SS:FF')
@@ -308,11 +310,13 @@ def export_markers(format):
             with open(temp_path, 'rb') as f:
                 file_data = f.read()
 
+            # Use original file name for export if provided
+            export_file_name = payload.get('originalFileName', 'exported_file')
             return send_file(
                 io.BytesIO(file_data),
                 mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 as_attachment=True,
-                download_name='markers.xlsx'
+                download_name=f'{export_file_name}.xlsx'
             )
 
         elif format == 'csv':
@@ -387,14 +391,13 @@ def export_markers(format):
                             writer.writerow(row_data)
                 # --- END: Write marker table ---
 
-            with open(temp_path, 'rb') as f:
-                file_data = f.read()
-
+            # Use original file name for export if provided
+            export_file_name = payload.get('originalFileName', 'exported_file')
             return send_file(
-                io.BytesIO(file_data),
+                io.BytesIO(open(temp_path, 'rb').read()),
                 mimetype='text/csv',
                 as_attachment=True,
-                download_name='markers.csv'
+                download_name=f'{export_file_name}.csv'
             )
 
         else:
