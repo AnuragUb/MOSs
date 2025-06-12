@@ -752,6 +752,13 @@ function updateMarkerTable() {
             marker.tcrIn = e.target.value;
             updateDuration(actualIndex);
         });
+        // Highlight on blur
+        tcrInInput.addEventListener('blur', function(e) {
+            e.target.classList.add('tcr-blur');
+        });
+        tcrInInput.addEventListener('focus', function(e) {
+            e.target.classList.remove('tcr-blur');
+        });
         tcrInCell.appendChild(tcrInInput);
         row.appendChild(tcrInCell);
         
@@ -767,6 +774,13 @@ function updateMarkerTable() {
         tcrOutInput.addEventListener('change', (e) => {
             marker.tcrOut = e.target.value;
             updateDuration(actualIndex);
+        });
+        // Highlight on blur
+        tcrOutInput.addEventListener('blur', function(e) {
+            e.target.classList.add('tcr-blur');
+        });
+        tcrOutInput.addEventListener('focus', function(e) {
+            e.target.classList.remove('tcr-blur');
         });
         tcrOutCell.appendChild(tcrOutInput);
         row.appendChild(tcrOutCell);

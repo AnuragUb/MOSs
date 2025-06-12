@@ -1116,4 +1116,37 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* Music Co Dropdown Styles for Dark Mode */
+.musicco-dropdown {
+    background: #222 !important;
+    color: #fff !important;
+    border: 1px solid #888 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+.musicco-option {
+    padding: 4px 12px;
+    cursor: pointer;
+    color: #fff !important;
+    background: #222 !important;
+}
+.musicco-option:hover {
+    background: #444 !important;
+}
+
+/* TCR In/Out Input Focus and Blur Styles */
+.table-input:focus {
+    background: #333 !important;
+    color: #fff !important;
+    border: 1px solid #ffc107 !important;
+}
+
+.tcr-cell input.tcr-blur {
+    background: #222 !important;
+    color: #ffc107 !important;
+    border: 1px solid #ffc107 !important;
 } 
