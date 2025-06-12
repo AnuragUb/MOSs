@@ -194,16 +194,26 @@ def export_markers(format):
 
         def convert_time_fields(row):
             new_row = row.copy()
+            def is_timecode_string(val):
+                # Accepts HH:MM:SS or HH:MM:SS:FF
+                import re
+                return isinstance(val, str) and re.match(r"^\d{2}:\d{2}:\d{2}(:\d{2})?$", val)
             if 'tcrIn' in new_row and new_row['tcrIn']:
-                try:
-                    new_row['tcrIn'] = format_time(float(new_row['tcrIn']), time_format == 'HH:MM:SS:FF')
-                except (ValueError, TypeError):
-                    new_row['tcrIn'] = ''
+                if is_timecode_string(new_row['tcrIn']):
+                    pass  # Already formatted, leave as is
+                else:
+                    try:
+                        new_row['tcrIn'] = format_time(float(new_row['tcrIn']), time_format == 'HH:MM:SS:FF')
+                    except (ValueError, TypeError):
+                        new_row['tcrIn'] = ''
             if 'tcrOut' in new_row and new_row['tcrOut']:
-                try:
-                    new_row['tcrOut'] = format_time(float(new_row['tcrOut']), time_format == 'HH:MM:SS:FF')
-                except (ValueError, TypeError):
-                    new_row['tcrOut'] = ''
+                if is_timecode_string(new_row['tcrOut']):
+                    pass  # Already formatted, leave as is
+                else:
+                    try:
+                        new_row['tcrOut'] = format_time(float(new_row['tcrOut']), time_format == 'HH:MM:SS:FF')
+                    except (ValueError, TypeError):
+                        new_row['tcrOut'] = ''
             return new_row
 
         if format == 'excel':
