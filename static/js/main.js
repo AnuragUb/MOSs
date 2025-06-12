@@ -839,6 +839,8 @@ function updateMarkerTable() {
                 dropdown.style.border = '1px solid #ccc';
                 dropdown.style.display = 'none';
                 cell.style.position = 'relative';
+                let activeIndex = -1;
+                let options = [];
                 input.addEventListener('input', function(e) {
                     const val = e.target.value.trim();
                     if (!val) { dropdown.style.display = 'none'; return; }
@@ -846,8 +848,10 @@ function updateMarkerTable() {
                         .then(res => res.json())
                         .then(data => {
                             dropdown.innerHTML = '';
+                            options = data;
+                            activeIndex = -1;
                             if (data.length === 0) { dropdown.style.display = 'none'; return; }
-                            data.forEach(item => {
+                            data.forEach((item, idx) => {
                                 const opt = document.createElement('div');
                                 opt.className = 'musicco-option';
                                 opt.textContent = item.name;
@@ -872,6 +876,33 @@ function updateMarkerTable() {
                     if (activePasteColumns[field]) {
                         if (!manualEdits[field]) manualEdits[field] = {};
                         manualEdits[field][actualIndex] = true;
+                    }
+                });
+                // Keyboard navigation for dropdown
+                input.addEventListener('keydown', function(e) {
+                    if (dropdown.style.display !== 'block') return;
+                    const opts = dropdown.querySelectorAll('.musicco-option');
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (opts.length === 0) return;
+                        activeIndex = (activeIndex + 1) % opts.length;
+                        opts.forEach((opt, idx) => {
+                            opt.classList.toggle('active', idx === activeIndex);
+                        });
+                        opts[activeIndex].scrollIntoView({ block: 'nearest' });
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (opts.length === 0) return;
+                        activeIndex = (activeIndex - 1 + opts.length) % opts.length;
+                        opts.forEach((opt, idx) => {
+                            opt.classList.toggle('active', idx === activeIndex);
+                        });
+                        opts[activeIndex].scrollIntoView({ block: 'nearest' });
+                    } else if (e.key === 'Enter') {
+                        if (activeIndex >= 0 && opts[activeIndex]) {
+                            e.preventDefault();
+                            opts[activeIndex].click();
+                        }
                     }
                 });
                 cell.appendChild(input);

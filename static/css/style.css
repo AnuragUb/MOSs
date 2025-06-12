@@ -1133,7 +1133,7 @@ body {
     width: max-content;
 }
 .musicco-option {
-    padding: 4px 12px;
+    padding: 8px 16px;
     cursor: pointer;
     color: #fff !important;
     background: #222 !important;
@@ -1163,4 +1163,22 @@ body {
 .table tr, .table tbody tr {
     min-height: 48px;
     height: 48px;
+    padding-top: 6px;
+    padding-bottom: 12px;
+}
+
+.table td, .table th {
+    padding-top: 6px;
+    padding-bottom: 12px;
+}
+
+/* Increase padding for dropdown options */
+.musicco-option {
+    padding: 8px 16px;
+}
+
+/* Highlight for active dropdown option */
+.musicco-option.active, .musicco-option:active {
+    background: #ffc107 !important;
+    color: #222 !important;
 } 
