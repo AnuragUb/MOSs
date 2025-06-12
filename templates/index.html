@@ -17,6 +17,7 @@
         </div>
         <div class="topbar-actions">
             <button class="btn btn-secondary" id="exportSettingsBtn">Export Settings</button>
+            <button class="btn btn-secondary" id="dbManagerBtn">DB Manager</button>
             <button class="btn btn-outline-info" id="offsetBtn">Offset Time</button>
             <input type="file" id="cueFileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style="display:none;">
             <div id="cueActions" style="display:none;">
@@ -328,6 +329,10 @@
         setInterval(function() {
             fetch(window.location.pathname, { cache: "no-store" });
         }, 12 * 60 * 1000); // 12 minutes
+
+        document.getElementById('dbManagerBtn').addEventListener('click', function() {
+            window.location.href = '/music-co';
+        });
     </script>
 </body>
 </html> 

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Co DB Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <h2>Music Co Database Manager</h2>
+        <div class="mb-3">
+            <label for="newMusicCo" class="form-label">Add New Music Co</label>
+            <div class="input-group">
+                <input type="text" id="newMusicCo" class="form-control" placeholder="Enter new Music Co name">
+                <button class="btn btn-primary" id="addMusicCoBtn">Add</button>
+            </div>
+        </div>
+        <h4>Current Music Co Options</h4>
+        <ul class="list-group" id="musicCoList"></ul>
+    </div>
+    <script>
+        function fetchMusicCoList() {
+            fetch('/api/music-co')
+                .then(res => res.json())
+                .then(data => {
+                    const list = document.getElementById('musicCoList');
+                    list.innerHTML = '';
+                    data.forEach(item => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.textContent = item.name;
+                        const delBtn = document.createElement('button');
+                        delBtn.className = 'btn btn-danger btn-sm';
+                        delBtn.textContent = 'Delete';
+                        delBtn.onclick = function() {
+                            if (confirm('Delete this Music Co?')) {
+                                fetch(`/api/music-co/${item.id}`, { method: 'DELETE' })
+                                    .then(res => res.json())
+                                    .then(() => fetchMusicCoList());
+                            }
+                        };
+                        li.appendChild(delBtn);
+                        list.appendChild(li);
+                    });
+                });
+        }
+        document.getElementById('addMusicCoBtn').onclick = function() {
+            const name = document.getElementById('newMusicCo').value.trim();
+            if (!name) return alert('Enter a name');
+            fetch('/api/music-co', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) return alert(data.error);
+                document.getElementById('newMusicCo').value = '';
+                fetchMusicCoList();
+            });
+        };
+        fetchMusicCoList();
+    </script>
+</body>
+</html> 

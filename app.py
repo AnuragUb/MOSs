@@ -1106,5 +1106,9 @@ def delete_music_co(id):
     doc_ref.delete()
     return jsonify({'success': True})
 
+@app.route('/music-co')
+def music_co_manager():
+    return render_template('music_co.html')
+
 if __name__ == '__main__':
     app.run(debug=True) 
