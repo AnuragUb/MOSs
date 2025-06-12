@@ -651,7 +651,9 @@ body {
 .table-input {
     width: 100%;
     min-width: 100px;
-    min-height: 20px;
+    min-height: 36px;
+    height: 36px;
+    line-height: 36px;
     resize: none;
     overflow: hidden;
     padding: 4px 8px;
@@ -660,7 +662,7 @@ body {
     background: var(--bg-tertiary);
     color: var(--text-primary);
     font-family: inherit;
-    font-size: 1em;
+    font-size: 1rem;
     transition: all 0.2s ease;
     box-sizing: border-box;
 }
@@ -1155,4 +1157,10 @@ body {
     background: #222 !important;
     color: #ffc107 !important;
     border: 1px solid #ffc107 !important;
+}
+
+/* Increase table row height for better dropdown visibility */
+.table tr, .table tbody tr {
+    min-height: 48px;
+    height: 48px;
 } 
