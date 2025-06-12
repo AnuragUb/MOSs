@@ -162,6 +162,13 @@ function initializeVideoPlayer() {
         const videoPlayer = document.getElementById('videoPlayer');
         const playerStatus = document.getElementById('playerStatus');
         if (file && file.type === 'video/mp4') {
+            // Set exportSettings.fileName to the base name of the file if not set
+            const baseName = file.name.replace(/\.[^/.]+$/, "");
+            let exportSettings = JSON.parse(localStorage.getItem('exportSettings')) || {};
+            if (!exportSettings.fileName || exportSettings.fileName === 'exported_file') {
+                exportSettings.fileName = baseName;
+                localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
+            }
             const url = URL.createObjectURL(file);
             videoPlayer.src = url;
             videoPlayer.load();
