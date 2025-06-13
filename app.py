@@ -981,110 +981,114 @@ def recognize_audio():
 
 @app.route('/api/parse-cue-sheet', methods=['POST'])
 def parse_cue_sheet():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-    file = request.files['file']
-    filename = secure_filename(file.filename)
-    ext = filename.split('.')[-1].lower()
-    metadata = []
-    metadata_with_format = []
-    header = []
-    data = []
-    table_header_format = []
-    table_row_format = []
-    column_widths = []
-    if ext in ['xlsx', 'xls']:
-        import openpyxl
-        from openpyxl.utils import get_column_letter
-        from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
-        from openpyxl.worksheet.cell_range import CellRange
-        import io
-        wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
-        ws = wb.active
-        # Get merged cell ranges
-        merged_ranges = [str(rng) for rng in ws.merged_cells.ranges]
-        for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=6), 1):
-            row_data = []
-            row_format = []
-            for cell in row:
-                cell_info = {
-                    'value': cell.value,
-                    'bold': cell.font.bold if cell.font else False,
-                    'align': cell.alignment.horizontal if cell.alignment else None,
-                    'merge': None
-                }
-                for rng in merged_ranges:
-                    cr = CellRange(rng)
-                    if (cell.row, cell.column) in cr.cells:
-                        cell_info['merge'] = rng
-                        break
-                row_data.append(cell.value if cell.value is not None else '')
-                row_format.append(cell_info)
-            metadata.append(row_data)
-            metadata_with_format.append(row_format)
-        # Table header (row 7)
-        try:
-            table_header_row = list(ws.iter_rows(min_row=7, max_row=7))[0]
-            for cell in table_header_row:
-                cell_info = {
-                    'bold': cell.font.bold if cell.font else False,
-                    'align': cell.alignment.horizontal if cell.alignment else None,
-                    'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
-                    'border': str(cell.border) if cell.border else None
-                }
-                table_header_format.append(cell_info)
-        except Exception as e:
-            table_header_format = []
-        # First data row (row 8)
-        try:
-            table_data_row = list(ws.iter_rows(min_row=8, max_row=8))[0]
-            for cell in table_data_row:
-                cell_info = {
-                    'bold': cell.font.bold if cell.font else False,
-                    'align': cell.alignment.horizontal if cell.alignment else None,
-                    'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
-                    'border': str(cell.border) if cell.border else None
-                }
-                table_row_format.append(cell_info)
-        except Exception as e:
-            table_row_format = []
-        # Column widths
-        try:
-            for col in ws.columns:
-                col_letter = get_column_letter(col[0].column)
-                width = ws.column_dimensions[col_letter].width
-                column_widths.append(width)
-        except Exception as e:
-            column_widths = []
-        # Get header and data as before
-        rows = list(ws.iter_rows(values_only=True))
-        header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
-        data_rows = rows[7:] if len(rows) > 7 else []
-        data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in data_rows]
-    elif ext == 'csv':
-        import pandas as pd
-        df = pd.read_csv(file, header=None)
-        df = df.fillna('')
-        rows = df.values.tolist()
-        metadata = [[str(cell) if cell is not None else '' for cell in row] for row in rows[:6]]
-        metadata_with_format = [[{'value': str(cell) if cell is not None else '', 'bold': False, 'align': None, 'merge': None} for cell in row] for row in rows[:6]]
-        header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
-        data_rows = rows[7:] if len(rows) > 7 else []
-        data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in data_rows]
-        table_header_format = [{'bold': False, 'align': None, 'fill': None, 'border': None} for _ in header]
-        table_row_format = [{'bold': False, 'align': None, 'fill': None, 'border': None} for _ in header]
-        column_widths = [None for _ in header]
-    else:
-        return jsonify({'error': 'Unsupported file type'}), 400
-    return jsonify({
-        'metadata': metadata,
-        'metadata_with_format': metadata_with_format,
-        'header': header,
-        'data': data,
-        'table_header_format': table_header_format,
-        'table_row_format': table_row_format,
-        'column_widths': column_widths
-    })
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        file = request.files['file']
+        filename = secure_filename(file.filename)
+        ext = filename.split('.')[-1].lower()
+        metadata = []
+        metadata_with_format = []
+        header = []
+        data = []
+        table_header_format = []
+        table_row_format = []
+        column_widths = []
+        if ext in ['xlsx', 'xls']:
+            import openpyxl
+            from openpyxl.utils import get_column_letter
+            from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+            from openpyxl.worksheet.cell_range import CellRange
+            import io
+            wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
+            ws = wb.active
+            # Get merged cell ranges
+            merged_ranges = [str(rng) for rng in ws.merged_cells.ranges]
+            for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=6), 1):
+                row_data = []
+                row_format = []
+                for cell in row:
+                    cell_info = {
+                        'value': cell.value,
+                        'bold': cell.font.bold if cell.font else False,
+                        'align': cell.alignment.horizontal if cell.alignment else None,
+                        'merge': None
+                    }
+                    for rng in merged_ranges:
+                        cr = CellRange(rng)
+                        if (cell.row, cell.column) in cr.cells:
+                            cell_info['merge'] = rng
+                            break
+                    row_data.append(cell.value if cell.value is not None else '')
+                    row_format.append(cell_info)
+                metadata.append(row_data)
+                metadata_with_format.append(row_format)
+            # Table header (row 7)
+            try:
+                table_header_row = list(ws.iter_rows(min_row=7, max_row=7))[0]
+                for cell in table_header_row:
+                    cell_info = {
+                        'bold': cell.font.bold if cell.font else False,
+                        'align': cell.alignment.horizontal if cell.alignment else None,
+                        'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
+                        'border': str(cell.border) if cell.border else None
+                    }
+                    table_header_format.append(cell_info)
+            except Exception as e:
+                table_header_format = []
+            # First data row (row 8)
+            try:
+                table_data_row = list(ws.iter_rows(min_row=8, max_row=8))[0]
+                for cell in table_data_row:
+                    cell_info = {
+                        'bold': cell.font.bold if cell.font else False,
+                        'align': cell.alignment.horizontal if cell.alignment else None,
+                        'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
+                        'border': str(cell.border) if cell.border else None
+                    }
+                    table_row_format.append(cell_info)
+            except Exception as e:
+                table_row_format = []
+            # Column widths
+            try:
+                for col in ws.columns:
+                    col_letter = get_column_letter(col[0].column)
+                    width = ws.column_dimensions[col_letter].width
+                    column_widths.append(width)
+            except Exception as e:
+                column_widths = []
+            # Get header and data as before
+            rows = list(ws.iter_rows(values_only=True))
+            header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
+            data_rows = rows[7:] if len(rows) > 7 else []
+            data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in data_rows]
+        elif ext == 'csv':
+            import pandas as pd
+            df = pd.read_csv(file, header=None)
+            df = df.fillna('')
+            rows = df.values.tolist()
+            metadata = [[str(cell) if cell is not None else '' for cell in row] for row in rows[:6]]
+            metadata_with_format = [[{'value': str(cell) if cell is not None else '', 'bold': False, 'align': None, 'merge': None} for cell in row] for row in rows[:6]]
+            header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
+            data_rows = rows[7:] if len(rows) > 7 else []
+            data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in data_rows]
+            table_header_format = [{'bold': False, 'align': None, 'fill': None, 'border': None} for _ in header]
+            table_row_format = [{'bold': False, 'align': None, 'fill': None, 'border': None} for _ in header]
+            column_widths = [None for _ in header]
+        else:
+            return jsonify({'error': 'Unsupported file type'}), 400
+        return jsonify({
+            'metadata': metadata,
+            'metadata_with_format': metadata_with_format,
+            'header': header,
+            'data': data,
+            'table_header_format': table_header_format,
+            'table_row_format': table_row_format,
+            'column_widths': column_widths
+        })
+    except Exception as e:
+        logging.exception("Failed to parse cue sheet file")
+        return jsonify({'error': str(e)}), 400
 
 @app.route('/test-ffmpeg')
 def test_ffmpeg():
