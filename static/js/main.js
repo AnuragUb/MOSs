@@ -11,6 +11,57 @@ let extraColumns = [];
 let seqClickState = { row: null, count: 0, timeout: null }; // For tracking triple clicks
 let headerRows = [];
 
+// Add undo/redo history tracking
+let history = [];
+let historyIndex = -1;
+const MAX_HISTORY = 50; // Maximum number of states to keep in history
+
+// Function to save current state to history
+function saveToHistory() {
+    // Remove any future states if we're not at the end of history
+    if (historyIndex < history.length - 1) {
+        history = history.slice(0, historyIndex + 1);
+    }
+    
+    // Create deep copy of current state
+    const currentState = {
+        markers: JSON.parse(JSON.stringify(markers)),
+        markedRows: JSON.parse(JSON.stringify(markedRows))
+    };
+    
+    // Add to history
+    history.push(currentState);
+    historyIndex++;
+    
+    // Trim history if it gets too long
+    if (history.length > MAX_HISTORY) {
+        history.shift();
+        historyIndex--;
+    }
+}
+
+// Function to undo last action
+function undo() {
+    if (historyIndex > 0) {
+        historyIndex--;
+        const previousState = history[historyIndex];
+        markers = JSON.parse(JSON.stringify(previousState.markers));
+        markedRows = JSON.parse(JSON.stringify(previousState.markedRows));
+        updateMarkerTable();
+    }
+}
+
+// Function to redo last undone action
+function redo() {
+    if (historyIndex < history.length - 1) {
+        historyIndex++;
+        const nextState = history[historyIndex];
+        markers = JSON.parse(JSON.stringify(nextState.markers));
+        markedRows = JSON.parse(JSON.stringify(nextState.markedRows));
+        updateMarkerTable();
+    }
+}
+
 // Cue Sheet Upload & Integration
 let cueSheetParsed = null;
 let cueSheetFile = null;
@@ -96,6 +147,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeRowMarking();
     initializeColumnResize();
     setupSeqHeaderDoubleClick();
+    
+    // Initialize history with current state
+    saveToHistory();
+    
     console.log('Main page components initialized');
 });
 
@@ -281,13 +336,18 @@ function initializeMarkerTable() {
     
     // Add input change handler to copy first row value when in paste mode
     tableBody.addEventListener('change', function(e) {
-        if (activePasteColumns[e.target.dataset.field] && e.target.classList.contains('table-input')) {
-            const columnIndex = Array.from(e.target.parentElement.children).indexOf(e.target);
-            const columnName = getColumnName(columnIndex);
+        if (e.target.classList.contains('table-input')) {
+            // Save state before making changes
+            saveToHistory();
             
-            if (columnName === e.target.dataset.field && markers.length > 0) {
-                const firstRowValue = markers[0][columnName] || '';
-                applyValueToAllRows(columnName, firstRowValue);
+            if (activePasteColumns[e.target.dataset.field]) {
+                const columnIndex = Array.from(e.target.parentElement.children).indexOf(e.target);
+                const columnName = getColumnName(columnIndex);
+                
+                if (columnName === e.target.dataset.field && markers.length > 0) {
+                    const firstRowValue = markers[0][columnName] || '';
+                    applyValueToAllRows(columnName, firstRowValue);
+                }
             }
         }
     });
@@ -485,6 +545,9 @@ function getMostUsedUsage() {
 function markTCR(type) {
     const videoPlayer = document.getElementById('videoPlayer');
     const currentTime = videoPlayer.currentTime;
+    
+    // Save state before making changes
+    saveToHistory();
     
     // Pause video if toggle is enabled
     if (pauseWithTCRMark && videoPlayer && !videoPlayer.paused) {
@@ -1056,6 +1119,20 @@ function setupKeyboardShortcuts() {
             return;
         }
         
+        // Undo (Ctrl + Z)
+        if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            undo();
+            return;
+        }
+        
+        // Redo (Ctrl + Shift + Z)
+        if (e.ctrlKey && e.key === 'z' && e.shiftKey) {
+            e.preventDefault();
+            redo();
+            return;
+        }
+        
         // Alt + 1 for TCR In (or both in single button mode)
         if (e.altKey && e.key === '1') {
             e.preventDefault();
@@ -1467,6 +1544,8 @@ function initializeClearTableButton() {
             }
             
             if (confirm(`Are you sure you want to clear all ${markers.length} rows from the table? This action cannot be undone.`)) {
+                // Save state before making changes
+                saveToHistory();
                 markers = [];
                 updateMarkerTable();
             }
@@ -1647,6 +1726,9 @@ function deleteSelectedRows() {
     if (!confirm(`Are you sure you want to delete ${checkboxes.length} selected row(s)?`)) {
         return;
     }
+    
+    // Save state before making changes
+    saveToHistory();
     
     // Get indices of selected rows
     const selectedIndices = Array.from(checkboxes).map(checkbox => 
