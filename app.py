@@ -1023,30 +1023,39 @@ def parse_cue_sheet():
             metadata.append(row_data)
             metadata_with_format.append(row_format)
         # Table header (row 7)
-        table_header_row = list(ws.iter_rows(min_row=7, max_row=7))[0]
-        for cell in table_header_row:
-            cell_info = {
-                'bold': cell.font.bold if cell.font else False,
-                'align': cell.alignment.horizontal if cell.alignment else None,
-                'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
-                'border': str(cell.border) if cell.border else None
-            }
-            table_header_format.append(cell_info)
+        try:
+            table_header_row = list(ws.iter_rows(min_row=7, max_row=7))[0]
+            for cell in table_header_row:
+                cell_info = {
+                    'bold': cell.font.bold if cell.font else False,
+                    'align': cell.alignment.horizontal if cell.alignment else None,
+                    'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
+                    'border': str(cell.border) if cell.border else None
+                }
+                table_header_format.append(cell_info)
+        except Exception as e:
+            table_header_format = []
         # First data row (row 8)
-        table_data_row = list(ws.iter_rows(min_row=8, max_row=8))[0]
-        for cell in table_data_row:
-            cell_info = {
-                'bold': cell.font.bold if cell.font else False,
-                'align': cell.alignment.horizontal if cell.alignment else None,
-                'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
-                'border': str(cell.border) if cell.border else None
-            }
-            table_row_format.append(cell_info)
+        try:
+            table_data_row = list(ws.iter_rows(min_row=8, max_row=8))[0]
+            for cell in table_data_row:
+                cell_info = {
+                    'bold': cell.font.bold if cell.font else False,
+                    'align': cell.alignment.horizontal if cell.alignment else None,
+                    'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
+                    'border': str(cell.border) if cell.border else None
+                }
+                table_row_format.append(cell_info)
+        except Exception as e:
+            table_row_format = []
         # Column widths
-        for col in ws.columns:
-            col_letter = get_column_letter(col[0].column)
-            width = ws.column_dimensions[col_letter].width
-            column_widths.append(width)
+        try:
+            for col in ws.columns:
+                col_letter = get_column_letter(col[0].column)
+                width = ws.column_dimensions[col_letter].width
+                column_widths.append(width)
+        except Exception as e:
+            column_widths = []
         # Get header and data as before
         rows = list(ws.iter_rows(values_only=True))
         header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
