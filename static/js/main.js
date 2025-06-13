@@ -1036,7 +1036,21 @@ function calculateDuration(inTime, outTime) {
     const outSeconds = timeToSeconds(outTime);
     const duration = outSeconds - inSeconds;
     
-    return formatTime(duration);
+    // Get the current time format from export settings
+    const settings = JSON.parse(localStorage.getItem('exportSettings')) || {};
+    const timeFormat = settings.tcrFormat || 'timecode';
+    
+    // Format based on selected time format
+    const hours = Math.floor(duration / 3600);
+    const minutes = Math.floor((duration % 3600) / 60);
+    const secs = Math.floor(duration % 60);
+    
+    if (timeFormat === 'time') {
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+        const frames = Math.floor((duration % 1) * 25); // Convert decimal seconds to frames (25fps)
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${frames.toString().padStart(2, '0')}`;
+    }
 }
 
 function initializeResizeHandles() {

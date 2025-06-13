@@ -20,6 +20,10 @@ import csv
 from video_utils import convert_wmv_to_mp4, upload_to_gcs
 from google.cloud import storage
 from google.cloud import firestore
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -64,9 +68,26 @@ if not os.path.exists(UPLOADS_DIR):
 
 AUDD_API_TOKEN = '04e48a84490a8a2f0bf327b274404905'  # Replace with your actual API token
 
-# Firestore client
-firestore_client = firestore.Client()
-MUSIC_CO_COLLECTION = 'music_companies'
+# Initialize Firestore client with proper error handling
+try:
+    # Check for credentials
+    credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+    if not credentials_path:
+        raise Exception("GOOGLE_APPLICATION_CREDENTIALS environment variable not set")
+    
+    if not os.path.exists(credentials_path):
+        raise Exception(f"Credentials file not found at {credentials_path}")
+    
+    # Initialize Firestore client
+    firestore_client = firestore.Client()
+    MUSIC_CO_COLLECTION = 'music_companies'
+    
+    # Test the connection
+    test_doc = firestore_client.collection(MUSIC_CO_COLLECTION).limit(1).get()
+    logger.info("Firestore initialized successfully")
+except Exception as e:
+    logger.error(f"Error initializing Firestore: {str(e)}")
+    firestore_client = None
 
 @app.route('/')
 def index():
@@ -202,9 +223,10 @@ def export_markers(format):
             def is_timecode_string(val):
                 import re
                 return isinstance(val, str) and re.match(r"^\d{2}:\d{2}:\d{2}(:\d{2})?$", val)
+
+            # Handle TCR In
             if 'tcrIn' in new_row and new_row['tcrIn']:
                 if is_timecode_string(new_row['tcrIn']):
-                    # If user selected HH:MM:SS, strip frames if present
                     if time_format == 'HH:MM:SS' and len(new_row['tcrIn'].split(':')) == 4:
                         new_row['tcrIn'] = ':'.join(new_row['tcrIn'].split(':')[:3])
                 else:
@@ -212,6 +234,8 @@ def export_markers(format):
                         new_row['tcrIn'] = format_time(float(new_row['tcrIn']), time_format == 'HH:MM:SS:FF')
                     except (ValueError, TypeError):
                         new_row['tcrIn'] = ''
+
+            # Handle TCR Out
             if 'tcrOut' in new_row and new_row['tcrOut']:
                 if is_timecode_string(new_row['tcrOut']):
                     if time_format == 'HH:MM:SS' and len(new_row['tcrOut'].split(':')) == 4:
@@ -221,6 +245,18 @@ def export_markers(format):
                         new_row['tcrOut'] = format_time(float(new_row['tcrOut']), time_format == 'HH:MM:SS:FF')
                     except (ValueError, TypeError):
                         new_row['tcrOut'] = ''
+
+            # Handle Duration
+            if 'duration' in new_row and new_row['duration']:
+                if is_timecode_string(new_row['duration']):
+                    if time_format == 'HH:MM:SS' and len(new_row['duration'].split(':')) == 4:
+                        new_row['duration'] = ':'.join(new_row['duration'].split(':')[:3])
+                else:
+                    try:
+                        new_row['duration'] = format_time(float(new_row['duration']), time_format == 'HH:MM:SS:FF')
+                    except (ValueError, TypeError):
+                        new_row['duration'] = ''
+
             return new_row
 
         if format == 'excel':
