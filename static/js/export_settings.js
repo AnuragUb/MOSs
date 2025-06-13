@@ -452,6 +452,10 @@ function exportWithSettings() {
 
         // --- BEGIN: Prepare export payload with metadata and marker data ---
         const headerRows = JSON.parse(localStorage.getItem('headerRows')) || [];
+        const metadata_with_format = JSON.parse(localStorage.getItem('metadata_with_format') || 'null');
+        const table_header_format = JSON.parse(localStorage.getItem('table_header_format') || 'null');
+        const table_row_format = JSON.parse(localStorage.getItem('table_row_format') || 'null');
+        const column_widths = JSON.parse(localStorage.getItem('column_widths') || 'null');
         // Get markers and add markColor
         let markers = [];
         if (typeof window.getMarkersWithMarkColor === 'function') {
@@ -551,6 +555,10 @@ function exportWithSettings() {
 
         const exportPayload = { 
             headerRows, 
+            metadata_with_format,
+            table_header_format,
+            table_row_format,
+            column_widths,
             markers,
             blankLines: settings.blankLines,
             fieldsToExport: settings.fieldsToExport,

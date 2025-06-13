@@ -1393,6 +1393,19 @@ function parseCueSheetFile(mode) {
             return;
         }
         headerRows = result.metadata || [];
+        // Store metadata_with_format and table formatting for export
+        if (result.metadata_with_format) {
+            localStorage.setItem('metadata_with_format', JSON.stringify(result.metadata_with_format));
+        }
+        if (result.table_header_format) {
+            localStorage.setItem('table_header_format', JSON.stringify(result.table_header_format));
+        }
+        if (result.table_row_format) {
+            localStorage.setItem('table_row_format', JSON.stringify(result.table_row_format));
+        }
+        if (result.column_widths) {
+            localStorage.setItem('column_widths', JSON.stringify(result.column_widths));
+        }
         // --- Extract Series Title and Episode Number for export file name ---
         let seriesTitle = '';
         let episodeNumber = '';

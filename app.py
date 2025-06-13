@@ -21,6 +21,9 @@ from video_utils import convert_wmv_to_mp4, upload_to_gcs
 from google.cloud import storage
 from google.cloud import firestore
 from dotenv import load_dotenv
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.worksheet.cell_range import CellRange
 
 # Load environment variables
 load_dotenv()
@@ -208,6 +211,10 @@ def export_markers(format):
         fields_to_export = payload.get('fieldsToExport')
         field_labels = payload.get('fieldLabels', {})
         time_format = payload.get('timeFormat', 'HH:MM:SS')  # Default to HH:MM:SS
+        metadata_with_format = payload.get('metadata_with_format', None)
+        table_header_format = payload.get('table_header_format', None)
+        table_row_format = payload.get('table_row_format', None)
+        column_widths = payload.get('column_widths', None)
 
         def format_time(seconds, include_frames=False):
             hours = int(seconds // 3600)
@@ -267,33 +274,57 @@ def export_markers(format):
             wb = openpyxl.Workbook()
             ws = wb.active
 
-            # --- BEGIN: Write metadata rows ---
-            for row in header_rows:
-                ws.append(row)
+            # --- BEGIN: Write metadata rows with formatting ---
+            if metadata_with_format:
+                merge_ranges = set()
+                for row_idx, row in enumerate(metadata_with_format, 1):
+                    for col_idx, cell in enumerate(row, 1):
+                        value = cell.get('value', '')
+                        bold = cell.get('bold', False)
+                        align = cell.get('align', None)
+                        merge = cell.get('merge', None)
+                        ws.cell(row=row_idx, column=col_idx, value=value)
+                        if bold:
+                            ws.cell(row=row_idx, column=col_idx).font = Font(bold=True)
+                        if align:
+                            ws.cell(row=row_idx, column=col_idx).alignment = Alignment(horizontal=align)
+                        if merge and merge not in merge_ranges:
+                            ws.merge_cells(merge)
+                            merge_ranges.add(merge)
+            else:
+                for row in header_rows:
+                    ws.append(row)
             # --- END: Write metadata rows ---
 
             # Add blank lines if specified
             for _ in range(blank_lines):
                 ws.append([])
 
-            # --- BEGIN: Write marker table ---
+            # --- BEGIN: Write marker table with formatting ---
+            table_start_row = ws.max_row + 1
             if markers:
                 if fields_to_export:
-                    # Add SEQ# to the beginning of fields_to_export if not already present
                     if 'seq' not in fields_to_export:
                         fields_to_export.insert(0, 'seq')
-                    
-                    # Add SEQ# to field labels if not present
                     if 'seq' not in field_labels:
                         field_labels['seq'] = 'SEQ#'
-                    
+                    # Write header row
                     ws.append([field_labels.get(field, field) for field in fields_to_export])
+                    # Apply header formatting
+                    if table_header_format:
+                        for col_idx, fmt in enumerate(table_header_format, 1):
+                            cell = ws.cell(row=table_start_row, column=col_idx)
+                            if fmt.get('bold'): cell.font = Font(bold=True)
+                            if fmt.get('align'): cell.alignment = Alignment(horizontal=fmt.get('align'))
+                            if fmt.get('fill') and fmt.get('fill') != '00000000':
+                                cell.fill = PatternFill(start_color=fmt.get('fill'), end_color=fmt.get('fill'), fill_type='solid')
+                            if fmt.get('border') and 'openpyxl' in fmt.get('border'):
+                                # Simple border: apply thin border to all sides
+                                cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+                    # Write data rows
                     for i, row in enumerate(markers):
-                        # Convert time fields to the selected format
                         row = convert_time_fields(row)
-                        # Add SEQ# to the beginning of the row data
-                        row_data = [i + 1]  # SEQ# is index + 1
-                        # Convert usage array or stringified array to comma-separated string if it exists
+                        row_data = [i + 1]
                         if 'usage' in row:
                             if isinstance(row['usage'], list):
                                 row['usage'] = ','.join(row['usage'])
@@ -304,19 +335,24 @@ def export_markers(format):
                                         row['usage'] = ','.join(arr)
                                 except Exception:
                                     pass
-                        # Add the rest of the fields
                         row_data.extend([row.get(field, '') for field in fields_to_export[1:]])
                         ws.append(row_data)
+                        # Apply data row formatting
+                        if table_row_format:
+                            for col_idx, fmt in enumerate(table_row_format, 1):
+                                cell = ws.cell(row=table_start_row + 1 + i, column=col_idx)
+                                if fmt.get('bold'): cell.font = Font(bold=True)
+                                if fmt.get('align'): cell.alignment = Alignment(horizontal=fmt.get('align'))
+                                if fmt.get('fill') and fmt.get('fill') != '00000000':
+                                    cell.fill = PatternFill(start_color=fmt.get('fill'), end_color=fmt.get('fill'), fill_type='solid')
+                                if fmt.get('border') and 'openpyxl' in fmt.get('border'):
+                                    cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                 else:
-                    # Add SEQ# to the beginning of the keys
                     keys = ['seq'] + list(markers[0].keys())
                     ws.append(keys)
                     for i, row in enumerate(markers):
-                        # Convert time fields to the selected format
                         row = convert_time_fields(row)
-                        # Add SEQ# to the beginning of the row data
-                        row_data = [i + 1]  # SEQ# is index + 1
-                        # Convert usage array or stringified array to comma-separated string if it exists
+                        row_data = [i + 1]
                         if 'usage' in row:
                             if isinstance(row['usage'], list):
                                 row['usage'] = ','.join(row['usage'])
@@ -327,15 +363,29 @@ def export_markers(format):
                                         row['usage'] = ','.join(arr)
                                 except Exception:
                                     pass
-                        # Add the rest of the values
                         row_data.extend(list(row.values()))
                         ws.append(row_data)
-            # --- END: Write marker table ---
+                        # Apply data row formatting
+                        if table_row_format:
+                            for col_idx, fmt in enumerate(table_row_format, 1):
+                                cell = ws.cell(row=table_start_row + 1 + i, column=col_idx)
+                                if fmt.get('bold'): cell.font = Font(bold=True)
+                                if fmt.get('align'): cell.alignment = Alignment(horizontal=fmt.get('align'))
+                                if fmt.get('fill') and fmt.get('fill') != '00000000':
+                                    cell.fill = PatternFill(start_color=fmt.get('fill'), end_color=fmt.get('fill'), fill_type='solid')
+                                if fmt.get('border') and 'openpyxl' in fmt.get('border'):
+                                    cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+            # --- END: Write marker table with formatting ---
+
+            # Set column widths
+            if column_widths:
+                for idx, width in enumerate(column_widths, 1):
+                    if width:
+                        ws.column_dimensions[get_column_letter(idx)].width = width
 
             # --- BEGIN: Color marked rows ---
             yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
             red_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
-            # Metadata rows + header row + blank lines
             start_row = len(header_rows) + blank_lines + 2 if markers else len(header_rows) + blank_lines + 1
             for i, marker in enumerate(markers):
                 color = marker.get('markColor', '')
@@ -367,9 +417,26 @@ def export_markers(format):
 
             with open(temp_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
-                # --- BEGIN: Write metadata rows ---
-                for row in header_rows:
-                    writer.writerow(row)
+                # --- BEGIN: Write metadata rows with formatting ---
+                if metadata_with_format:
+                    merge_ranges = set()
+                    for row_idx, row in enumerate(metadata_with_format, 1):
+                        for col_idx, cell in enumerate(row, 1):
+                            value = cell.get('value', '')
+                            bold = cell.get('bold', False)
+                            align = cell.get('align', None)
+                            merge = cell.get('merge', None)
+                            writer.writerow([value])
+                            if bold:
+                                writer.writerow([value]).font = Font(bold=True)
+                            if align:
+                                writer.writerow([value]).alignment = Alignment(horizontal=align)
+                            if merge and merge not in merge_ranges:
+                                writer.writerow([value]).merge = merge
+                                merge_ranges.add(merge)
+                else:
+                    for row in header_rows:
+                        writer.writerow(row)
                 # --- END: Write metadata rows ---
 
                 # Add blank lines if specified
@@ -919,25 +986,95 @@ def parse_cue_sheet():
     file = request.files['file']
     filename = secure_filename(file.filename)
     ext = filename.split('.')[-1].lower()
-    # Read file into pandas DataFrame
+    metadata = []
+    metadata_with_format = []
+    header = []
+    data = []
+    table_header_format = []
+    table_row_format = []
+    column_widths = []
     if ext in ['xlsx', 'xls']:
-        df = pd.read_excel(file, header=None)
+        import openpyxl
+        from openpyxl.utils import get_column_letter
+        from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+        from openpyxl.worksheet.cell_range import CellRange
+        import io
+        wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
+        ws = wb.active
+        # Get merged cell ranges
+        merged_ranges = [str(rng) for rng in ws.merged_cells.ranges]
+        for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=6), 1):
+            row_data = []
+            row_format = []
+            for cell in row:
+                cell_info = {
+                    'value': cell.value,
+                    'bold': cell.font.bold if cell.font else False,
+                    'align': cell.alignment.horizontal if cell.alignment else None,
+                    'merge': None
+                }
+                for rng in merged_ranges:
+                    cr = CellRange(rng)
+                    if (cell.row, cell.column) in cr.cells:
+                        cell_info['merge'] = rng
+                        break
+                row_data.append(cell.value if cell.value is not None else '')
+                row_format.append(cell_info)
+            metadata.append(row_data)
+            metadata_with_format.append(row_format)
+        # Table header (row 7)
+        table_header_row = list(ws.iter_rows(min_row=7, max_row=7))[0]
+        for cell in table_header_row:
+            cell_info = {
+                'bold': cell.font.bold if cell.font else False,
+                'align': cell.alignment.horizontal if cell.alignment else None,
+                'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
+                'border': str(cell.border) if cell.border else None
+            }
+            table_header_format.append(cell_info)
+        # First data row (row 8)
+        table_data_row = list(ws.iter_rows(min_row=8, max_row=8))[0]
+        for cell in table_data_row:
+            cell_info = {
+                'bold': cell.font.bold if cell.font else False,
+                'align': cell.alignment.horizontal if cell.alignment else None,
+                'fill': cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor else None,
+                'border': str(cell.border) if cell.border else None
+            }
+            table_row_format.append(cell_info)
+        # Column widths
+        for col in ws.columns:
+            col_letter = get_column_letter(col[0].column)
+            width = ws.column_dimensions[col_letter].width
+            column_widths.append(width)
+        # Get header and data as before
+        rows = list(ws.iter_rows(values_only=True))
+        header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
+        data_rows = rows[7:] if len(rows) > 7 else []
+        data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in data_rows]
     elif ext == 'csv':
+        import pandas as pd
         df = pd.read_csv(file, header=None)
+        df = df.fillna('')
+        rows = df.values.tolist()
+        metadata = [[str(cell) if cell is not None else '' for cell in row] for row in rows[:6]]
+        metadata_with_format = [[{'value': str(cell) if cell is not None else '', 'bold': False, 'align': None, 'merge': None} for cell in row] for row in rows[:6]]
+        header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
+        data_rows = rows[7:] if len(rows) > 7 else []
+        data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in data_rows]
+        table_header_format = [{'bold': False, 'align': None, 'fill': None, 'border': None} for _ in header]
+        table_row_format = [{'bold': False, 'align': None, 'fill': None, 'border': None} for _ in header]
+        column_widths = [None for _ in header]
     else:
         return jsonify({'error': 'Unsupported file type'}), 400
-    df = df.fillna('')  # Replace NaN with blank
-    rows = df.values.tolist()
-    # Extract metadata, header, and data
-    metadata = [[str(cell) if cell is not None else '' for cell in row] for row in rows[:6]]
-    header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
-    data_rows = rows[7:] if len(rows) > 7 else []
-    # Convert data rows to list of dicts, all values as strings
-    data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in data_rows]
     return jsonify({
         'metadata': metadata,
+        'metadata_with_format': metadata_with_format,
         'header': header,
-        'data': data
+        'data': data,
+        'table_header_format': table_header_format,
+        'table_row_format': table_row_format,
+        'column_widths': column_widths
     })
 
 @app.route('/test-ffmpeg')
