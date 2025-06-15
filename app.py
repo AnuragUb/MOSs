@@ -73,18 +73,9 @@ AUDD_API_TOKEN = '04e48a84490a8a2f0bf327b274404905'  # Replace with your actual 
 
 # Initialize Firestore client with proper error handling
 try:
-    # Check for credentials
-    credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-    if not credentials_path:
-        raise Exception("GOOGLE_APPLICATION_CREDENTIALS environment variable not set")
-    
-    if not os.path.exists(credentials_path):
-        raise Exception(f"Credentials file not found at {credentials_path}")
-    
-    # Initialize Firestore client
+    # Use default credentials (works on Google Cloud if service account has permissions)
     firestore_client = firestore.Client()
     MUSIC_CO_COLLECTION = 'music_companies'
-    
     # Test the connection
     test_doc = firestore_client.collection(MUSIC_CO_COLLECTION).limit(1).get()
     logger.info("Firestore initialized successfully")
