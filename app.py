@@ -1060,6 +1060,8 @@ def parse_cue_sheet():
                 column_widths = []
             # Get header and data as before, but fill merged cell values
             rows = list(ws.iter_rows(values_only=False))
+            # Filter out rows where all cells are empty
+            rows = [row for row in rows if any(str(get_merged_cell_value(ws, cell)).strip() for cell in row)]
             header = [str(get_merged_cell_value(ws, cell)) if get_merged_cell_value(ws, cell) is not None else '' for cell in rows[6]] if len(rows) > 6 else []
             data_rows = rows[7:] if len(rows) > 7 else []
             data = [dict(zip(header, [str(get_merged_cell_value(ws, cell)) if get_merged_cell_value(ws, cell) is not None else '' for cell in row])) for row in data_rows]
@@ -1068,6 +1070,8 @@ def parse_cue_sheet():
             df = pd.read_csv(file, header=None)
             df = df.fillna('')
             rows = df.values.tolist()
+            # Filter out rows where all cells are empty
+            rows = [row for row in rows if any(str(cell).strip() for cell in row)]
             metadata = [[str(cell) if cell is not None else '' for cell in row] for row in rows[:6]]
             metadata_with_format = [[{'value': str(cell) if cell is not None else '', 'bold': False, 'align': None, 'merge': None} for cell in row] for row in rows[:6]]
             header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
