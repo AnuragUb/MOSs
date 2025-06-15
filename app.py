@@ -21,7 +21,7 @@ from video_utils import convert_wmv_to_mp4, upload_to_gcs
 from google.cloud import storage
 from google.cloud import firestore
 from dotenv import load_dotenv
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import get_column_letter, range_boundaries
 from openpyxl.styles import Font, Alignment, Border, Side
 from openpyxl.worksheet.cell_range import CellRange
 
@@ -987,20 +987,28 @@ def parse_cue_sheet():
         column_widths = []
         if ext in ['xlsx', 'xls']:
             import openpyxl
-            from openpyxl.utils import get_column_letter
+            from openpyxl.utils import get_column_letter, range_boundaries
             from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
             from openpyxl.worksheet.cell_range import CellRange
             import io
             wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
             ws = wb.active
+            # Helper to get merged cell value
+            def get_merged_cell_value(ws, cell):
+                for merged_range in ws.merged_cells.ranges:
+                    min_col, min_row, max_col, max_row = range_boundaries(str(merged_range))
+                    if min_row <= cell.row <= max_row and min_col <= cell.column <= max_col:
+                        return ws.cell(row=min_row, column=min_col).value
+                return cell.value
             # Get merged cell ranges
             merged_ranges = [str(rng) for rng in ws.merged_cells.ranges]
             for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=6), 1):
                 row_data = []
                 row_format = []
                 for cell in row:
+                    value = get_merged_cell_value(ws, cell)
                     cell_info = {
-                        'value': cell.value,
+                        'value': value,
                         'bold': cell.font.bold if cell.font else False,
                         'align': cell.alignment.horizontal if cell.alignment else None,
                         'merge': None
@@ -1010,7 +1018,7 @@ def parse_cue_sheet():
                         if (cell.row, cell.column) in cr.cells:
                             cell_info['merge'] = rng
                             break
-                    row_data.append(cell.value if cell.value is not None else '')
+                    row_data.append(value if value is not None else '')
                     row_format.append(cell_info)
                 metadata.append(row_data)
                 metadata_with_format.append(row_format)
@@ -1018,6 +1026,7 @@ def parse_cue_sheet():
             try:
                 table_header_row = list(ws.iter_rows(min_row=7, max_row=7))[0]
                 for cell in table_header_row:
+                    value = get_merged_cell_value(ws, cell)
                     cell_info = {
                         'bold': cell.font.bold if cell.font else False,
                         'align': cell.alignment.horizontal if cell.alignment else None,
@@ -1031,6 +1040,7 @@ def parse_cue_sheet():
             try:
                 table_data_row = list(ws.iter_rows(min_row=8, max_row=8))[0]
                 for cell in table_data_row:
+                    value = get_merged_cell_value(ws, cell)
                     cell_info = {
                         'bold': cell.font.bold if cell.font else False,
                         'align': cell.alignment.horizontal if cell.alignment else None,
@@ -1048,11 +1058,11 @@ def parse_cue_sheet():
                     column_widths.append(width)
             except Exception as e:
                 column_widths = []
-            # Get header and data as before
-            rows = list(ws.iter_rows(values_only=True))
-            header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
+            # Get header and data as before, but fill merged cell values
+            rows = list(ws.iter_rows(values_only=False))
+            header = [str(get_merged_cell_value(ws, cell)) if get_merged_cell_value(ws, cell) is not None else '' for cell in rows[6]] if len(rows) > 6 else []
             data_rows = rows[7:] if len(rows) > 7 else []
-            data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in data_rows]
+            data = [dict(zip(header, [str(get_merged_cell_value(ws, cell)) if get_merged_cell_value(ws, cell) is not None else '' for cell in row])) for row in data_rows]
         elif ext == 'csv':
             import pandas as pd
             df = pd.read_csv(file, header=None)
