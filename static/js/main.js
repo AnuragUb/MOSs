@@ -5,7 +5,8 @@ let isSingleButtonMode = false;
 let activePasteColumns = {};
 let activeCell = null;
 let isNextMarkTcrIn = true; // For single button mode toggle
-let usageOptions = ['BI', 'BV', 'VI', 'VV', 'SRC', 'BI,BV', 'VI,VV', 'BI,VV', 'VI,BV'];
+let usageOptions = [];
+let musicCoOptions = [];
 let usageCounts = { BI: 0, BV: 0, VI: 0, VV: 0, SRC: 0, 'BI,BV': 0, 'VI,VV': 0, 'BI,VV': 0,'VI,BV': 0 };
 let extraColumns = [];
 let seqClickState = { row: null, count: 0, timeout: null }; // For tracking triple clicks
@@ -524,6 +525,13 @@ function initializeMarkerTable() {
             }
         }
     });
+
+    // Add datalists
+    addDatalists();
+
+    // Load options from Firestore
+    loadUsageOptions();
+    loadMusicCoOptions();
 }
 
 function initializeExportButtons() {
@@ -2030,4 +2038,91 @@ function getMarkersWithMarkColor() {
     return markers.map((marker, idx) => {
         return { ...marker, markColor: markedRows[idx] || '' };
     });
+}
+
+// Add this function to load usage options from Firestore
+function loadUsageOptions() {
+    fetch('/api/usage')
+        .then(response => response.json())
+        .then(data => {
+            usageOptions = data.map(item => item.name);
+            updateUsageDropdown();
+        })
+        .catch(error => console.error('Error loading usage options:', error));
+}
+
+// Add this function to load music co options from Firestore
+function loadMusicCoOptions() {
+    fetch('/api/music-co')
+        .then(response => response.json())
+        .then(data => {
+            musicCoOptions = data.map(item => item.name);
+            updateMusicCoDropdown();
+        })
+        .catch(error => console.error('Error loading music co options:', error));
+}
+
+// Update the usage dropdown
+function updateUsageDropdown() {
+    const usageCells = document.querySelectorAll('.usage-cell');
+    usageCells.forEach(cell => {
+        const currentValue = cell.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control usage-input';
+        input.value = currentValue;
+        input.list = 'usageOptions';
+        input.addEventListener('input', function(e) {
+            const value = e.target.value;
+            const datalist = document.getElementById('usageOptions');
+            datalist.innerHTML = '';
+            usageOptions
+                .filter(option => option.toLowerCase().includes(value.toLowerCase()))
+                .forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option;
+                    datalist.appendChild(optionElement);
+                });
+        });
+        cell.innerHTML = '';
+        cell.appendChild(input);
+    });
+}
+
+// Update the music co dropdown
+function updateMusicCoDropdown() {
+    const musicCoCells = document.querySelectorAll('.music-co-cell');
+    musicCoCells.forEach(cell => {
+        const currentValue = cell.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control music-co-input';
+        input.value = currentValue;
+        input.list = 'musicCoOptions';
+        input.addEventListener('input', function(e) {
+            const value = e.target.value;
+            const datalist = document.getElementById('musicCoOptions');
+            datalist.innerHTML = '';
+            musicCoOptions
+                .filter(option => option.toLowerCase().includes(value.toLowerCase()))
+                .forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option;
+                    datalist.appendChild(optionElement);
+                });
+        });
+        cell.innerHTML = '';
+        cell.appendChild(input);
+    });
+}
+
+// Add datalists to the document
+function addDatalists() {
+    const usageDatalist = document.createElement('datalist');
+    usageDatalist.id = 'usageOptions';
+    document.body.appendChild(usageDatalist);
+
+    const musicCoDatalist = document.createElement('datalist');
+    musicCoDatalist.id = 'musicCoOptions';
+    document.body.appendChild(musicCoDatalist);
 }

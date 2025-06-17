@@ -1136,5 +1136,48 @@ def delete_music_co(id):
 def music_co_manager():
     return render_template('music_co.html')
 
+@app.route('/usage')
+def usage_manager():
+    return render_template('usage.html')
+
+@app.route('/api/usage', methods=['GET'])
+def list_usage():
+    try:
+        db = firestore.Client()
+        usage_ref = db.collection('usage')
+        usage_docs = usage_ref.stream()
+        usage_list = [{'id': doc.id, 'name': doc.to_dict()['name']} for doc in usage_docs]
+        return jsonify(usage_list)
+    except Exception as e:
+        logger.error(f"Error listing usage options: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage', methods=['POST'])
+def add_usage():
+    try:
+        data = request.json
+        name = data.get('name')
+        if not name:
+            return jsonify({'error': 'Name is required'}), 400
+
+        db = firestore.Client()
+        usage_ref = db.collection('usage')
+        usage_ref.add({'name': name})
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error adding usage option: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage/<id>', methods=['DELETE'])
+def delete_usage(id):
+    try:
+        db = firestore.Client()
+        usage_ref = db.collection('usage').document(id)
+        usage_ref.delete()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error deleting usage option: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True) 
