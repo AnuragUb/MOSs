@@ -2094,26 +2094,142 @@ function updateMusicCoDropdown() {
     const musicCoCells = document.querySelectorAll('.music-co-cell');
     musicCoCells.forEach(cell => {
         const currentValue = cell.textContent;
+        const container = document.createElement('div');
+        container.className = 'dropdown-container';
+        
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'form-control music-co-input';
         input.value = currentValue;
-        input.list = 'musicCoOptions';
-        input.addEventListener('input', function(e) {
-            const value = e.target.value;
-            const datalist = document.getElementById('musicCoOptions');
-            datalist.innerHTML = '';
-            musicCoOptions
-                .filter(option => option.toLowerCase().includes(value.toLowerCase()))
-                .forEach(option => {
-                    const optionElement = document.createElement('option');
-                    optionElement.value = option;
-                    datalist.appendChild(optionElement);
-                });
+        input.placeholder = 'Search Music Co...';
+        
+        const dropdown = document.createElement('div');
+        dropdown.className = 'custom-dropdown';
+        
+        // Initially populate with all options
+        updateDropdownOptions(dropdown, musicCoOptions, '');
+        
+        // Show dropdown on focus
+        input.addEventListener('focus', () => {
+            dropdown.style.display = 'block';
+            updateDropdownOptions(dropdown, musicCoOptions, input.value);
         });
+        
+        // Filter options on input with improved search
+        input.addEventListener('input', (e) => {
+            const value = e.target.value.toLowerCase();
+            const words = value.split(/\s+/).filter(word => word.length > 0);
+            
+            const filteredOptions = musicCoOptions.filter(option => {
+                const optionLower = option.toLowerCase();
+                // Match if all words are found in the option
+                return words.every(word => optionLower.includes(word));
+            });
+            
+            updateDropdownOptions(dropdown, filteredOptions, value);
+            dropdown.style.display = 'block';
+        });
+        
+        // Handle option selection
+        dropdown.addEventListener('click', (e) => {
+            if (e.target.classList.contains('dropdown-option')) {
+                input.value = e.target.textContent;
+                dropdown.style.display = 'none';
+                // Update the marker data
+                const rowIndex = findRowIndex(cell);
+                if (rowIndex !== -1) {
+                    markers[rowIndex].musicCo = input.value;
+                }
+            }
+        });
+        
+        // Handle keyboard navigation
+        input.addEventListener('keydown', (e) => {
+            const options = dropdown.querySelectorAll('.dropdown-option');
+            const currentIndex = Array.from(options).findIndex(opt => opt.classList.contains('selected'));
+            
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    if (currentIndex < options.length - 1) {
+                        options[currentIndex]?.classList.remove('selected');
+                        options[currentIndex + 1].classList.add('selected');
+                        options[currentIndex + 1].scrollIntoView({ block: 'nearest' });
+                    }
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (currentIndex > 0) {
+                        options[currentIndex]?.classList.remove('selected');
+                        options[currentIndex - 1].classList.add('selected');
+                        options[currentIndex - 1].scrollIntoView({ block: 'nearest' });
+                    }
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    const selectedOption = dropdown.querySelector('.dropdown-option.selected');
+                    if (selectedOption) {
+                        input.value = selectedOption.textContent;
+                        dropdown.style.display = 'none';
+                        const rowIndex = findRowIndex(cell);
+                        if (rowIndex !== -1) {
+                            markers[rowIndex].musicCo = input.value;
+                        }
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    dropdown.style.display = 'none';
+                    break;
+            }
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!container.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+        
+        container.appendChild(input);
+        container.appendChild(dropdown);
         cell.innerHTML = '';
-        cell.appendChild(input);
+        cell.appendChild(container);
     });
+}
+
+// Helper function to update dropdown options
+function updateDropdownOptions(dropdown, options, filterText) {
+    dropdown.innerHTML = '';
+    if (options.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'dropdown-option no-results';
+        noResults.textContent = 'No matches found';
+        dropdown.appendChild(noResults);
+        return;
+    }
+    
+    options.forEach(option => {
+        const optionElement = document.createElement('div');
+        optionElement.className = 'dropdown-option';
+        
+        // Highlight matching text
+        if (filterText) {
+            const regex = new RegExp(`(${filterText})`, 'gi');
+            optionElement.innerHTML = option.replace(regex, '<mark>$1</mark>');
+        } else {
+            optionElement.textContent = option;
+        }
+        
+        dropdown.appendChild(optionElement);
+    });
+}
+
+// Helper function to find row index from cell
+function findRowIndex(cell) {
+    const row = cell.closest('tr');
+    const tbody = row.closest('tbody');
+    return Array.from(tbody.children).indexOf(row);
 }
 
 // Add datalists to the document

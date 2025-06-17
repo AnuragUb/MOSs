@@ -1181,4 +1181,89 @@ body {
 .musicco-option.active, .musicco-option:active {
     background: #ffc107 !important;
     color: #222 !important;
+}
+
+/* Custom Dropdown Styles */
+.dropdown-container {
+    position: relative;
+    width: 100%;
+}
+
+.custom-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dropdown-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: background-color 0.2s;
+}
+
+.dropdown-option:hover,
+.dropdown-option.selected {
+    background-color: var(--bg-tertiary);
+}
+
+.dropdown-option.no-results {
+    color: var(--text-secondary);
+    cursor: default;
+}
+
+.dropdown-option mark {
+    background-color: rgba(var(--primary-rgb), 0.2);
+    color: var(--text-primary);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* Ensure dropdowns appear above other elements */
+.music-co-cell {
+    position: relative;
+}
+
+/* Style the input fields */
+.music-co-input {
+    width: 100%;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 6px 12px;
+    border-radius: 4px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.music-co-input:focus {
+    outline: none;
+    border-color: var(--border-color-focus);
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.25);
+}
+
+/* Custom scrollbar for dropdowns */
+.custom-dropdown::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-dropdown::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+.custom-dropdown::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.custom-dropdown::-webkit-scrollbar-thumb:hover {
+    background: var(--border-color-focus);
 } 
