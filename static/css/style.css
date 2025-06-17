@@ -1190,16 +1190,15 @@ body {
 }
 
 .custom-dropdown {
-    display: none;
     position: absolute;
     top: 100%;
     left: 0;
     right: 0;
+    background: #2d2d2d;
+    border: 1px solid #444;
+    border-radius: 4px;
     max-height: 200px;
     overflow-y: auto;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
     z-index: 1000;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -1207,25 +1206,34 @@ body {
 .dropdown-option {
     padding: 8px 12px;
     cursor: pointer;
-    color: var(--text-primary);
+    color: #fff;
     transition: background-color 0.2s;
 }
 
-.dropdown-option:hover,
+.dropdown-option:hover {
+    background-color: #444;
+}
+
 .dropdown-option.selected {
-    background-color: var(--bg-tertiary);
+    background-color: #555;
 }
 
-.dropdown-option.no-results {
-    color: var(--text-secondary);
-    cursor: default;
+/* Custom scrollbar for the dropdown */
+.custom-dropdown::-webkit-scrollbar {
+    width: 8px;
 }
 
-.dropdown-option mark {
-    background-color: rgba(var(--primary-rgb), 0.2);
-    color: var(--text-primary);
-    padding: 0 2px;
-    border-radius: 2px;
+.custom-dropdown::-webkit-scrollbar-track {
+    background: #2d2d2d;
+}
+
+.custom-dropdown::-webkit-scrollbar-thumb {
+    background: #666;
+    border-radius: 4px;
+}
+
+.custom-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #888;
 }
 
 /* Ensure dropdowns appear above other elements */
@@ -1248,22 +1256,4 @@ body {
     outline: none;
     border-color: var(--border-color-focus);
     box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.25);
-}
-
-/* Custom scrollbar for dropdowns */
-.custom-dropdown::-webkit-scrollbar {
-    width: 8px;
-}
-
-.custom-dropdown::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-}
-
-.custom-dropdown::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 4px;
-}
-
-.custom-dropdown::-webkit-scrollbar-thumb:hover {
-    background: var(--border-color-focus);
 } 

@@ -893,7 +893,12 @@ function updateMarkerTable() {
         ['title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'].forEach(field => {
             const cell = document.createElement('td');
             if (field === 'musicCo') {
-                // Searchable dropdown for Music Co
+                // Create container for input and dropdown
+                const container = document.createElement('div');
+                container.className = 'dropdown-container';
+                container.style.position = 'relative';
+                
+                // Create input field
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.className = 'table-input';
@@ -901,33 +906,23 @@ function updateMarkerTable() {
                 input.dataset.field = field;
                 input.setAttribute('autocomplete', 'off');
                 makeInputResizable(input);
-                // Dropdown for suggestions
+                
+                // Create dropdown
                 const dropdown = document.createElement('div');
-                dropdown.className = 'musicco-dropdown';
-                dropdown.style.position = 'absolute';
-                dropdown.style.zIndex = 1000;
-                dropdown.style.background = '#fff';
-                dropdown.style.border = '1px solid #ccc';
+                dropdown.className = 'custom-dropdown';
                 dropdown.style.display = 'none';
-                cell.style.position = 'relative';
-                let activeIndex = -1;
-                let options = [];
-                input.addEventListener('input', function(e) {
-                    const val = e.target.value.trim();
-                    if (!val) { dropdown.style.display = 'none'; return; }
-                    fetch(`/api/music-co?search=${encodeURIComponent(val)}`)
+                
+                // Add event listeners
+                input.addEventListener('focus', function() {
+                    // Show all options initially
+                    fetch('/api/music-co')
                         .then(res => res.json())
                         .then(data => {
                             dropdown.innerHTML = '';
-                            options = data;
-                            activeIndex = -1;
-                            if (data.length === 0) { dropdown.style.display = 'none'; return; }
-                            data.forEach((item, idx) => {
+                            data.forEach(item => {
                                 const opt = document.createElement('div');
-                                opt.className = 'musicco-option';
+                                opt.className = 'dropdown-option';
                                 opt.textContent = item.name;
-                                opt.style.padding = '2px 8px';
-                                opt.style.cursor = 'pointer';
                                 opt.onclick = function() {
                                     input.value = item.name;
                                     marker[field] = item.name;
@@ -939,9 +934,31 @@ function updateMarkerTable() {
                             dropdown.style.display = 'block';
                         });
                 });
-                input.addEventListener('blur', function() {
-                    setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+                
+                input.addEventListener('input', function(e) {
+                    const searchText = e.target.value.toLowerCase();
+                    const options = dropdown.querySelectorAll('.dropdown-option');
+                    let hasVisibleOptions = false;
+                    
+                    options.forEach(opt => {
+                        const text = opt.textContent.toLowerCase();
+                        if (text.includes(searchText)) {
+                            opt.style.display = 'block';
+                            hasVisibleOptions = true;
+                        } else {
+                            opt.style.display = 'none';
+                        }
+                    });
+                    
+                    dropdown.style.display = hasVisibleOptions ? 'block' : 'none';
                 });
+                
+                input.addEventListener('blur', function() {
+                    setTimeout(() => {
+                        dropdown.style.display = 'none';
+                    }, 200);
+                });
+                
                 input.addEventListener('change', (e) => {
                     marker[field] = e.target.value;
                     if (activePasteColumns[field]) {
@@ -949,35 +966,45 @@ function updateMarkerTable() {
                         manualEdits[field][actualIndex] = true;
                     }
                 });
-                // Keyboard navigation for dropdown
+                
+                // Add keyboard navigation
                 input.addEventListener('keydown', function(e) {
-                    if (dropdown.style.display !== 'block') return;
-                    const opts = dropdown.querySelectorAll('.musicco-option');
-                    if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        if (opts.length === 0) return;
-                        activeIndex = (activeIndex + 1) % opts.length;
-                        opts.forEach((opt, idx) => {
-                            opt.classList.toggle('active', idx === activeIndex);
-                        });
-                        opts[activeIndex].scrollIntoView({ block: 'nearest' });
-                    } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        if (opts.length === 0) return;
-                        activeIndex = (activeIndex - 1 + opts.length) % opts.length;
-                        opts.forEach((opt, idx) => {
-                            opt.classList.toggle('active', idx === activeIndex);
-                        });
-                        opts[activeIndex].scrollIntoView({ block: 'nearest' });
-                    } else if (e.key === 'Enter') {
-                        if (activeIndex >= 0 && opts[activeIndex]) {
+                    const options = dropdown.querySelectorAll('.dropdown-option:not([style*="display: none"])');
+                    const currentIndex = Array.from(options).findIndex(opt => opt.classList.contains('selected'));
+                    
+                    switch(e.key) {
+                        case 'ArrowDown':
                             e.preventDefault();
-                            opts[activeIndex].click();
-                        }
+                            if (currentIndex < options.length - 1) {
+                                options[currentIndex]?.classList.remove('selected');
+                                options[currentIndex + 1].classList.add('selected');
+                                options[currentIndex + 1].scrollIntoView({ block: 'nearest' });
+                            }
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            if (currentIndex > 0) {
+                                options[currentIndex]?.classList.remove('selected');
+                                options[currentIndex - 1].classList.add('selected');
+                                options[currentIndex - 1].scrollIntoView({ block: 'nearest' });
+                            }
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            const selected = dropdown.querySelector('.dropdown-option.selected');
+                            if (selected) {
+                                selected.click();
+                            }
+                            break;
+                        case 'Escape':
+                            dropdown.style.display = 'none';
+                            break;
                     }
                 });
-                cell.appendChild(input);
-                cell.appendChild(dropdown);
+                
+                container.appendChild(input);
+                container.appendChild(dropdown);
+                cell.appendChild(container);
             } else {
                 const input = document.createElement('input');
                 input.type = 'text';
