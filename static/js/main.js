@@ -1482,12 +1482,27 @@ function extractFieldValue(headerRows, fieldName) {
 function loadCueSheetData(header, data) {
     // Map file columns to app columns using mapping
     let lowerHeader = header.map(h => h.trim().toLowerCase());
+    console.log('Lowercase header:', lowerHeader);
+    
     // Extract show name (series title) from headerRows
     const showName = extractFieldValue(headerRows, 'series title');
+    console.log('Show name:', showName);
+    
+    // Log the first row of data for debugging
+    if (data.length > 0) {
+        console.log('First row of data:', data[0]);
+    }
+    
     markers = data.map(row => {
         let marker = {};
         defaultMarkerColumns.forEach(col => {
             let idx = lowerHeader.findIndex(h => columnNameMap[h] === col.key || h === col.label.toLowerCase());
+            console.log(`Mapping column ${col.key}:`, {
+                'header': header[idx],
+                'lowerHeader': lowerHeader[idx],
+                'found': idx !== -1,
+                'value': idx !== -1 ? row[header[idx]] || '' : ''
+            });
             marker[col.key] = idx !== -1 ? row[header[idx]] || '' : '';
         });
         // Add extra columns
