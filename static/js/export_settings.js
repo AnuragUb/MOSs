@@ -641,6 +641,7 @@ function exportToExcelWorkbook(payload) {
         window.URL.revokeObjectURL(url);
         a.remove();
         console.log('Excel file downloaded successfully');
+        handlePostExport(); // Add cleanup after successful export
     })
     .catch(error => {
         console.error('Excel export failed:', error);
@@ -681,6 +682,7 @@ function exportToCSV(payload) {
         window.URL.revokeObjectURL(url);
         a.remove();
         console.log('CSV file downloaded successfully');
+        handlePostExport(); // Add cleanup after successful export
     })
     .catch(error => {
         console.error('CSV export failed:', error);
@@ -690,7 +692,17 @@ function exportToCSV(payload) {
 }
 
 function exportToPlainExcel(payload) {
-    exportToExcelWorkbook(payload);
+    try {
+        const workbook = XLSX.utils.book_new();
+        const data = prepareExportData(payload);
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(workbook, ws, "Music Cue Sheet");
+        XLSX.writeFile(workbook, getExportFileName('xlsx'));
+        handlePostExport(); // Add cleanup after successful export
+    } catch (error) {
+        console.error('Error exporting to plain Excel:', error);
+        alert('Failed to export to plain Excel. Please try again.');
+    }
 }
 
 function prepareExportData(settings) {
@@ -722,4 +734,8 @@ function prepareExportData(settings) {
         });
     }
     return { headerRows: window.headerRows, markers, blankLines: settings.blankLines };
+}
+
+function handlePostExport() {
+    // Implementation of handlePostExport function
 } 

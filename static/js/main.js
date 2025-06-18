@@ -1425,6 +1425,7 @@ function initializeCueSheetUpload() {
     loadCueBtn.addEventListener('click', () => cueFileInput.click());
     cueFileInput.addEventListener('change', function(e) {
         if (e.target.files.length > 0) {
+            handleNewFileLoad(); // Add this line
             cueSheetFile = e.target.files[0];
             cueActions.style.display = '';
         } else {
@@ -1677,19 +1678,53 @@ function loadCueSheetData(header, data) {
 function initializeClearTableButton() {
     const clearTableBtn = document.getElementById('clearTableBtn');
     if (clearTableBtn) {
-        clearTableBtn.addEventListener('click', function() {
-            if (markers.length === 0) {
-                alert('Table is already empty.');
-                return;
-            }
-            
-            if (confirm(`Are you sure you want to clear all ${markers.length} rows from the table? This action cannot be undone.`)) {
-                // Save state before making changes
-                saveToHistory();
-                markers = [];
+        clearTableBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear the table? This will remove all markers and settings.')) {
+                clearAppData();
                 updateMarkerTable();
             }
         });
+    }
+}
+
+// Add this function to handle post-export cleanup
+function handlePostExport() {
+    if (confirm('Export completed. Would you like to clear the current data and start fresh?')) {
+        clearAppData();
+        updateMarkerTable();
+    }
+}
+
+// Modify the exportToExcelWorkbook function
+function exportToExcelWorkbook() {
+    // ... existing export code ...
+    
+    // After successful export
+    handlePostExport();
+}
+
+// Modify the exportToCSV function
+function exportToCSV() {
+    // ... existing export code ...
+    
+    // After successful export
+    handlePostExport();
+}
+
+// Modify the exportToPlainExcel function
+function exportToPlainExcel() {
+    // ... existing export code ...
+    
+    // After successful export
+    handlePostExport();
+}
+
+// Add this function to handle new file loading
+function handleNewFileLoad() {
+    if (markers.length > 0 || Object.keys(markedRows).length > 0) {
+        if (confirm('Loading a new file. Would you like to clear the current data first?')) {
+            clearAppData();
+        }
     }
 }
 
