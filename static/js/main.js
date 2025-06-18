@@ -2472,14 +2472,34 @@ function autoSave() {
             markedRows: JSON.parse(localStorage.getItem('markedRows') || '{}'),
             exceptionSettings: JSON.parse(localStorage.getItem('exceptionSettings') || '{}')
         })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.error || 'Autosave failed');
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Autosave failed:', error);
+        // Don't show alert for autosave failures to avoid disrupting the user
     });
 }
-setInterval(autoSave, 30000);
+
+// Set up autosave interval
+setInterval(autoSave, 30000); // Save every 30 seconds
 
 // Restore from session autosave on page load
 window.addEventListener('DOMContentLoaded', function() {
     fetch('/api/loadsave')
-        .then(res => res.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.error || 'Failed to load saved data');
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data && data.markers && data.markers.length > 0) {
                 if (confirm('Restore your last saved work from this session?')) {
@@ -2515,6 +2535,10 @@ window.addEventListener('DOMContentLoaded', function() {
                     updateMarkerTable();
                 }
             }
+        })
+        .catch(error => {
+            console.error('Failed to load saved data:', error);
+            // Don't show alert for load failures to avoid disrupting initial page load
         });
 });
 

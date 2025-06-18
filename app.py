@@ -81,7 +81,12 @@ except Exception as e:
     logger.error(f"Error initializing Firestore: {str(e)}")
     firestore_client = None
 
-db = firestore.Client()
+# Initialize Firestore
+try:
+    db = firestore.Client()
+except Exception as e:
+    logger.error(f"Failed to initialize Firestore: {str(e)}")
+    db = None
 
 @app.route('/')
 def index():
@@ -1186,12 +1191,19 @@ def delete_usage(id):
 @app.route('/api/autosave', methods=['POST'])
 def autosave():
     try:
+        if db is None:
+            logger.error("Firestore not initialized")
+            return jsonify({'error': 'Database not available'}), 503
+            
         session_id = session.get('session_id')
         if not session_id:
             session_id = str(uuid.uuid4())
             session['session_id'] = session_id
         
         data = request.json
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
         # Validate required fields
         if not isinstance(data.get('markers'), list):
             return jsonify({'error': 'Invalid markers data'}), 400
@@ -1206,30 +1218,44 @@ def autosave():
             'timestamp': datetime.datetime.now().isoformat()
         }
         
-        db.collection('autosaves').document(session_id).set(save_data)
-        return '', 204
+        try:
+            db.collection('autosaves').document(session_id).set(save_data)
+            return '', 204
+        except Exception as db_error:
+            logger.error(f"Database operation failed: {str(db_error)}")
+            return jsonify({'error': 'Failed to save data'}), 500
+            
     except Exception as e:
-        app.logger.error(f"Error in autosave: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Error in autosave: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/loadsave')
 def loadsave():
     try:
+        if db is None:
+            logger.error("Firestore not initialized")
+            return jsonify({'error': 'Database not available'}), 503
+            
         session_id = session.get('session_id')
         if not session_id:
             return jsonify({})
             
-        doc = db.collection('autosaves').document(session_id).get()
-        if doc.exists:
-            data = doc.to_dict()
-            # Validate data before sending
-            if not isinstance(data.get('markers'), list):
-                return jsonify({})
-            return jsonify(data)
-        return jsonify({})
+        try:
+            doc = db.collection('autosaves').document(session_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                # Validate data before sending
+                if not isinstance(data.get('markers'), list):
+                    return jsonify({})
+                return jsonify(data)
+            return jsonify({})
+        except Exception as db_error:
+            logger.error(f"Database operation failed: {str(db_error)}")
+            return jsonify({'error': 'Failed to load data'}), 500
+            
     except Exception as e:
-        app.logger.error(f"Error in loadsave: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Error in loadsave: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True) 
