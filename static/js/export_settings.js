@@ -497,20 +497,40 @@ function exportWithSettings() {
             console.log('Sample marker before mapping:', markers[0]);
         }
 
-        // Apply film title import if enabled
+        // Get exception settings
+        const exceptionSettings = JSON.parse(localStorage.getItem('exceptionSettings')) || {};
+        console.log('Exception settings:', exceptionSettings);
+
+        // Apply film title import if enabled (respecting exceptions)
         if (settings.importFilmTitle && seriesTitle) {
-            markers = markers.map(marker => ({
-                ...marker,
-                filmTitle: seriesTitle
-            }));
+            markers = markers.map((marker, index) => {
+                // Check if this row has exception settings that prevent film title auto-fill
+                const rowException = exceptionSettings[index];
+                if (rowException && rowException.filmTitle) {
+                    // Don't auto-fill film title for this row
+                    return marker;
+                }
+                return {
+                    ...marker,
+                    filmTitle: seriesTitle
+                };
+            });
         }
 
-        // Apply addSeriesTitlePrefix if enabled
+        // Apply addSeriesTitlePrefix if enabled (respecting exceptions)
         if (settings.addSeriesTitlePrefix && seriesTitle) {
-            markers = markers.map(marker => ({
-                ...marker,
-                title: `${seriesTitle} - (${marker.title || ''})`
-            }));
+            markers = markers.map((marker, index) => {
+                // Check if this row has exception settings that prevent title prefix auto-fill
+                const rowException = exceptionSettings[index];
+                if (rowException && rowException.titlePrefix) {
+                    // Don't auto-fill title prefix for this row
+                    return marker;
+                }
+                return {
+                    ...marker,
+                    title: `${seriesTitle} - (${marker.title || ''})`
+                };
+            });
         }
 
         // Log a sample marker after mapping
@@ -683,11 +703,23 @@ function prepareExportData(settings) {
         showName = showInfo.showName || '';
     }
     let markers = window.getMarkersWithMarkColor ? window.getMarkersWithMarkColor() : (window.markers || []);
+    
+    // Get exception settings
+    const exceptionSettings = JSON.parse(localStorage.getItem('exceptionSettings')) || {};
+    
     if (settings.addSeriesTitlePrefix && showName) {
-        markers = markers.map(marker => ({
-            ...marker,
-            title: `${showName} - (${marker.title || ''})`
-        }));
+        markers = markers.map((marker, index) => {
+            // Check if this row has exception settings that prevent title prefix auto-fill
+            const rowException = exceptionSettings[index];
+            if (rowException && rowException.titlePrefix) {
+                // Don't auto-fill title prefix for this row
+                return marker;
+            }
+            return {
+                ...marker,
+                title: `${showName} - (${marker.title || ''})`
+            };
+        });
     }
     return { headerRows: window.headerRows, markers, blankLines: settings.blankLines };
 } 

@@ -79,19 +79,42 @@ let manualEdits = {};
 let isSequenceReversed = false;
 
 // --- Marked Rows as Object with Color ---
-let markedRows = {}; // { rowIndex: 'yellow' | 'red' }
+let markedRows = {}; // { rowIndex: 'yellow' | 'red' | 'exception' }
+let exceptionSettings = {}; // { rowIndex: { filmTitle: boolean, titlePrefix: boolean } }
 
 // Load markedRows from localStorage on page load
 (function() {
     try {
         const savedMarkedRows = localStorage.getItem('markedRows');
         if (savedMarkedRows) markedRows = JSON.parse(savedMarkedRows);
-    } catch (e) { markedRows = {}; }
+        
+        const savedExceptionSettings = localStorage.getItem('exceptionSettings');
+        if (savedExceptionSettings) exceptionSettings = JSON.parse(savedExceptionSettings);
+    } catch (e) { 
+        markedRows = {}; 
+        exceptionSettings = {};
+    }
 })();
 
 // Save markedRows to localStorage
 function saveMarkedRows() {
     localStorage.setItem('markedRows', JSON.stringify(markedRows));
+    localStorage.setItem('exceptionSettings', JSON.stringify(exceptionSettings));
+}
+
+// Helper function to check if a field should be auto-filled for a specific row
+function shouldAutoFillField(rowIndex, fieldName) {
+    const rowException = exceptionSettings[rowIndex];
+    if (!rowException) return true; // No exception, allow auto-fill
+    
+    if (fieldName === 'filmTitle') {
+        return !rowException.filmTitle;
+    }
+    if (fieldName === 'titlePrefix') {
+        return !rowException.titlePrefix;
+    }
+    
+    return true; // Default to allowing auto-fill for unknown fields
 }
 
 // Update default columns to include 'Title'
@@ -132,6 +155,24 @@ let pauseWithTCRMark = false;
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing main page components...');
+    
+    // Load markers from localStorage if available
+    try {
+        const savedMarkers = localStorage.getItem('markers');
+        if (savedMarkers) {
+            markers = JSON.parse(savedMarkers);
+            console.log('Loaded markers from localStorage:', markers.length);
+        }
+        
+        const savedHeaderRows = localStorage.getItem('headerRows');
+        if (savedHeaderRows) {
+            headerRows = JSON.parse(savedHeaderRows);
+            console.log('Loaded headerRows from localStorage');
+        }
+    } catch (e) {
+        console.error('Error loading markers from localStorage:', e);
+    }
+    
     initializeVideoPlayer();
     initializeMarkerTable();
     initializeResizeHandles();
@@ -148,6 +189,16 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeRowMarking();
     initializeColumnResize();
     setupSeqHeaderDoubleClick();
+    
+    // Load options from Firestore
+    loadUsageOptions();
+    loadMusicCoOptions();
+    
+    // Load usage counts from localStorage
+    loadUsageCounts();
+    
+    // Update usage counts based on current markers
+    updateUsageCounts();
     
     // Initialize history with current state
     saveToHistory();
@@ -528,10 +579,6 @@ function initializeMarkerTable() {
 
     // Add datalists
     addDatalists();
-
-    // Load options from Firestore
-    loadUsageOptions();
-    loadMusicCoOptions();
 }
 
 function initializeExportButtons() {
@@ -548,6 +595,62 @@ function getMostUsedUsage() {
         }
     }
     return mostUsed;
+}
+
+// Update usage counts based on current markers
+function updateUsageCounts() {
+    // Reset counts
+    usageCounts = {};
+    
+    // Initialize counts for all usage options
+    usageOptions.forEach(option => {
+        usageCounts[option] = 0;
+    });
+    
+    // Count usage in current markers
+    markers.forEach(marker => {
+        if (marker.usage) {
+            if (Array.isArray(marker.usage)) {
+                marker.usage.forEach(usage => {
+                    if (usageCounts.hasOwnProperty(usage)) {
+                        usageCounts[usage]++;
+                    }
+                });
+            } else if (typeof marker.usage === 'string') {
+                // Handle comma-separated usage values
+                const usages = marker.usage.split(',').map(u => u.trim());
+                usages.forEach(usage => {
+                    if (usageCounts.hasOwnProperty(usage)) {
+                        usageCounts[usage]++;
+                    }
+                });
+            }
+        }
+    });
+    
+    // Save usage counts to localStorage for persistence
+    localStorage.setItem('usageCounts', JSON.stringify(usageCounts));
+}
+
+// Load usage counts from localStorage
+function loadUsageCounts() {
+    try {
+        const savedCounts = localStorage.getItem('usageCounts');
+        if (savedCounts) {
+            usageCounts = JSON.parse(savedCounts);
+        }
+    } catch (e) {
+        usageCounts = {};
+    }
+}
+
+// Get sorted usage options (most used first)
+function getSortedUsageOptions() {
+    return [...usageOptions].sort((a, b) => {
+        const countA = usageCounts[a] || 0;
+        const countB = usageCounts[b] || 0;
+        return countB - countA; // Sort in descending order (most used first)
+    });
 }
 
 function markTCR(type) {
@@ -772,6 +875,7 @@ function updateMarkerTable() {
         // --- Apply color class if marked ---
         if (markedRows[actualIndex] === 'yellow') row.classList.add('marked-yellow');
         if (markedRows[actualIndex] === 'red') row.classList.add('marked-red');
+        if (markedRows[actualIndex] === 'exception') row.classList.add('marked-exception');
         
         // Add checkbox cell
         const checkboxCell = document.createElement('td');
@@ -785,7 +889,13 @@ function updateMarkerTable() {
         if (markedRows[actualIndex]) {
             const markDot = document.createElement('span');
             markDot.className = 'mark-dot';
-            markDot.style.backgroundColor = markedRows[actualIndex] === 'yellow' ? '#ffc107' : '#dc3545';
+            if (markedRows[actualIndex] === 'yellow') {
+                markDot.style.backgroundColor = '#ffc107';
+            } else if (markedRows[actualIndex] === 'red') {
+                markDot.style.backgroundColor = '#dc3545';
+            } else if (markedRows[actualIndex] === 'exception') {
+                markDot.style.backgroundColor = '#6c757d';
+            }
             checkboxCell.appendChild(markDot);
 
             const removeMarkBtn = document.createElement('button');
@@ -795,6 +905,7 @@ function updateMarkerTable() {
             removeMarkBtn.onclick = (e) => {
                 e.stopPropagation();
                 delete markedRows[actualIndex];
+                delete exceptionSettings[actualIndex];
                 saveMarkedRows();
                 updateMarkerTable();
             };
@@ -871,13 +982,18 @@ function updateMarkerTable() {
         usageSelect.className = 'table-input';
         usageSelect.dataset.field = 'usage';
         makeInputResizable(usageSelect);
-        usageOptions.forEach(option => {
+        
+        // Get sorted usage options (most used first)
+        const sortedOptions = getSortedUsageOptions();
+        
+        sortedOptions.forEach(option => {
             const opt = document.createElement('option');
             opt.value = option;
             opt.textContent = option;
             if (marker.usage && marker.usage.includes(option)) opt.selected = true;
             usageSelect.appendChild(opt);
         });
+        
         usageSelect.addEventListener('change', (e) => {
             marker.usage = Array.from(e.target.selectedOptions, option => option.value);
             updateUsageCounts();
@@ -1796,10 +1912,17 @@ function initializeExportSettings() {
 function initializeRowMarking() {
     const rowMarkBtn = document.getElementById('rowMarkBtn');
     const rowMarkModal = document.getElementById('rowMarkModal');
+    const exceptionModal = document.getElementById('exceptionModal');
     const closeBtn = rowMarkModal.querySelector('.close');
     const markYellowBtn = rowMarkModal.querySelector('.mark-btn.yellow');
     const markRedBtn = rowMarkModal.querySelector('.mark-btn.red');
+    const markExceptionBtn = rowMarkModal.querySelector('.mark-btn.exception');
     const unmarkBtn = rowMarkModal.querySelector('.mark-btn.unmark');
+
+    // Exception modal elements
+    const exceptionCloseBtn = exceptionModal.querySelector('.close');
+    const applyExceptionBtn = document.getElementById('applyException');
+    const cancelExceptionBtn = document.getElementById('cancelException');
 
     rowMarkBtn.addEventListener('click', () => {
         const selectedRows = document.querySelectorAll('.row-checkbox:checked');
@@ -1822,12 +1945,46 @@ function initializeRowMarking() {
         markSelectedRows('red');
         rowMarkModal.style.display = 'none';
     });
+    markExceptionBtn.addEventListener('click', () => {
+        rowMarkModal.style.display = 'none';
+        exceptionModal.style.display = 'block';
+    });
     if (unmarkBtn) {
         unmarkBtn.addEventListener('click', () => {
             markSelectedRows(null);
             rowMarkModal.style.display = 'none';
         });
     }
+
+    // Exception modal event handlers
+    exceptionCloseBtn.addEventListener('click', () => {
+        exceptionModal.style.display = 'none';
+    });
+
+    applyExceptionBtn.addEventListener('click', () => {
+        const filmTitleException = document.getElementById('exceptionFilmTitle').checked;
+        const titlePrefixException = document.getElementById('exceptionTitlePrefix').checked;
+        
+        markSelectedRowsWithException('exception', {
+            filmTitle: filmTitleException,
+            titlePrefix: titlePrefixException
+        });
+        exceptionModal.style.display = 'none';
+    });
+
+    cancelExceptionBtn.addEventListener('click', () => {
+        exceptionModal.style.display = 'none';
+    });
+
+    // Close modals when clicking outside
+    window.addEventListener('click', (e) => {
+        if (e.target === rowMarkModal) {
+            rowMarkModal.style.display = 'none';
+        }
+        if (e.target === exceptionModal) {
+            exceptionModal.style.display = 'none';
+        }
+    });
 }
 
 function markSelectedRows(color) {
@@ -1839,6 +1996,24 @@ function markSelectedRows(color) {
             markedRows[rowIndex] = color;
         } else {
             delete markedRows[rowIndex];
+            delete exceptionSettings[rowIndex];
+        }
+    });
+    saveMarkedRows();
+    updateMarkerTable();
+}
+
+function markSelectedRowsWithException(color, exceptionConfig) {
+    const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+        if (color) {
+            markedRows[rowIndex] = color;
+            exceptionSettings[rowIndex] = exceptionConfig;
+        } else {
+            delete markedRows[rowIndex];
+            delete exceptionSettings[rowIndex];
         }
     });
     saveMarkedRows();
@@ -1994,7 +2169,10 @@ function loadUsageOptions() {
         .then(response => response.json())
         .then(data => {
             usageOptions = data.map(item => item.name);
-            updateUsageDropdown();
+            // Update usage counts after loading options
+            updateUsageCounts();
+            // Refresh the table to show sorted options
+            updateMarkerTable();
         })
         .catch(error => console.error('Error loading usage options:', error));
 }

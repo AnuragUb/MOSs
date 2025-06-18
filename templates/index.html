@@ -154,6 +154,29 @@
             <div class="mark-options">
                 <button class="mark-btn yellow">Mark Yellow</button>
                 <button class="mark-btn red">Mark Red</button>
+                <button class="mark-btn exception">Mark Exception</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="exceptionModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Exception Settings</h2>
+            <p>Select which fields should be manual (not auto-filled) for the marked rows:</p>
+            <div class="exception-options">
+                <label class="exception-checkbox">
+                    <input type="checkbox" id="exceptionFilmTitle" checked>
+                    <span>Film/Album Title</span>
+                </label>
+                <label class="exception-checkbox">
+                    <input type="checkbox" id="exceptionTitlePrefix" checked>
+                    <span>Title Prefix</span>
+                </label>
+            </div>
+            <div class="exception-actions">
+                <button class="btn btn-primary" id="applyException">Apply Exception</button>
+                <button class="btn btn-secondary" id="cancelException">Cancel</button>
             </div>
         </div>
     </div>
