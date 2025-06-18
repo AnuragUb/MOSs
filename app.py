@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session
 from flask_cors import CORS
 import json
 import os
@@ -21,6 +21,7 @@ from video_utils import convert_wmv_to_mp4, upload_to_gcs
 from google.cloud import storage
 from google.cloud import firestore
 from dotenv import load_dotenv
+import uuid
 
 # Load environment variables
 load_dotenv()
@@ -29,6 +30,7 @@ app = Flask(__name__)
 CORS(app)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key')  # Set securely in production!
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -78,6 +80,8 @@ try:
 except Exception as e:
     logger.error(f"Error initializing Firestore: {str(e)}")
     firestore_client = None
+
+db = firestore.Client()
 
 @app.route('/')
 def index():
@@ -1178,6 +1182,54 @@ def delete_usage(id):
     except Exception as e:
         logger.error(f"Error deleting usage option: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/autosave', methods=['POST'])
+def autosave():
+    try:
+        session_id = session.get('session_id')
+        if not session_id:
+            session_id = str(uuid.uuid4())
+            session['session_id'] = session_id
+        
+        data = request.json
+        # Validate required fields
+        if not isinstance(data.get('markers'), list):
+            return jsonify({'error': 'Invalid markers data'}), 400
+            
+        # Store the data with timestamp
+        save_data = {
+            'markers': data['markers'],
+            'videoState': data.get('videoState'),
+            'exportSettings': data.get('exportSettings', {}),
+            'markedRows': data.get('markedRows', {}),
+            'exceptionSettings': data.get('exceptionSettings', {}),
+            'timestamp': datetime.datetime.now().isoformat()
+        }
+        
+        db.collection('autosaves').document(session_id).set(save_data)
+        return '', 204
+    except Exception as e:
+        app.logger.error(f"Error in autosave: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/loadsave')
+def loadsave():
+    try:
+        session_id = session.get('session_id')
+        if not session_id:
+            return jsonify({})
+            
+        doc = db.collection('autosaves').document(session_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            # Validate data before sending
+            if not isinstance(data.get('markers'), list):
+                return jsonify({})
+            return jsonify(data)
+        return jsonify({})
+    except Exception as e:
+        app.logger.error(f"Error in loadsave: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True) 

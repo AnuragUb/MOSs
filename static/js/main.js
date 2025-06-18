@@ -1450,8 +1450,47 @@ function initializeCueSheetUpload() {
     });
 }
 
+// Add this function near the top with other utility functions
+function clearAppData() {
+    // Clear markers and related data
+    markers = [];
+    headerRows = [];
+    extraColumns = [];
+    
+    // Clear marked rows and exception settings
+    markedRows = {};
+    exceptionSettings = {};
+    localStorage.removeItem('markedRows');
+    localStorage.removeItem('exceptionSettings');
+    
+    // Clear manual edits and paste mode data
+    manualEdits = {};
+    activePasteColumns = {};
+    
+    // Clear sequence state
+    isSequenceReversed = false;
+    
+    // Clear cue sheet data
+    cueSheetParsed = null;
+    cueSheetFile = null;
+    
+    // Clear localStorage data
+    localStorage.removeItem('headerRows');
+    localStorage.removeItem('markers');
+    localStorage.removeItem('showInfo');
+    
+    // Reset usage counts
+    usageCounts = { BI: 0, BV: 0, VI: 0, VV: 0, SRC: 0, 'BI,BV': 0, 'VI,VV': 0, 'BI,VV': 0, 'VI,BV': 0 };
+    
+    console.log('Cleared all application data');
+}
+
 function parseCueSheetFile(mode) {
     if (!cueSheetFile) return;
+    
+    // Clear old data before parsing new file
+    clearAppData();
+    
     const formData = new FormData();
     formData.append('file', cueSheetFile);
     fetch('/api/parse-cue-sheet', {
@@ -2367,4 +2406,94 @@ function addDatalists() {
     const musicCoDatalist = document.createElement('datalist');
     musicCoDatalist.id = 'musicCoOptions';
     document.body.appendChild(musicCoDatalist);
+}
+
+// --- Session-based autosave ---
+function autoSave() {
+    // Store video state
+    let videoState = null;
+    if (currentVideo) {
+        videoState = {
+            currentTime: currentVideo.currentTime,
+            src: currentVideo.src,
+            type: 'url'
+        };
+    } else if (currentVideoFile) {
+        videoState = {
+            currentTime: 0, // Reset to start for file-based videos
+            name: currentVideoFile.name,
+            size: currentVideoFile.size,
+            type: 'file'
+        };
+    }
+
+    fetch('/api/autosave', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            markers,
+            videoState,
+            exportSettings: JSON.parse(localStorage.getItem('exportSettings') || '{}'),
+            markedRows: JSON.parse(localStorage.getItem('markedRows') || '{}'),
+            exceptionSettings: JSON.parse(localStorage.getItem('exceptionSettings') || '{}')
+        })
+    });
+}
+setInterval(autoSave, 30000);
+
+// Restore from session autosave on page load
+window.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/loadsave')
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.markers && data.markers.length > 0) {
+                if (confirm('Restore your last saved work from this session?')) {
+                    markers = data.markers;
+                    
+                    // Restore export settings
+                    if (data.exportSettings) {
+                        localStorage.setItem('exportSettings', JSON.stringify(data.exportSettings));
+                    }
+                    
+                    // Restore marked rows and exception settings
+                    if (data.markedRows) {
+                        localStorage.setItem('markedRows', JSON.stringify(data.markedRows));
+                        markedRows = data.markedRows;
+                    }
+                    if (data.exceptionSettings) {
+                        localStorage.setItem('exceptionSettings', JSON.stringify(data.exceptionSettings));
+                        exceptionSettings = data.exceptionSettings;
+                    }
+                    
+                    // Restore video state if available
+                    if (data.videoState) {
+                        if (data.videoState.type === 'url' && data.videoState.src) {
+                            loadVideoFromURL(data.videoState.src).then(() => {
+                                if (currentVideo && data.videoState.currentTime) {
+                                    currentVideo.currentTime = data.videoState.currentTime;
+                                }
+                            });
+                        }
+                        // Note: File-based videos can't be automatically restored due to security restrictions
+                    }
+                    
+                    updateMarkerTable();
+                }
+            }
+        });
+});
+
+// Helper function to load video from URL
+function loadVideoFromURL(url) {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.src = url;
+        video.onloadedmetadata = () => {
+            currentVideo = video;
+            currentVideoFile = null;
+            initializeVideoPlayer();
+            resolve();
+        };
+        video.onerror = reject;
+    });
 }
