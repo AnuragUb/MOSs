@@ -1494,6 +1494,11 @@ function parseCueSheetFile(mode) {
     
     const formData = new FormData();
     formData.append('file', cueSheetFile);
+    
+    // Show loading message
+    const loadingMessage = `Loading ${cueSheetFile.name}...`;
+    console.log(loadingMessage);
+    
     fetch('/api/parse-cue-sheet', {
         method: 'POST',
         body: formData
@@ -1504,7 +1509,25 @@ function parseCueSheetFile(mode) {
             alert('Error parsing file: ' + result.error);
             return;
         }
+        
         headerRows = result.metadata || [];
+        
+        // Show row filtering information
+        if (result.originalRowCount && result.filteredRowCount) {
+            const filteredOut = result.originalRowCount - result.filteredRowCount;
+            if (filteredOut > 0) {
+                const message = `File processed successfully!\n\n` +
+                              `📊 Row Summary:\n` +
+                              `• Original rows: ${result.originalRowCount}\n` +
+                              `• Empty rows filtered out: ${filteredOut}\n` +
+                              `• Rows with data: ${result.filteredRowCount}\n\n` +
+                              `Only rows with actual data have been loaded for better performance.`;
+                alert(message);
+            } else {
+                alert(`File processed successfully! Loaded ${result.filteredRowCount} rows with data.`);
+            }
+        }
+        
         // --- Extract Series Title and Episode Number for export file name ---
         let seriesTitle = '';
         let episodeNumber = '';
@@ -1539,6 +1562,7 @@ function parseCueSheetFile(mode) {
             if (fileNameInput) fileNameInput.value = exportFileName;
         }
         // --- End file name extraction ---
+        
         if (mode === 'structure') {
             loadCueSheetStructure(result.header);
         } else if (mode === 'data') {
@@ -1546,7 +1570,8 @@ function parseCueSheetFile(mode) {
         }
     })
     .catch(err => {
-        alert('Failed to parse file.');
+        console.error('Error parsing file:', err);
+        alert('Failed to parse file: ' + err.message);
     });
 }
 

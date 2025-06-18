@@ -913,31 +913,68 @@ def recognize_audio():
 
 @app.route('/api/parse-cue-sheet', methods=['POST'])
 def parse_cue_sheet():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-    file = request.files['file']
-    filename = secure_filename(file.filename)
-    ext = filename.split('.')[-1].lower()
-    # Read file into pandas DataFrame
-    if ext in ['xlsx', 'xls']:
-        df = pd.read_excel(file, header=None)
-    elif ext == 'csv':
-        df = pd.read_csv(file, header=None)
-    else:
-        return jsonify({'error': 'Unsupported file type'}), 400
-    df = df.fillna('')  # Replace NaN with blank
-    rows = df.values.tolist()
-    # Extract metadata, header, and data
-    metadata = [[str(cell) if cell is not None else '' for cell in row] for row in rows[:6]]
-    header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
-    data_rows = rows[7:] if len(rows) > 7 else []
-    # Convert data rows to list of dicts, all values as strings
-    data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in data_rows]
-    return jsonify({
-        'metadata': metadata,
-        'header': header,
-        'data': data
-    })
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+            
+        filename = secure_filename(file.filename)
+        ext = filename.split('.')[-1].lower()
+        
+        # Validate file type
+        if ext not in ['xlsx', 'xls', 'csv']:
+            return jsonify({'error': f'Unsupported file type: {ext}. Please upload CSV or Excel files.'}), 400
+        
+        # Read file into pandas DataFrame
+        try:
+            if ext in ['xlsx', 'xls']:
+                df = pd.read_excel(file, header=None)
+            elif ext == 'csv':
+                df = pd.read_csv(file, header=None)
+        except Exception as e:
+            logger.error(f"Error reading file {filename}: {str(e)}")
+            return jsonify({'error': f'Error reading file: {str(e)}'}), 400
+        
+        # Check if file has enough rows
+        if len(df) < 8:
+            return jsonify({'error': 'File must have at least 8 rows (6 metadata + 1 header + 1 data row)'}), 400
+        
+        df = df.fillna('')  # Replace NaN with blank
+        rows = df.values.tolist()
+        
+        # Extract metadata, header, and data
+        metadata = [[str(cell) if cell is not None else '' for cell in row] for row in rows[:6]]
+        header = [str(cell) if cell is not None else '' for cell in rows[6]] if len(rows) > 6 else []
+        data_rows = rows[7:] if len(rows) > 7 else []
+        
+        # Filter out empty rows (rows where all cells are empty or whitespace)
+        filtered_data_rows = []
+        for row in data_rows:
+            # Check if row has any non-empty content
+            row_has_content = any(str(cell).strip() for cell in row if cell is not None)
+            if row_has_content:
+                filtered_data_rows.append(row)
+        
+        logger.info(f"Original data rows: {len(data_rows)}")
+        logger.info(f"Filtered data rows: {len(filtered_data_rows)}")
+        
+        # Convert data rows to list of dicts, all values as strings
+        data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in filtered_data_rows]
+        
+        return jsonify({
+            'metadata': metadata,
+            'header': header,
+            'data': data,
+            'originalRowCount': len(data_rows),
+            'filteredRowCount': len(filtered_data_rows)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in parse_cue_sheet: {str(e)}")
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/test-ffmpeg')
 def test_ffmpeg():
