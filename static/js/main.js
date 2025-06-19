@@ -1445,10 +1445,6 @@ function initializeCueSheetUpload() {
 
     loadStructureBtn.addEventListener('click', function() {
         if (!cueSheetFile) return;
-        
-        const confirmed = confirm('⚠️ WARNING: "Load Structure Only" will only set up column headers but will NOT load any data.\n\nAre you sure you want to continue? If you want to load your data, click "Cancel" and then click "Load Data" instead.');
-        if (!confirmed) return;
-        
         parseCueSheetFile('structure');
         resetCueSheetUpload();
     });
@@ -1628,15 +1624,7 @@ function extractFieldValue(headerRows, fieldName) {
 function loadCueSheetData(header, data) {
     // Map file columns to app columns using mapping
     let lowerHeader = header.map(h => h.trim().toLowerCase());
-    console.log('=== LOAD CUE SHEET DATA DEBUG ===');
-    console.log('Header received:', header);
     console.log('Lowercase header:', lowerHeader);
-    console.log('Data received from server:', data.length, 'rows');
-    console.log('Data type:', typeof data);
-    console.log('Is data array?', Array.isArray(data));
-    console.log('Sample data row:', data[0]);
-    console.log('Sample data row type:', typeof data[0]);
-    console.log('Sample data row keys:', data[0] ? Object.keys(data[0]) : 'No data');
     
     // Extract show name (series title) from headerRows
     const showName = extractFieldValue(headerRows, 'series title');
@@ -1645,11 +1633,9 @@ function loadCueSheetData(header, data) {
     // Log the first row of data for debugging
     if (data.length > 0) {
         console.log('First row of data:', data[0]);
-        console.log('First row keys:', Object.keys(data[0]));
     }
     
-    markers = data.map((row, index) => {
-        console.log(`Processing row ${index}:`, row);
+    markers = data.map(row => {
         let marker = {};
         defaultMarkerColumns.forEach(col => {
             let idx = lowerHeader.findIndex(h => columnNameMap[h] === col.key || h === col.label.toLowerCase());
@@ -1675,13 +1661,8 @@ function loadCueSheetData(header, data) {
         if (showName) {
             marker.filmTitle = showName;
         }
-        console.log(`Created marker ${index}:`, marker);
         return marker;
     });
-
-    console.log('Markers created:', markers.length);
-    console.log('Sample marker:', markers[0]);
-    console.log('=== END DEBUG ===');
 
     // Extract and save show information
     const showInfo = {
@@ -1712,10 +1693,6 @@ function loadCueSheetData(header, data) {
     localStorage.setItem('showInfo', JSON.stringify(showInfo));
 
     updateMarkerTable();
-
-    // Show success message
-    const successMessage = `✅ Data loaded successfully!\n\n📊 Summary:\n• ${markers.length} rows loaded\n• ${extraColumns.length} extra columns detected\n• File: ${cueSheetFile ? cueSheetFile.name : 'Unknown'}`;
-    alert(successMessage);
 
     // --- BEGIN: Save metadata and marker data to localStorage for export ---
     try {
