@@ -1450,7 +1450,6 @@ function initializeCueSheetUpload() {
     });
     loadDataBtn.addEventListener('click', function() {
         if (!cueSheetFile) return;
-        console.log('Loading data from file:', cueSheetFile.name);
         parseCueSheetFile('data');
         resetCueSheetUpload();
     });
