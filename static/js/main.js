@@ -1445,11 +1445,16 @@ function initializeCueSheetUpload() {
 
     loadStructureBtn.addEventListener('click', function() {
         if (!cueSheetFile) return;
+        
+        const confirmed = confirm('⚠️ WARNING: "Load Structure Only" will only set up column headers but will NOT load any data.\n\nAre you sure you want to continue? If you want to load your data, click "Cancel" and then click "Load Data" instead.');
+        if (!confirmed) return;
+        
         parseCueSheetFile('structure');
         resetCueSheetUpload();
     });
     loadDataBtn.addEventListener('click', function() {
         if (!cueSheetFile) return;
+        console.log('Loading data from file:', cueSheetFile.name);
         parseCueSheetFile('data');
         resetCueSheetUpload();
     });
@@ -1697,6 +1702,10 @@ function loadCueSheetData(header, data) {
     localStorage.setItem('showInfo', JSON.stringify(showInfo));
 
     updateMarkerTable();
+
+    // Show success message
+    const successMessage = `✅ Data loaded successfully!\n\n📊 Summary:\n• ${markers.length} rows loaded\n• ${extraColumns.length} extra columns detected\n• File: ${cueSheetFile ? cueSheetFile.name : 'Unknown'}`;
+    alert(successMessage);
 
     // --- BEGIN: Save metadata and marker data to localStorage for export ---
     try {

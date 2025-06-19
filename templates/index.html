@@ -20,8 +20,13 @@
             <button class="btn btn-outline-info" id="offsetBtn">Offset Time</button>
             <input type="file" id="cueFileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style="display:none;">
             <div id="cueActions" style="display:none;">
-                <button class="btn btn-outline-primary btn-sm me-2" id="loadStructureBtn">Load Structure Only</button>
-                <button class="btn btn-outline-success btn-sm" id="loadDataBtn">Load Data</button>
+                <div class="alert alert-info mb-2">
+                    <small><strong>Choose an option:</strong></small><br>
+                    <small>• <strong>Load Data</strong> - Loads all data from your file (recommended)</small><br>
+                    <small>• <strong>Load Structure Only</strong> - Only sets up column headers (for testing)</small>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm me-2" id="loadStructureBtn" title="Only sets up column headers - no data will be loaded">Load Structure Only</button>
+                <button class="btn btn-success btn-sm" id="loadDataBtn" title="Loads all data from your file - this is what you want!">📊 Load Data</button>
             </div>
             <button class="btn btn-outline-light" id="loadCueBtn">Load CSV/Excel</button>
         </div>
