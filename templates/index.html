@@ -20,6 +20,11 @@
             <button class="btn btn-outline-info" id="offsetBtn">Offset Time</button>
             <input type="file" id="cueFileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style="display:none;">
             <div id="cueActions" style="display:none;">
+                <div class="alert alert-info mb-2">
+                    <small><strong>Choose an option:</strong></small><br>
+                    <small>• <strong>Load Data</strong> - Loads all data from your file (recommended)</small><br>
+                    <small>• <strong>Load Structure Only</strong> - Only sets up column headers (for testing)</small>
+                </div>
                 <button class="btn btn-outline-secondary btn-sm me-2" id="loadStructureBtn" title="Only sets up column headers - no data will be loaded">Load Structure Only</button>
                 <button class="btn btn-success btn-sm" id="loadDataBtn" title="Loads all data from your file - this is what you want!">📊 Load Data</button>
             </div>
@@ -147,14 +152,16 @@
         </div>
     </div>
 
+    <!-- Row Mark Modal -->
     <div id="rowMarkModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h2>Mark Selected Rows</h2>
+            <h3>Mark Selected Rows</h3>
             <div class="mark-options">
-                <button class="mark-btn yellow">Mark Yellow</button>
-                <button class="mark-btn red">Mark Red</button>
-                <button class="mark-btn exception">Mark Exception</button>
+                <button class="mark-btn yellow" id="markYellowBtn" type="button">Yellow</button>
+                <button class="mark-btn red" id="markRedBtn" type="button">Red</button>
+                <button class="mark-btn exception" id="markExceptionBtn" type="button">Exception</button>
+                <button class="mark-btn unmark" id="unmarkBtn" type="button">Unmark All</button>
             </div>
         </div>
     </div>
@@ -181,11 +188,13 @@
         </div>
     </div>
 
-    <div class="nav-item">
-        <a href="/music-co" class="nav-link" target="_blank">Music Co Management</a>
-    </div>
-    <div class="nav-item">
-        <a href="/usage" class="nav-link" target="_blank">Usage Management</a>
+    <div class="nav-bar" style="margin-bottom: 1rem;">
+        <span class="nav-item" style="display: inline-block; margin-right: 16px;">
+            <a href="/music-co" class="nav-link" target="_blank" style="display: inline; padding: 0; margin: 0; width: auto;">Music Co Management</a>
+        </span>
+        <span class="nav-item" style="display: inline-block; margin-right: 16px;">
+            <a href="/usage" class="nav-link" target="_blank" style="display: inline; padding: 0; margin: 0; width: auto;">Usage Management</a>
+        </span>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

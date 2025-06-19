@@ -78,22 +78,16 @@ let manualEdits = {};
 // Add at the top with other global variables
 let isSequenceReversed = false;
 
-// --- Marked Rows as Object with Color ---
-let markedRows = {}; // { rowIndex: 'yellow' | 'red' | 'exception' }
-let exceptionSettings = {}; // { rowIndex: { filmTitle: boolean, titlePrefix: boolean } }
+// --- Marked Rows as Object with Multiple Colors ---
+// markedRows[rowIndex] = { yellow: true, red: true, exception: true }
+let markedRows = {}; // { rowIndex: { yellow: true, red: true, exception: true } }
 
 // Load markedRows from localStorage on page load
 (function() {
     try {
         const savedMarkedRows = localStorage.getItem('markedRows');
         if (savedMarkedRows) markedRows = JSON.parse(savedMarkedRows);
-        
-        const savedExceptionSettings = localStorage.getItem('exceptionSettings');
-        if (savedExceptionSettings) exceptionSettings = JSON.parse(savedExceptionSettings);
-    } catch (e) { 
-        markedRows = {}; 
-        exceptionSettings = {};
-    }
+    } catch (e) { markedRows = {}; }
 })();
 
 // Save markedRows to localStorage
@@ -862,24 +856,21 @@ function updateMarkerTable() {
     const tableBody = document.getElementById('markerTableBody');
     tableBody.innerHTML = '';
     
-    console.log('updateMarkerTable called with', markers.length, 'markers');
-    
     // Create a copy of markers array and reverse if needed
     let displayMarkers = [...markers];
     if (isSequenceReversed) {
         displayMarkers.reverse();
     }
     
-    console.log('Displaying', displayMarkers.length, 'markers');
-    
     displayMarkers.forEach((marker, displayIndex) => {
         const actualIndex = isSequenceReversed ? markers.length - 1 - displayIndex : displayIndex;
         const row = document.createElement('tr');
         
-        // --- Apply color class if marked ---
-        if (markedRows[actualIndex] === 'yellow') row.classList.add('marked-yellow');
-        if (markedRows[actualIndex] === 'red') row.classList.add('marked-red');
-        if (markedRows[actualIndex] === 'exception') row.classList.add('marked-exception');
+        // --- Apply color classes if marked ---
+        const mark = markedRows[actualIndex] || {};
+        if (mark.yellow) row.classList.add('marked-yellow');
+        if (mark.red) row.classList.add('marked-red');
+        if (mark.exception) row.classList.add('marked-exception');
         
         // Add checkbox cell
         const checkboxCell = document.createElement('td');
@@ -889,27 +880,59 @@ function updateMarkerTable() {
         checkbox.className = 'row-checkbox';
         checkboxCell.appendChild(checkbox);
         
-        // --- Add mark indicator and remove button if marked ---
-        if (markedRows[actualIndex]) {
+        // --- Add mark indicators and remove buttons if marked ---
+        if (mark.yellow) {
             const markDot = document.createElement('span');
             markDot.className = 'mark-dot';
-            if (markedRows[actualIndex] === 'yellow') {
-                markDot.style.backgroundColor = '#ffc107';
-            } else if (markedRows[actualIndex] === 'red') {
-                markDot.style.backgroundColor = '#dc3545';
-            } else if (markedRows[actualIndex] === 'exception') {
-                markDot.style.backgroundColor = '#6c757d';
-            }
+            markDot.style.backgroundColor = '#ffc107';
+            markDot.title = 'Yellow mark';
             checkboxCell.appendChild(markDot);
-
             const removeMarkBtn = document.createElement('button');
             removeMarkBtn.className = 'remove-mark-btn';
-            removeMarkBtn.title = 'Remove mark';
+            removeMarkBtn.title = 'Remove yellow mark';
             removeMarkBtn.innerHTML = '&times;';
             removeMarkBtn.onclick = (e) => {
                 e.stopPropagation();
-                delete markedRows[actualIndex];
-                delete exceptionSettings[actualIndex];
+                delete markedRows[actualIndex].yellow;
+                if (Object.keys(markedRows[actualIndex]).length === 0) delete markedRows[actualIndex];
+                saveMarkedRows();
+                updateMarkerTable();
+            };
+            checkboxCell.appendChild(removeMarkBtn);
+        }
+        if (mark.red) {
+            const markDot = document.createElement('span');
+            markDot.className = 'mark-dot';
+            markDot.style.backgroundColor = '#dc3545';
+            markDot.title = 'Red mark';
+            checkboxCell.appendChild(markDot);
+            const removeMarkBtn = document.createElement('button');
+            removeMarkBtn.className = 'remove-mark-btn';
+            removeMarkBtn.title = 'Remove red mark';
+            removeMarkBtn.innerHTML = '&times;';
+            removeMarkBtn.onclick = (e) => {
+                e.stopPropagation();
+                delete markedRows[actualIndex].red;
+                if (Object.keys(markedRows[actualIndex]).length === 0) delete markedRows[actualIndex];
+                saveMarkedRows();
+                updateMarkerTable();
+            };
+            checkboxCell.appendChild(removeMarkBtn);
+        }
+        if (mark.exception) {
+            const markDot = document.createElement('span');
+            markDot.className = 'mark-dot';
+            markDot.style.backgroundColor = '#6c757d';
+            markDot.title = 'Exception mark';
+            checkboxCell.appendChild(markDot);
+            const removeMarkBtn = document.createElement('button');
+            removeMarkBtn.className = 'remove-mark-btn';
+            removeMarkBtn.title = 'Remove exception mark';
+            removeMarkBtn.innerHTML = '&times;';
+            removeMarkBtn.onclick = (e) => {
+                e.stopPropagation();
+                delete markedRows[actualIndex].exception;
+                if (Object.keys(markedRows[actualIndex]).length === 0) delete markedRows[actualIndex];
                 saveMarkedRows();
                 updateMarkerTable();
             };
@@ -1985,17 +2008,11 @@ function initializeExportSettings() {
 function initializeRowMarking() {
     const rowMarkBtn = document.getElementById('rowMarkBtn');
     const rowMarkModal = document.getElementById('rowMarkModal');
-    const exceptionModal = document.getElementById('exceptionModal');
     const closeBtn = rowMarkModal.querySelector('.close');
-    const markYellowBtn = rowMarkModal.querySelector('.mark-btn.yellow');
-    const markRedBtn = rowMarkModal.querySelector('.mark-btn.red');
-    const markExceptionBtn = rowMarkModal.querySelector('.mark-btn.exception');
-    const unmarkBtn = rowMarkModal.querySelector('.mark-btn.unmark');
-
-    // Exception modal elements
-    const exceptionCloseBtn = exceptionModal.querySelector('.close');
-    const applyExceptionBtn = document.getElementById('applyException');
-    const cancelExceptionBtn = document.getElementById('cancelException');
+    const markYellowBtn = document.getElementById('markYellowBtn');
+    const markRedBtn = document.getElementById('markRedBtn');
+    const markExceptionBtn = document.getElementById('markExceptionBtn');
+    const unmarkBtn = document.getElementById('unmarkBtn');
 
     rowMarkBtn.addEventListener('click', () => {
         const selectedRows = document.querySelectorAll('.row-checkbox:checked');
@@ -2005,22 +2022,22 @@ function initializeRowMarking() {
         }
         rowMarkModal.style.display = 'block';
     });
-    
+
     closeBtn.addEventListener('click', () => {
         rowMarkModal.style.display = 'none';
     });
-    
+
     markYellowBtn.addEventListener('click', () => {
-        markSelectedRows('yellow');
+        toggleSelectedRowsMark('yellow');
         rowMarkModal.style.display = 'none';
     });
     markRedBtn.addEventListener('click', () => {
-        markSelectedRows('red');
+        toggleSelectedRowsMark('red');
         rowMarkModal.style.display = 'none';
     });
     markExceptionBtn.addEventListener('click', () => {
+        toggleSelectedRowsMark('exception');
         rowMarkModal.style.display = 'none';
-        exceptionModal.style.display = 'block';
     });
     if (unmarkBtn) {
         unmarkBtn.addEventListener('click', () => {
@@ -2028,36 +2045,23 @@ function initializeRowMarking() {
             rowMarkModal.style.display = 'none';
         });
     }
+}
 
-    // Exception modal event handlers
-    exceptionCloseBtn.addEventListener('click', () => {
-        exceptionModal.style.display = 'none';
-    });
-
-    applyExceptionBtn.addEventListener('click', () => {
-        const filmTitleException = document.getElementById('exceptionFilmTitle').checked;
-        const titlePrefixException = document.getElementById('exceptionTitlePrefix').checked;
-        
-        markSelectedRowsWithException('exception', {
-            filmTitle: filmTitleException,
-            titlePrefix: titlePrefixException
-        });
-        exceptionModal.style.display = 'none';
-    });
-
-    cancelExceptionBtn.addEventListener('click', () => {
-        exceptionModal.style.display = 'none';
-    });
-
-    // Close modals when clicking outside
-    window.addEventListener('click', (e) => {
-        if (e.target === rowMarkModal) {
-            rowMarkModal.style.display = 'none';
-        }
-        if (e.target === exceptionModal) {
-            exceptionModal.style.display = 'none';
+function toggleSelectedRowsMark(color) {
+    const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+        if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
+        if (markedRows[rowIndex][color]) {
+            delete markedRows[rowIndex][color];
+            if (Object.keys(markedRows[rowIndex]).length === 0) delete markedRows[rowIndex];
+        } else {
+            markedRows[rowIndex][color] = true;
         }
     });
+    saveMarkedRows();
+    updateMarkerTable();
 }
 
 function markSelectedRows(color) {
@@ -2065,8 +2069,9 @@ function markSelectedRows(color) {
     checkboxes.forEach(checkbox => {
         const row = checkbox.closest('tr');
         const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+        if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
         if (color) {
-            markedRows[rowIndex] = color;
+            markedRows[rowIndex][color] = true;
         } else {
             delete markedRows[rowIndex];
             delete exceptionSettings[rowIndex];
@@ -2081,8 +2086,9 @@ function markSelectedRowsWithException(color, exceptionConfig) {
     checkboxes.forEach(checkbox => {
         const row = checkbox.closest('tr');
         const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+        if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
         if (color) {
-            markedRows[rowIndex] = color;
+            markedRows[rowIndex][color] = true;
             exceptionSettings[rowIndex] = exceptionConfig;
         } else {
             delete markedRows[rowIndex];
