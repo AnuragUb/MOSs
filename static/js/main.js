@@ -81,13 +81,20 @@ let isSequenceReversed = false;
 // --- Marked Rows as Object with Multiple Colors ---
 // markedRows[rowIndex] = { yellow: true, red: true, exception: true }
 let markedRows = {}; // { rowIndex: { yellow: true, red: true, exception: true } }
+let exceptionSettings = {}; // { rowIndex: { filmTitle: boolean, titlePrefix: boolean } }
 
 // Load markedRows from localStorage on page load
 (function() {
     try {
         const savedMarkedRows = localStorage.getItem('markedRows');
         if (savedMarkedRows) markedRows = JSON.parse(savedMarkedRows);
-    } catch (e) { markedRows = {}; }
+        
+        const savedExceptionSettings = localStorage.getItem('exceptionSettings');
+        if (savedExceptionSettings) exceptionSettings = JSON.parse(savedExceptionSettings);
+    } catch (e) { 
+        markedRows = {}; 
+        exceptionSettings = {};
+    }
 })();
 
 // Save markedRows to localStorage
@@ -2013,6 +2020,7 @@ function initializeRowMarking() {
     const markRedBtn = document.getElementById('markRedBtn');
     const markExceptionBtn = document.getElementById('markExceptionBtn');
     const unmarkBtn = document.getElementById('unmarkBtn');
+    const saveMarksBtn = document.getElementById('saveMarksBtn');
 
     rowMarkBtn.addEventListener('click', () => {
         const selectedRows = document.querySelectorAll('.row-checkbox:checked');
@@ -2020,6 +2028,7 @@ function initializeRowMarking() {
             alert('Please select rows to mark');
             return;
         }
+        updateModalMarkStates();
         rowMarkModal.style.display = 'block';
     });
 
@@ -2029,21 +2038,72 @@ function initializeRowMarking() {
 
     markYellowBtn.addEventListener('click', () => {
         toggleSelectedRowsMark('yellow');
-        rowMarkModal.style.display = 'none';
+        updateModalMarkStates();
     });
     markRedBtn.addEventListener('click', () => {
         toggleSelectedRowsMark('red');
-        rowMarkModal.style.display = 'none';
+        updateModalMarkStates();
     });
     markExceptionBtn.addEventListener('click', () => {
         toggleSelectedRowsMark('exception');
-        rowMarkModal.style.display = 'none';
+        updateModalMarkStates();
     });
     if (unmarkBtn) {
         unmarkBtn.addEventListener('click', () => {
             markSelectedRows(null);
+            updateModalMarkStates();
+        });
+    }
+    if (saveMarksBtn) {
+        saveMarksBtn.addEventListener('click', () => {
+            saveMarkedRows();
             rowMarkModal.style.display = 'none';
         });
+    }
+}
+
+function updateModalMarkStates() {
+    const selectedRows = document.querySelectorAll('.row-checkbox:checked');
+    if (selectedRows.length === 0) return;
+    
+    // Get the first selected row to check its current marks
+    const firstRow = selectedRows[0].closest('tr');
+    const rowIndex = parseInt(firstRow.querySelector('.seq-cell').textContent) - 1;
+    const mark = markedRows[rowIndex] || {};
+    
+    // Update button states to show which marks are active
+    const markYellowBtn = document.getElementById('markYellowBtn');
+    const markRedBtn = document.getElementById('markRedBtn');
+    const markExceptionBtn = document.getElementById('markExceptionBtn');
+    
+    if (mark.yellow) {
+        markYellowBtn.style.backgroundColor = '#ffc107';
+        markYellowBtn.style.color = '#000';
+        markYellowBtn.textContent = 'Yellow ✓';
+    } else {
+        markYellowBtn.style.backgroundColor = '#ffc107';
+        markYellowBtn.style.color = '#000';
+        markYellowBtn.textContent = 'Yellow';
+    }
+    
+    if (mark.red) {
+        markRedBtn.style.backgroundColor = '#dc3545';
+        markRedBtn.style.color = '#fff';
+        markRedBtn.textContent = 'Red ✓';
+    } else {
+        markRedBtn.style.backgroundColor = '#dc3545';
+        markRedBtn.style.color = '#fff';
+        markRedBtn.textContent = 'Red';
+    }
+    
+    if (mark.exception) {
+        markExceptionBtn.style.backgroundColor = '#6c757d';
+        markExceptionBtn.style.color = '#fff';
+        markExceptionBtn.textContent = 'Exception ✓';
+    } else {
+        markExceptionBtn.style.backgroundColor = '#6c757d';
+        markExceptionBtn.style.color = '#fff';
+        markExceptionBtn.textContent = 'Exception';
     }
 }
 
@@ -2060,7 +2120,6 @@ function toggleSelectedRowsMark(color) {
             markedRows[rowIndex][color] = true;
         }
     });
-    saveMarkedRows();
     updateMarkerTable();
 }
 

@@ -1036,6 +1036,11 @@ body {
     color: #fff;
 }
 
+.mark-btn.save {
+    background-color: #28a745;
+    color: #fff;
+}
+
 /* Exception Modal Styles */
 #exceptionModal .modal-content {
     max-width: 450px;
@@ -1115,28 +1120,28 @@ body {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    margin-left: 6px;
-    margin-right: 4px;
-    vertical-align: middle;
-    box-shadow: 0 0 2px #0002;
+    margin-right: 5px;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 /* Remove mark button */
 .remove-mark-btn {
-    background: none;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: #dc3545;
+    color: white;
     border: none;
-    color: #888;
-    font-size: 14px;
-    margin-left: 2px;
+    font-size: 12px;
     cursor: pointer;
-    vertical-align: middle;
-    padding: 0 2px;
-    line-height: 1;
-}
-.remove-mark-btn:hover {
-    color: #dc3545;
-    background: #fff3;
-    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
 }
 
 /* Checkbox column (first column) */
