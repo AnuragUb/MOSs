@@ -1491,7 +1491,10 @@ function clearAppData() {
 }
 
 function parseCueSheetFile(mode) {
-    if (!cueSheetFile) return;
+    if (!cueSheetFile) {
+        alert('No file selected. Please choose a file before loading.');
+        return;
+    }
     
     // Clear old data before parsing new file
     clearAppData();
