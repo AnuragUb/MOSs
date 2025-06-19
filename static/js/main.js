@@ -1628,9 +1628,15 @@ function extractFieldValue(headerRows, fieldName) {
 function loadCueSheetData(header, data) {
     // Map file columns to app columns using mapping
     let lowerHeader = header.map(h => h.trim().toLowerCase());
+    console.log('=== LOAD CUE SHEET DATA DEBUG ===');
+    console.log('Header received:', header);
     console.log('Lowercase header:', lowerHeader);
     console.log('Data received from server:', data.length, 'rows');
+    console.log('Data type:', typeof data);
+    console.log('Is data array?', Array.isArray(data));
     console.log('Sample data row:', data[0]);
+    console.log('Sample data row type:', typeof data[0]);
+    console.log('Sample data row keys:', data[0] ? Object.keys(data[0]) : 'No data');
     
     // Extract show name (series title) from headerRows
     const showName = extractFieldValue(headerRows, 'series title');
@@ -1639,9 +1645,11 @@ function loadCueSheetData(header, data) {
     // Log the first row of data for debugging
     if (data.length > 0) {
         console.log('First row of data:', data[0]);
+        console.log('First row keys:', Object.keys(data[0]));
     }
     
-    markers = data.map(row => {
+    markers = data.map((row, index) => {
+        console.log(`Processing row ${index}:`, row);
         let marker = {};
         defaultMarkerColumns.forEach(col => {
             let idx = lowerHeader.findIndex(h => columnNameMap[h] === col.key || h === col.label.toLowerCase());
@@ -1667,11 +1675,13 @@ function loadCueSheetData(header, data) {
         if (showName) {
             marker.filmTitle = showName;
         }
+        console.log(`Created marker ${index}:`, marker);
         return marker;
     });
 
     console.log('Markers created:', markers.length);
     console.log('Sample marker:', markers[0]);
+    console.log('=== END DEBUG ===');
 
     // Extract and save show information
     const showInfo = {
@@ -2598,4 +2608,19 @@ function loadVideoFromURL(url) {
         };
         video.onerror = reject;
     });
+}
+
+// Add missing updateDuration function
+function updateDuration(rowIndex) {
+    if (rowIndex >= 0 && rowIndex < markers.length) {
+        const marker = markers[rowIndex];
+        if (marker.tcrIn && marker.tcrOut) {
+            marker.duration = calculateDuration(marker.tcrIn, marker.tcrOut);
+            // Update the duration cell in the table
+            const durationCell = document.querySelector(`[data-row="${rowIndex}"]`);
+            if (durationCell) {
+                durationCell.textContent = marker.duration || '';
+            }
+        }
+    }
 }
