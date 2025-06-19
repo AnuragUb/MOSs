@@ -952,17 +952,23 @@ def parse_cue_sheet():
         
         # Filter out empty rows (rows where all cells are empty or whitespace)
         filtered_data_rows = []
-        for row in data_rows:
+        for i, row in enumerate(data_rows):
             # Check if row has any non-empty content
             row_has_content = any(str(cell).strip() for cell in row if cell is not None)
             if row_has_content:
                 filtered_data_rows.append(row)
+            else:
+                logger.debug(f"Filtering out empty row {i}: {row}")
         
         logger.info(f"Original data rows: {len(data_rows)}")
         logger.info(f"Filtered data rows: {len(filtered_data_rows)}")
         
         # Convert data rows to list of dicts, all values as strings
         data = [dict(zip(header, [str(cell) if cell is not None else '' for cell in row])) for row in filtered_data_rows]
+        
+        logger.info(f"Final data dicts: {len(data)}")
+        if len(data) > 0:
+            logger.info(f"Sample data dict: {data[0]}")
         
         return jsonify({
             'metadata': metadata,

@@ -862,11 +862,15 @@ function updateMarkerTable() {
     const tableBody = document.getElementById('markerTableBody');
     tableBody.innerHTML = '';
     
+    console.log('updateMarkerTable called with', markers.length, 'markers');
+    
     // Create a copy of markers array and reverse if needed
     let displayMarkers = [...markers];
     if (isSequenceReversed) {
         displayMarkers.reverse();
     }
+    
+    console.log('Displaying', displayMarkers.length, 'markers');
     
     displayMarkers.forEach((marker, displayIndex) => {
         const actualIndex = isSequenceReversed ? markers.length - 1 - displayIndex : displayIndex;
@@ -1620,6 +1624,8 @@ function loadCueSheetData(header, data) {
     // Map file columns to app columns using mapping
     let lowerHeader = header.map(h => h.trim().toLowerCase());
     console.log('Lowercase header:', lowerHeader);
+    console.log('Data received from server:', data.length, 'rows');
+    console.log('Sample data row:', data[0]);
     
     // Extract show name (series title) from headerRows
     const showName = extractFieldValue(headerRows, 'series title');
@@ -1658,6 +1664,9 @@ function loadCueSheetData(header, data) {
         }
         return marker;
     });
+
+    console.log('Markers created:', markers.length);
+    console.log('Sample marker:', markers[0]);
 
     // Extract and save show information
     const showInfo = {
