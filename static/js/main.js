@@ -888,16 +888,20 @@ function updateMarkerTable() {
         checkboxCell.appendChild(checkbox);
         
         // --- Add mark indicators and remove buttons if marked ---
+        let markCount = 0;
         if (mark.yellow) {
             const markDot = document.createElement('span');
             markDot.className = 'mark-dot';
             markDot.style.backgroundColor = '#ffc107';
             markDot.title = 'Yellow mark';
+            markDot.style.left = (markCount * 20) + 'px';
             checkboxCell.appendChild(markDot);
+            
             const removeMarkBtn = document.createElement('button');
             removeMarkBtn.className = 'remove-mark-btn';
             removeMarkBtn.title = 'Remove yellow mark';
             removeMarkBtn.innerHTML = '&times;';
+            removeMarkBtn.style.left = (markCount * 20) + 'px';
             removeMarkBtn.onclick = (e) => {
                 e.stopPropagation();
                 delete markedRows[actualIndex].yellow;
@@ -906,17 +910,21 @@ function updateMarkerTable() {
                 updateMarkerTable();
             };
             checkboxCell.appendChild(removeMarkBtn);
+            markCount++;
         }
         if (mark.red) {
             const markDot = document.createElement('span');
             markDot.className = 'mark-dot';
             markDot.style.backgroundColor = '#dc3545';
             markDot.title = 'Red mark';
+            markDot.style.left = (markCount * 20) + 'px';
             checkboxCell.appendChild(markDot);
+            
             const removeMarkBtn = document.createElement('button');
             removeMarkBtn.className = 'remove-mark-btn';
             removeMarkBtn.title = 'Remove red mark';
             removeMarkBtn.innerHTML = '&times;';
+            removeMarkBtn.style.left = (markCount * 20) + 'px';
             removeMarkBtn.onclick = (e) => {
                 e.stopPropagation();
                 delete markedRows[actualIndex].red;
@@ -925,25 +933,31 @@ function updateMarkerTable() {
                 updateMarkerTable();
             };
             checkboxCell.appendChild(removeMarkBtn);
+            markCount++;
         }
         if (mark.exception) {
             const markDot = document.createElement('span');
             markDot.className = 'mark-dot';
             markDot.style.backgroundColor = '#6c757d';
             markDot.title = 'Exception mark';
+            markDot.style.left = (markCount * 20) + 'px';
             checkboxCell.appendChild(markDot);
+            
             const removeMarkBtn = document.createElement('button');
             removeMarkBtn.className = 'remove-mark-btn';
             removeMarkBtn.title = 'Remove exception mark';
             removeMarkBtn.innerHTML = '&times;';
+            removeMarkBtn.style.left = (markCount * 20) + 'px';
             removeMarkBtn.onclick = (e) => {
                 e.stopPropagation();
                 delete markedRows[actualIndex].exception;
+                delete exceptionSettings[actualIndex];
                 if (Object.keys(markedRows[actualIndex]).length === 0) delete markedRows[actualIndex];
                 saveMarkedRows();
                 updateMarkerTable();
             };
             checkboxCell.appendChild(removeMarkBtn);
+            markCount++;
         }
         row.appendChild(checkboxCell);
         
@@ -2015,12 +2029,18 @@ function initializeExportSettings() {
 function initializeRowMarking() {
     const rowMarkBtn = document.getElementById('rowMarkBtn');
     const rowMarkModal = document.getElementById('rowMarkModal');
+    const exceptionModal = document.getElementById('exceptionModal');
     const closeBtn = rowMarkModal.querySelector('.close');
     const markYellowBtn = document.getElementById('markYellowBtn');
     const markRedBtn = document.getElementById('markRedBtn');
     const markExceptionBtn = document.getElementById('markExceptionBtn');
     const unmarkBtn = document.getElementById('unmarkBtn');
     const saveMarksBtn = document.getElementById('saveMarksBtn');
+
+    // Exception modal elements
+    const exceptionCloseBtn = exceptionModal.querySelector('.close');
+    const applyExceptionBtn = document.getElementById('applyException');
+    const cancelExceptionBtn = document.getElementById('cancelException');
 
     rowMarkBtn.addEventListener('click', () => {
         const selectedRows = document.querySelectorAll('.row-checkbox:checked');
@@ -2038,15 +2058,13 @@ function initializeRowMarking() {
 
     markYellowBtn.addEventListener('click', () => {
         toggleSelectedRowsMark('yellow');
-        updateModalMarkStates();
     });
     markRedBtn.addEventListener('click', () => {
         toggleSelectedRowsMark('red');
-        updateModalMarkStates();
     });
     markExceptionBtn.addEventListener('click', () => {
-        toggleSelectedRowsMark('exception');
-        updateModalMarkStates();
+        rowMarkModal.style.display = 'none';
+        exceptionModal.style.display = 'block';
     });
     if (unmarkBtn) {
         unmarkBtn.addEventListener('click', () => {
@@ -2060,6 +2078,36 @@ function initializeRowMarking() {
             rowMarkModal.style.display = 'none';
         });
     }
+
+    // Exception modal event handlers
+    exceptionCloseBtn.addEventListener('click', () => {
+        exceptionModal.style.display = 'none';
+    });
+
+    applyExceptionBtn.addEventListener('click', () => {
+        const filmTitleException = document.getElementById('exceptionFilmTitle').checked;
+        const titlePrefixException = document.getElementById('exceptionTitlePrefix').checked;
+        
+        markSelectedRowsWithException('exception', {
+            filmTitle: filmTitleException,
+            titlePrefix: titlePrefixException
+        });
+        exceptionModal.style.display = 'none';
+    });
+
+    cancelExceptionBtn.addEventListener('click', () => {
+        exceptionModal.style.display = 'none';
+    });
+
+    // Close modals when clicking outside
+    window.addEventListener('click', (e) => {
+        if (e.target === rowMarkModal) {
+            rowMarkModal.style.display = 'none';
+        }
+        if (e.target === exceptionModal) {
+            exceptionModal.style.display = 'none';
+        }
+    });
 }
 
 function updateModalMarkStates() {
@@ -2120,7 +2168,8 @@ function toggleSelectedRowsMark(color) {
             markedRows[rowIndex][color] = true;
         }
     });
-    updateMarkerTable();
+    updateMarkerTable(); // Update table immediately to show colors
+    updateModalMarkStates(); // Update modal to show current state
 }
 
 function markSelectedRows(color) {
@@ -2297,7 +2346,24 @@ function exportWithSettings() {
 // --- Add markColor to marker data for export ---
 function getMarkersWithMarkColor() {
     return markers.map((marker, idx) => {
-        return { ...marker, markColor: markedRows[idx] || '' };
+        const mark = markedRows[idx] || {};
+        let markColor = '';
+        if (mark.yellow && mark.red && mark.exception) {
+            markColor = 'yellow,red,exception';
+        } else if (mark.yellow && mark.red) {
+            markColor = 'yellow,red';
+        } else if (mark.yellow && mark.exception) {
+            markColor = 'yellow,exception';
+        } else if (mark.red && mark.exception) {
+            markColor = 'red,exception';
+        } else if (mark.yellow) {
+            markColor = 'yellow';
+        } else if (mark.red) {
+            markColor = 'red';
+        } else if (mark.exception) {
+            markColor = 'exception';
+        }
+        return { ...marker, markColor: markColor };
     });
 }
 

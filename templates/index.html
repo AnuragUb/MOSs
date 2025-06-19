@@ -169,24 +169,22 @@
         </div>
     </div>
 
+    <!-- Exception Modal -->
     <div id="exceptionModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h2>Exception Settings</h2>
-            <p>Select which fields should be manual (not auto-filled) for the marked rows:</p>
-            <div class="exception-options">
-                <label class="exception-checkbox">
-                    <input type="checkbox" id="exceptionFilmTitle" checked>
-                    <span>Film/Album Title</span>
+            <h3>Configure Exception Settings</h3>
+            <div style="margin: 20px 0;">
+                <label style="display: block; margin-bottom: 10px;">
+                    <input type="checkbox" id="exceptionFilmTitle"> Film/Album Title column exception
                 </label>
-                <label class="exception-checkbox">
-                    <input type="checkbox" id="exceptionTitlePrefix" checked>
-                    <span>Title Prefix</span>
+                <label style="display: block; margin-bottom: 10px;">
+                    <input type="checkbox" id="exceptionTitlePrefix"> Title column exception
                 </label>
             </div>
-            <div class="exception-actions">
-                <button class="btn btn-primary" id="applyException">Apply Exception</button>
-                <button class="btn btn-secondary" id="cancelException">Cancel</button>
+            <div style="text-align: center;">
+                <button class="mark-btn" id="applyException" style="background-color: #007bff; color: white; margin-right: 10px;">Apply Exception</button>
+                <button class="mark-btn" id="cancelException" style="background-color: #6c757d; color: white;">Cancel</button>
             </div>
         </div>
     </div>

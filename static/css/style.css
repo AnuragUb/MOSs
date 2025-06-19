@@ -1123,6 +1123,9 @@ body {
     margin-right: 5px;
     border: 2px solid #fff;
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 /* Remove mark button */
@@ -1335,4 +1338,22 @@ body {
     outline: none;
     border-color: var(--border-color-focus);
     box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.25);
+}
+
+/* Better visual for multiple marks */
+.marked-yellow.marked-red.marked-exception {
+    background: linear-gradient(45deg, #fff3cd 25%, #f8d7da 25%, #f8d7da 50%, #e9ecef 50%, #e9ecef 75%, #fff3cd 75%);
+    background-size: 20px 20px;
+}
+
+.marked-yellow.marked-red {
+    background: linear-gradient(45deg, #fff3cd 50%, #f8d7da 50%);
+}
+
+.marked-yellow.marked-exception {
+    background: linear-gradient(45deg, #fff3cd 50%, #e9ecef 50%);
+}
+
+.marked-red.marked-exception {
+    background: linear-gradient(45deg, #f8d7da 50%, #e9ecef 50%);
 } 
