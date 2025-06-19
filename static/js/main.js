@@ -1429,7 +1429,6 @@ function initializeCueSheetUpload() {
     loadCueBtn.addEventListener('click', () => cueFileInput.click());
     cueFileInput.addEventListener('change', function(e) {
         if (e.target.files.length > 0) {
-            handleNewFileLoad(); // Add this line
             cueSheetFile = e.target.files[0];
             cueActions.style.display = '';
         } else {
@@ -1491,21 +1490,9 @@ function clearAppData() {
 }
 
 function parseCueSheetFile(mode) {
-    if (!cueSheetFile) {
-        alert('No file selected. Please choose a file before loading.');
-        return;
-    }
-    
-    // Clear old data before parsing new file
-    clearAppData();
-    
+    if (!cueSheetFile) return;
     const formData = new FormData();
     formData.append('file', cueSheetFile);
-    
-    // Show loading message
-    const loadingMessage = `Loading ${cueSheetFile.name}...`;
-    console.log(loadingMessage);
-    
     fetch('/api/parse-cue-sheet', {
         method: 'POST',
         body: formData
@@ -1516,25 +1503,7 @@ function parseCueSheetFile(mode) {
             alert('Error parsing file: ' + result.error);
             return;
         }
-        
         headerRows = result.metadata || [];
-        
-        // Show row filtering information
-        if (result.originalRowCount && result.filteredRowCount) {
-            const filteredOut = result.originalRowCount - result.filteredRowCount;
-            if (filteredOut > 0) {
-                const message = `File processed successfully!\n\n` +
-                              `📊 Row Summary:\n` +
-                              `• Original rows: ${result.originalRowCount}\n` +
-                              `• Empty rows filtered out: ${filteredOut}\n` +
-                              `• Rows with data: ${result.filteredRowCount}\n\n` +
-                              `Only rows with actual data have been loaded for better performance.`;
-                alert(message);
-            } else {
-                alert(`File processed successfully! Loaded ${result.filteredRowCount} rows with data.`);
-            }
-        }
-        
         // --- Extract Series Title and Episode Number for export file name ---
         let seriesTitle = '';
         let episodeNumber = '';
@@ -1569,7 +1538,6 @@ function parseCueSheetFile(mode) {
             if (fileNameInput) fileNameInput.value = exportFileName;
         }
         // --- End file name extraction ---
-        
         if (mode === 'structure') {
             loadCueSheetStructure(result.header);
         } else if (mode === 'data') {
@@ -1577,8 +1545,7 @@ function parseCueSheetFile(mode) {
         }
     })
     .catch(err => {
-        console.error('Error parsing file:', err);
-        alert('Failed to parse file: ' + err.message);
+        alert('Failed to parse file.');
     });
 }
 
