@@ -156,6 +156,10 @@ let pauseWithTCRMark = false;
 // Add a new variable to track checkbox clicks for row marking
 let checkboxClickState = { row: null, count: 0, timeout: null, lastClickTime: 0 };
 
+// Add these variables at the top with other global variables
+let currentGcsPath = null; // Store the GCS path for the current video
+let uploadInProgress = false; // Track upload status
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing main page components...');
@@ -267,11 +271,12 @@ function initializeVideoPlayer() {
         videoFileInput.click();
     });
 
-    // Handle video file upload
+    // Handle video file upload with background GCS upload
     document.getElementById('videoFileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         const videoPlayer = document.getElementById('videoPlayer');
         const playerStatus = document.getElementById('playerStatus');
+        
         if (file && file.type === 'video/mp4') {
             // Set exportSettings.fileName to the base name of the file if not set
             const baseName = file.name.replace(/\.[^/.]+$/, "");
@@ -280,13 +285,22 @@ function initializeVideoPlayer() {
                 exportSettings.fileName = baseName;
                 localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
             }
+            
+            // Create local URL for immediate playback
             const url = URL.createObjectURL(file);
             videoPlayer.src = url;
             videoPlayer.load();
+            currentVideoFile = file;
+            currentVideo = null; // Clear URL reference
+            
+            // Show loading status
             playerStatus.style.display = 'block';
-            playerStatus.className = 'alert alert-success';
-            playerStatus.textContent = 'Local MP4 loaded!';
-            setTimeout(() => { playerStatus.style.display = 'none'; }, 3000);
+            playerStatus.className = 'alert alert-info';
+            playerStatus.textContent = 'Loading video and uploading to cloud...';
+            
+            // Start background upload to GCS
+            uploadVideoToGCS(file);
+            
         } else {
             playerStatus.style.display = 'block';
             playerStatus.className = 'alert alert-danger';
@@ -317,6 +331,7 @@ function initializeVideoPlayer() {
             videoPlayer.load();
             currentVideo = url;
             currentVideoFile = null; // Clear local file reference
+            currentGcsPath = null; // Clear GCS path for URL-based videos
 
             // Wait for video to load
             await new Promise((resolve, reject) => {
@@ -340,6 +355,73 @@ function initializeVideoPlayer() {
             loadUrlBtn.click();
         }
     });
+}
+
+// New function to upload video to GCS in the background
+function uploadVideoToGCS(file) {
+    if (uploadInProgress) {
+        console.log('Upload already in progress, skipping...');
+        return;
+    }
+    
+    uploadInProgress = true;
+    const playerStatus = document.getElementById('playerStatus');
+    
+    const formData = new FormData();
+    formData.append('video', file);
+    
+    // Create progress indicator
+    const progressDiv = document.createElement('div');
+    progressDiv.className = 'upload-progress';
+    progressDiv.innerHTML = `
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        <div class="progress-text">Uploading to cloud: 0%</div>
+    `;
+    playerStatus.appendChild(progressDiv);
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload-video-to-gcs', true);
+    
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            progressDiv.querySelector('.progress-fill').style.width = percentComplete + '%';
+            progressDiv.querySelector('.progress-text').textContent = `Uploading to cloud: ${Math.round(percentComplete)}%`;
+        }
+    };
+    
+    xhr.onload = function() {
+        uploadInProgress = false;
+        
+        if (xhr.status === 200) {
+            const result = JSON.parse(xhr.responseText);
+            if (result.status === 'success') {
+                currentGcsPath = result.gcs_path;
+                playerStatus.className = 'alert alert-success';
+                playerStatus.textContent = 'Video loaded and uploaded to cloud successfully!';
+                progressDiv.remove();
+                setTimeout(() => { playerStatus.style.display = 'none'; }, 3000);
+                console.log('Video uploaded to GCS:', currentGcsPath);
+            } else {
+                throw new Error(result.error || 'Upload failed');
+            }
+        } else {
+            throw new Error('Upload failed: ' + xhr.statusText);
+        }
+    };
+    
+    xhr.onerror = function() {
+        uploadInProgress = false;
+        playerStatus.className = 'alert alert-warning';
+        playerStatus.textContent = 'Video loaded locally. Cloud upload failed - recognition may not work.';
+        progressDiv.remove();
+        setTimeout(() => { playerStatus.style.display = 'none'; }, 5000);
+        console.error('GCS upload failed');
+    };
+    
+    xhr.send(formData);
 }
 
 function initializeMarkerTable() {
@@ -415,21 +497,14 @@ function initializeMarkerTable() {
             const marker = markers[idx];
             const tcrIn = marker.tcrIn;
             const tcrOut = marker.tcrOut;
-            let videoSrc = currentVideo;
-            let isLocal = false;
-            if (videoSrc && videoSrc.startsWith('blob:')) {
-                isLocal = true;
-            }
-
-            // If local, slice the file and send only the chunk
-            if (isLocal && currentVideoFile) {
-                // Get video duration in seconds
-                const videoPlayer = document.getElementById('videoPlayer');
-                const duration = videoPlayer.duration;
-                const fileSize = currentVideoFile.size;
-                // Convert TCR In/Out to seconds
-                const tcrInSec = timeToSeconds(tcrIn);
-                const tcrOutSec = timeToSeconds(tcrOut);
+            
+            // Check if we have a GCS path for local files
+            if (currentVideoFile && currentGcsPath) {
+                // Use GCS-based recognition for local files
+                const formData = new FormData();
+                formData.append('tcrIn', tcrIn);
+                formData.append('tcrOut', tcrOut);
+                formData.append('gcsPath', currentGcsPath);
                 
                 // Create progress indicator
                 const progressDiv = document.createElement('div');
@@ -443,140 +518,90 @@ function initializeMarkerTable() {
                 e.target.parentElement.appendChild(progressDiv);
                 
                 try {
-                    // Create a temporary video element
-                    const tempVideo = document.createElement('video');
-                    tempVideo.src = URL.createObjectURL(currentVideoFile);
+                    // Simulate progress for better UX
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        progress += Math.random() * 10;
+                        if (progress > 90) progress = 90;
+                        progressDiv.querySelector('.progress-fill').style.width = progress + '%';
+                        progressDiv.querySelector('.progress-text').textContent = `Processing: ${Math.round(progress)}%`;
+                    }, 200);
                     
-                    // Wait for video to be loaded
-                    await new Promise((resolve, reject) => {
-                        tempVideo.onloadedmetadata = resolve;
-                        tempVideo.onerror = reject;
+                    const resp = await fetch('/api/recognize-gcs-segment', {
+                        method: 'POST',
+                        body: formData
                     });
                     
-                    // Create MediaRecorder with specific audio settings
-                    const stream = tempVideo.captureStream();
+                    clearInterval(progressInterval);
+                    progressDiv.querySelector('.progress-fill').style.width = '100%';
+                    progressDiv.querySelector('.progress-text').textContent = 'Processing: 100%';
                     
-                    // List of preferred MIME types in order of preference
-                    const mimeTypes = [
-                        'audio/webm;codecs=opus',
-                        'audio/webm',
-                        'audio/mp4',
-                        'audio/mpeg'
-                    ];
+                    const result = await resp.json();
+                    marker.recognition = result;
+                    updateMarkerTable();
                     
-                    // Find the first supported MIME type
-                    let selectedMimeType = null;
-                    for (const mimeType of mimeTypes) {
-                        if (MediaRecorder.isTypeSupported(mimeType)) {
-                            selectedMimeType = mimeType;
-                            break;
-                        }
-                    }
+                    setTimeout(() => {
+                        progressDiv.remove();
+                    }, 1000);
                     
-                    if (!selectedMimeType) {
-                        throw new Error('No supported audio MIME types found');
-                    }
-                    
-                    // Create MediaRecorder with the first supported MIME type
-                    const mediaRecorder = new MediaRecorder(stream, {
-                        mimeType: selectedMimeType,
-                        audioBitsPerSecond: 256000
-                    });
-                    
-                    const chunks = [];
-                    mediaRecorder.ondataavailable = (e) => {
-                        if (e.data.size > 0) {
-                            chunks.push(e.data);
-                        }
-                    };
-                    
-                    mediaRecorder.onstop = async () => {
-                        // Combine chunks into a single blob
-                        const blob = new Blob(chunks, { type: selectedMimeType });
-                        
-                        // Verify the blob size
-                        if (blob.size < 1000) { // Less than 1KB is suspicious
-                            throw new Error('Generated audio segment is too small');
-                        }
-                        
-                        // Update progress
-                        progressDiv.querySelector('.progress-text').textContent = 'Uploading...';
-                        
-                        // Prepare form data
-                        const formData = new FormData();
-                        formData.append('file', blob, 'segment.' + selectedMimeType.split('/')[1].split(';')[0]);
-                        formData.append('tcrIn', tcrIn);
-                        formData.append('tcrOut', tcrOut);
-                        formData.append('mimeType', selectedMimeType); // Send the MIME type to the server
-                        
-                        // Send to backend with progress tracking
-                        const xhr = new XMLHttpRequest();
-                        xhr.open('POST', '/api/recognize-audio', true);
-                        
-                        xhr.upload.onprogress = function(e) {
-                            if (e.lengthComputable) {
-                                const percentComplete = (e.loaded / e.total) * 100;
-                                progressDiv.querySelector('.progress-fill').style.width = percentComplete + '%';
-                                progressDiv.querySelector('.progress-text').textContent = `Uploading: ${Math.round(percentComplete)}%`;
-                            }
-                        };
-                        
-                        xhr.onload = function() {
-                            if (xhr.status === 200) {
-                                const result = JSON.parse(xhr.responseText);
-                                marker.recognition = result;
-                                updateMarkerTable();
-                            } else {
-                                alert('Error during recognition: ' + xhr.statusText);
-                            }
-                            progressDiv.remove();
-                            // Cleanup
-                            URL.revokeObjectURL(tempVideo.src);
-                        };
-                        
-                        xhr.onerror = function() {
-                            alert('Error during recognition');
-                            progressDiv.remove();
-                            // Cleanup
-                            URL.revokeObjectURL(tempVideo.src);
-                        };
-                        
-                        xhr.send(formData);
-                    };
-                    
-                    // Start recording
-                    try {
-                        mediaRecorder.start();
-                        
-                        // Set the time range and play
-                        tempVideo.currentTime = tcrInSec;
-                        await tempVideo.play();
-                        
-                        // Stop recording after duration
-                        setTimeout(() => {
-                            tempVideo.pause();
-                            mediaRecorder.stop();
-                        }, (tcrOutSec - tcrInSec) * 1000);
-                    } catch (error) {
-                        throw new Error('Failed to start recording: ' + error.message);
-                    }
                 } catch (error) {
-                    alert('Error processing video segment: ' + error.message);
                     progressDiv.remove();
+                    alert('Error during recognition: ' + error.message);
                 }
-            } else if (!isLocal) {
-                // Server file: send videoSrc and timecodes
+                
+            } else if (currentVideo && !currentVideo.startsWith('blob:')) {
+                // Server file: send videoSrc and timecodes (existing behavior)
                 const formData = new FormData();
-                formData.append('videoSrc', videoSrc);
+                formData.append('videoSrc', currentVideo);
                 formData.append('tcrIn', tcrIn);
                 formData.append('tcrOut', tcrOut);
-                const resp = await fetch('/api/recognize-audio', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await resp.json();
-                marker.recognition = result;
-                updateMarkerTable();
+                
+                // Create progress indicator
+                const progressDiv = document.createElement('div');
+                progressDiv.className = 'upload-progress';
+                progressDiv.innerHTML = `
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">Processing: 0%</div>
+                `;
+                e.target.parentElement.appendChild(progressDiv);
+                
+                try {
+                    // Simulate progress for better UX
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        progress += Math.random() * 10;
+                        if (progress > 90) progress = 90;
+                        progressDiv.querySelector('.progress-fill').style.width = progress + '%';
+                        progressDiv.querySelector('.progress-text').textContent = `Processing: ${Math.round(progress)}%`;
+                    }, 200);
+                    
+                    const resp = await fetch('/api/recognize-audio', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    clearInterval(progressInterval);
+                    progressDiv.querySelector('.progress-fill').style.width = '100%';
+                    progressDiv.querySelector('.progress-text').textContent = 'Processing: 100%';
+                    
+                    const result = await resp.json();
+                    marker.recognition = result;
+                    updateMarkerTable();
+                    
+                    setTimeout(() => {
+                        progressDiv.remove();
+                    }, 1000);
+                    
+                } catch (error) {
+                    progressDiv.remove();
+                    alert('Error during recognition: ' + error.message);
+                }
+                
+            } else {
+                // No GCS path available for local file
+                alert('Video not uploaded to cloud yet. Please wait for upload to complete or try again.');
             }
         }
     });

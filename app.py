@@ -1300,5 +1300,192 @@ def loadsave():
         logger.error(f"Error in loadsave: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/upload-video-to-gcs', methods=['POST'])
+def upload_video_to_gcs():
+    """Upload video file to GCS and return the GCS path"""
+    try:
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video file provided'}), 400
+        
+        file = request.files['video']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+
+        # Generate unique filename
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        gcs_path = f"videos/{unique_filename}"
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            file.save(temp_file.name)
+            temp_path = temp_file.name
+        
+        try:
+            # Upload to GCS
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME', 'mos-aat'))
+            blob = bucket.blob(gcs_path)
+            
+            # Upload with content type
+            content_type = 'video/mp4' if file_extension.lower() == '.mp4' else 'video/x-ms-wmv'
+            blob.upload_from_filename(temp_path, content_type=content_type)
+            
+            logger.info(f"Successfully uploaded video to GCS: {gcs_path}")
+            
+            return jsonify({
+                'status': 'success',
+                'gcs_path': gcs_path,
+                'filename': unique_filename
+            })
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+                
+    except Exception as e:
+        logger.error(f"Error uploading video to GCS: {str(e)}")
+        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+
+@app.route('/api/recognize-gcs-segment', methods=['POST'])
+def recognize_gcs_segment():
+    """Recognize audio from a segment of a video stored in GCS"""
+    try:
+        tcr_in = request.form.get('tcrIn')
+        tcr_out = request.form.get('tcrOut')
+        gcs_path = request.form.get('gcsPath')
+        
+        logger.info(f"Received GCS recognize request - TCR In: {tcr_in}, TCR Out: {tcr_out}, GCS Path: {gcs_path}")
+
+        if not tcr_in or not tcr_out or not gcs_path:
+            return jsonify({'status': 'error', 'message': 'Missing TCR In, Out, or GCS Path'}), 400
+
+        # Calculate start and duration in seconds
+        def time_to_seconds(t):
+            parts = t.split(':')
+            if len(parts) == 3:
+                h, m, s = map(float, parts)
+                return int(h) * 3600 + int(m) * 60 + s
+            elif len(parts) == 4:
+                h, m, s, f = map(float, parts)
+                return int(h) * 3600 + int(m) * 60 + s + (f / 25)  # Assuming 25fps
+            return 0
+        
+        start = time_to_seconds(tcr_in)
+        end = time_to_seconds(tcr_out)
+        duration = end - start
+        
+        if duration <= 0:
+            return jsonify({'status': 'error', 'message': 'Invalid time range'}), 400
+
+        # Download video segment from GCS
+        try:
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME', 'mos-aat'))
+            blob = bucket.blob(gcs_path)
+            
+            if not blob.exists():
+                return jsonify({'status': 'error', 'message': 'Video file not found in GCS'}), 404
+            
+            # Create temporary directory for processing
+            temp_dir = tempfile.mkdtemp()
+            input_path = os.path.join(temp_dir, 'input.mp4')
+            
+            # Download the video file
+            logger.info(f"Downloading video from GCS: {gcs_path}")
+            blob.download_to_filename(input_path)
+            
+        except Exception as e:
+            logger.error(f"Error downloading from GCS: {str(e)}")
+            return jsonify({'status': 'error', 'message': f'Error downloading video: {str(e)}'}), 500
+
+        # Extract audio segment
+        output_path = os.path.join(temp_dir, 'output.mp3')
+        
+        try:
+            logger.info(f"Extracting audio segment from {start}s to {end}s")
+            
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-y',  # Overwrite output file
+                '-v', 'error',  # Only show errors
+                '-i', input_path,  # Input file
+                '-ss', str(start),  # Start time
+                '-t', str(duration),  # Duration
+                '-vn',  # No video
+                '-acodec', 'libmp3lame',  # Audio codec
+                '-ab', '128k',  # Audio bitrate
+                '-ac', '1',  # Mono audio
+                '-ar', '44100',  # Sample rate
+                '-f', 'mp3',  # Force MP3 format
+                output_path  # Output file
+            ]
+            
+            logger.info(f"Running FFmpeg command: {' '.join(ffmpeg_cmd)}")
+            
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                logger.error(f"FFmpeg error: {result.stderr}")
+                return jsonify({'status': 'error', 'message': f'Error processing audio: {result.stderr}'}), 500
+            
+            # Check if output file was created and has content
+            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                return jsonify({'status': 'error', 'message': 'Failed to extract audio segment'}), 500
+                
+            logger.info(f"Audio extraction successful. File size: {os.path.getsize(output_path)} bytes")
+            
+        except Exception as e:
+            logger.error(f"Error processing audio: {str(e)}")
+            return jsonify({'status': 'error', 'message': f'Error processing audio: {str(e)}'}), 500
+
+        # Send to audd.io
+        try:
+            logger.info("Sending audio to audd.io")
+            with open(output_path, 'rb') as f:
+                files = {'file': f}
+                data = {
+                    'api_token': AUDD_API_TOKEN,
+                    'return': 'apple_music,spotify'
+                }
+                r = requests.post('https://api.audd.io/', data=data, files=files)
+                r.raise_for_status()
+                result = r.json()
+                
+                logger.info(f"Complete audd.io response: {json.dumps(result, indent=2)}")
+                
+                if result.get('status') == 'error':
+                    error_message = result.get('error', {}).get('message', 'Unknown error from audd.io')
+                    logger.error(f"audd.io API error: {error_message}")
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'audd.io API error: {error_message}',
+                        'details': result
+                    }), 500
+                
+                logger.info(f"Received response from audd.io: {result.get('status', 'unknown')}")
+                
+        except requests.RequestException as e:
+            logger.error(f"Error calling audd.io: {str(e)}")
+            result = {'status': 'error', 'message': f'Error calling audd.io: {str(e)}'}
+        except Exception as e:
+            logger.error(f"Error processing audd.io response: {str(e)}")
+            result = {'status': 'error', 'message': 'Invalid response from audd.io'}
+
+        # Clean up temp files
+        try:
+            import shutil
+            shutil.rmtree(temp_dir)
+            logger.info("Cleaned up temporary files")
+        except Exception as e:
+            logger.error(f"Error cleaning up files: {str(e)}")
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Unexpected error in recognize_gcs_segment: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Unexpected error: {str(e)}'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True) 
