@@ -790,7 +790,8 @@ function handleTCRClick(e) {
     
     // Get the row index
     const row = cell.closest('tr');
-    const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+    if (!row || row.dataset.rowIndex === undefined) return;
+    const rowIndex = parseInt(row.dataset.rowIndex, 10);
     
     // Get the marker for this row
     const marker = markers[rowIndex];
@@ -875,6 +876,7 @@ function updateMarkerTable() {
     displayMarkers.forEach((marker, displayIndex) => {
         const actualIndex = isSequenceReversed ? markers.length - 1 - displayIndex : displayIndex;
         const row = document.createElement('tr');
+        row.dataset.rowIndex = actualIndex;
         
         // --- Apply color classes if marked ---
         const mark = markedRows[actualIndex] || {};
@@ -969,7 +971,7 @@ function updateMarkerTable() {
         tcrInInput.value = marker.tcrIn || '';
         tcrInInput.dataset.field = 'tcrIn';
         makeInputResizable(tcrInInput);
-        tcrInInput.addEventListener('change', (e) => {
+        tcrInInput.addEventListener('input', (e) => {
             marker.tcrIn = e.target.value;
             updateDuration(actualIndex);
         });
@@ -992,7 +994,7 @@ function updateMarkerTable() {
         tcrOutInput.value = marker.tcrOut || '';
         tcrOutInput.dataset.field = 'tcrOut';
         makeInputResizable(tcrOutInput);
-        tcrOutInput.addEventListener('change', (e) => {
+        tcrOutInput.addEventListener('input', (e) => {
             marker.tcrOut = e.target.value;
             updateDuration(actualIndex);
         });
@@ -1941,7 +1943,7 @@ function deleteSelectedRows() {
     
     // Get indices of selected rows
     const selectedIndices = Array.from(checkboxes).map(checkbox => 
-        parseInt(checkbox.closest('tr').querySelector('.seq-cell').textContent) - 1
+        parseInt(checkbox.closest('tr').dataset.rowIndex, 10)
     );
     
     // Remove selected markers
@@ -2071,7 +2073,7 @@ function markSelectedRows(color) {
     const checkboxes = document.querySelectorAll('.row-checkbox:checked');
     checkboxes.forEach(checkbox => {
         const row = checkbox.closest('tr');
-        const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+        const rowIndex = parseInt(row.dataset.rowIndex, 10);
         if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
         if (color) {
             markedRows[rowIndex][color] = true;
@@ -2088,7 +2090,7 @@ function markSelectedRowsWithException(color, exceptionConfig) {
     const checkboxes = document.querySelectorAll('.row-checkbox:checked');
     checkboxes.forEach(checkbox => {
         const row = checkbox.closest('tr');
-        const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
+        const rowIndex = parseInt(row.dataset.rowIndex, 10);
         if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
         if (color) {
             markedRows[rowIndex][color] = true;
@@ -2586,12 +2588,18 @@ function loadVideoFromURL(url) {
 function updateDuration(rowIndex) {
     if (rowIndex >= 0 && rowIndex < markers.length) {
         const marker = markers[rowIndex];
-        if (marker.tcrIn && marker.tcrOut) {
-            marker.duration = calculateDuration(marker.tcrIn, marker.tcrOut);
-            // Update the duration cell in the table
-            const durationCell = document.querySelector(`[data-row="${rowIndex}"]`);
+        const row = document.querySelector(`tr[data-row-index="${rowIndex}"]`);
+        
+        if (row) {
+            const durationCell = row.querySelector('td[data-field="duration"]');
             if (durationCell) {
-                durationCell.textContent = marker.duration || '';
+                if (marker.tcrIn && marker.tcrOut) {
+                    marker.duration = calculateDuration(marker.tcrIn, marker.tcrOut);
+                    durationCell.textContent = marker.duration || '';
+                } else {
+                    marker.duration = '';
+                    durationCell.textContent = '';
+                }
             }
         }
     }
