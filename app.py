@@ -1487,5 +1487,10 @@ def recognize_gcs_segment():
         logger.error(f"Unexpected error in recognize_gcs_segment: {str(e)}")
         return jsonify({'status': 'error', 'message': f'Unexpected error: {str(e)}'}), 500
 
+@app.route('/view-recognition')
+def view_recognition():
+    """Renders a page to display recognition data."""
+    return render_template('view_recognition.html')
+
 if __name__ == '__main__':
     app.run(debug=True) 

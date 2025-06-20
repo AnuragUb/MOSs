@@ -130,7 +130,9 @@ const defaultMarkerColumns = [
     { key: 'lyricist', label: 'Lyricist' },
     { key: 'musicCo', label: 'Music Co' },
     { key: 'nocId', label: 'NOC ID' },
-    { key: 'nocTitle', label: 'NOC Title' }
+    { key: 'nocTitle', label: 'NOC Title' },
+    { key: 'recognize', label: 'Recognize' }, // For the button
+    { key: 'view', label: 'View' } // For the view button
 ];
 
 // Mapping for common column name variations
@@ -1136,6 +1138,25 @@ function updateMarkerTable() {
         recognizeBtn.dataset.index = actualIndex;
         recognizeCell.appendChild(recognizeBtn);
         row.appendChild(recognizeCell);
+
+        // Add View Recognition button
+        const viewCell = document.createElement('td');
+        if (marker.recognition && marker.recognition.status !== 'error') {
+            const viewBtn = document.createElement('button');
+            viewBtn.className = 'btn btn-info view-rec-btn';
+            viewBtn.textContent = 'View';
+            viewBtn.dataset.index = actualIndex;
+            viewBtn.addEventListener('click', (e) => {
+                const index = e.target.dataset.index;
+                const recData = markers[index].recognition;
+                if (recData) {
+                    sessionStorage.setItem('recognitionData', JSON.stringify(recData, null, 2));
+                    window.open('/view-recognition', '_blank');
+                }
+            });
+            viewCell.appendChild(viewBtn);
+        }
+        row.appendChild(viewCell);
         
         tableBody.appendChild(row);
     });
@@ -1457,8 +1478,29 @@ function initializeAddColumn() {
 function updateMarkerTableHeader() {
     const headerRow = document.querySelector('.table thead tr:first-child');
     if (!headerRow) return;
-    // Remove any extra columns first
-    while (headerRow.children.length > 13) headerRow.removeChild(headerRow.lastChild);
+
+    // Clear existing headers except for the first one (checkbox)
+    while (headerRow.children.length > 1) {
+        headerRow.removeChild(headerRow.lastChild);
+    }
+
+    // Add Seq header
+    const seqHeader = document.createElement('th');
+    seqHeader.textContent = 'Seq';
+    seqHeader.dataset.field = 'seq';
+    headerRow.appendChild(seqHeader);
+
+    // Add default column headers
+    defaultMarkerColumns.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col.label;
+        th.dataset.field = col.key;
+        if (['filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle', 'title'].includes(col.key)) {
+            th.classList.add('special');
+        }
+        headerRow.appendChild(th);
+    });
+    
     // Add extra columns
     extraColumns.forEach(col => {
         const th = document.createElement('th');
