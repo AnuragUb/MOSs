@@ -22,6 +22,8 @@ from google.cloud import storage
 from google.cloud import firestore
 from dotenv import load_dotenv
 import uuid
+from google.cloud import secretmanager
+from google.oauth2 import service_account
 
 # Load environment variables
 load_dotenv()
@@ -87,6 +89,47 @@ try:
 except Exception as e:
     logger.error(f"Failed to initialize Firestore: {str(e)}")
     db = None
+
+# --- Global Variables ---
+storage_client = None
+
+def initialize_gcs_client():
+    """Initializes the GCS client with credentials from Secret Manager."""
+    global storage_client
+    try:
+        project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
+        secret_name = "gcs-service-account-key"
+        secret_version = "latest"
+
+        # Create the Secret Manager client.
+        client = secretmanager.SecretManagerServiceClient()
+
+        # Build the resource name of the secret version.
+        name = f"projects/{project_id}/secrets/{secret_name}/versions/{secret_version}"
+
+        # Access the secret version.
+        response = client.access_secret_version(name=name)
+        
+        # Extract the payload as a dictionary.
+        secret_payload = response.payload.data.decode("UTF-8")
+        credentials_info = json.loads(secret_payload)
+
+        # Create credentials from the secret.
+        credentials = service_account.Credentials.from_service_account_info(credentials_info)
+        
+        # Initialize the storage client with the explicit credentials
+        storage_client = storage.Client(credentials=credentials)
+        
+        logger.info("Successfully initialized GCS client using credentials from Secret Manager.")
+
+    except Exception as e:
+        logger.error(f"Failed to initialize GCS client from Secret Manager: {e}")
+        logger.warning("Falling back to default application credentials for GCS client.")
+        # Fallback to default credentials if secret access fails
+        storage_client = storage.Client()
+
+# Initialize GCS client on application startup
+initialize_gcs_client()
 
 @app.route('/')
 def index():
@@ -1128,7 +1171,7 @@ def recognize_gcs_segment():
 
         # Download video segment from GCS
         try:
-            storage_client = storage.Client()
+            # Use the globally initialized storage client
             bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME', 'mos-aat'))
             blob = bucket.blob(gcs_path)
             
@@ -1250,7 +1293,7 @@ def generate_upload_url():
         unique_filename = f"{uuid.uuid4()}{file_extension}"
         gcs_path = f"videos/{unique_filename}"
         
-        storage_client = storage.Client()
+        # Use the globally initialized storage client
         bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
         blob = bucket.blob(gcs_path)
 
@@ -1332,8 +1375,7 @@ def upload_video_to_gcs():
             temp_path = temp_file.name
         
         try:
-            # Upload to GCS
-            storage_client = storage.Client()
+            # Use the globally initialized storage client
             bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME', 'mos-aat'))
             blob = bucket.blob(gcs_path)
             

@@ -11,3 +11,4 @@ google-cloud-storage==2.14.0
 google-cloud-firestore>=2.0.0
 google-cloud-logging==3.9.0 
 python-vlc==3.0.20123
+google-cloud-secret-manager==2.16.2
