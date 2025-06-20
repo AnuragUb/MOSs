@@ -915,20 +915,6 @@ function updateMarkerTable() {
             markDot.title = 'Yellow mark';
             markDot.style.left = (markCount * 20) + 'px';
             checkboxCell.appendChild(markDot);
-            
-            const removeMarkBtn = document.createElement('button');
-            removeMarkBtn.className = 'remove-mark-btn';
-            removeMarkBtn.title = 'Remove yellow mark';
-            removeMarkBtn.innerHTML = '&times;';
-            removeMarkBtn.style.left = (markCount * 20) + 'px';
-            removeMarkBtn.onclick = (e) => {
-                e.stopPropagation();
-                delete markedRows[actualIndex].yellow;
-                if (Object.keys(markedRows[actualIndex]).length === 0) delete markedRows[actualIndex];
-                saveMarkedRows();
-                updateMarkerTable();
-            };
-            checkboxCell.appendChild(removeMarkBtn);
             markCount++;
         }
         if (mark.red) {
@@ -938,20 +924,6 @@ function updateMarkerTable() {
             markDot.title = 'Red mark';
             markDot.style.left = (markCount * 20) + 'px';
             checkboxCell.appendChild(markDot);
-            
-            const removeMarkBtn = document.createElement('button');
-            removeMarkBtn.className = 'remove-mark-btn';
-            removeMarkBtn.title = 'Remove red mark';
-            removeMarkBtn.innerHTML = '&times;';
-            removeMarkBtn.style.left = (markCount * 20) + 'px';
-            removeMarkBtn.onclick = (e) => {
-                e.stopPropagation();
-                delete markedRows[actualIndex].red;
-                if (Object.keys(markedRows[actualIndex]).length === 0) delete markedRows[actualIndex];
-                saveMarkedRows();
-                updateMarkerTable();
-            };
-            checkboxCell.appendChild(removeMarkBtn);
             markCount++;
         }
         if (mark.exception) {
@@ -2629,7 +2601,7 @@ function updateDuration(rowIndex) {
 function handleCheckboxCellClick(rowIndex, event) {
     const currentTime = Date.now();
     const timeDiff = currentTime - checkboxClickState.lastClickTime;
-    
+
     // Add visual feedback
     const checkboxCell = event.target.closest('.checkbox-cell');
     if (checkboxCell) {
@@ -2638,51 +2610,55 @@ function handleCheckboxCellClick(rowIndex, event) {
             checkboxCell.classList.remove('clicked');
         }, 300);
     }
-    
+
     // Reset state if clicking on a different row or if too much time has passed
     if (checkboxClickState.row !== rowIndex || timeDiff > 500) {
-        resetCheckboxClickState();
-        checkboxClickState.row = rowIndex;
-        checkboxClickState.count = 0;
+        checkboxClickState.count = 0; // Reset count but not the whole state yet
     }
     
+    checkboxClickState.row = rowIndex;
     checkboxClickState.count++;
     checkboxClickState.lastClickTime = currentTime;
-    
+
     // Save state before making changes
     saveToHistory();
-    
-    if (checkboxClickState.count === 2) {
-        // Double-click: Toggle yellow mark
-        if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
-        if (markedRows[rowIndex].yellow) {
+
+    if (!markedRows[rowIndex]) {
+        markedRows[rowIndex] = {};
+    }
+
+    switch (checkboxClickState.count) {
+        case 2: // Double-click: Toggle yellow
+            if (markedRows[rowIndex].yellow) {
+                delete markedRows[rowIndex].yellow;
+            } else {
+                markedRows[rowIndex].yellow = true;
+                delete markedRows[rowIndex].red; // Ensure mutual exclusivity
+            }
+            break;
+        case 3: // Triple-click: Toggle red
+            if (markedRows[rowIndex].red) {
+                delete markedRows[rowIndex].red;
+            } else {
+                markedRows[rowIndex].red = true;
+                delete markedRows[rowIndex].yellow; // Ensure mutual exclusivity
+            }
+            break;
+        case 4: // Quad-click: Reset
             delete markedRows[rowIndex].yellow;
-        } else {
-            markedRows[rowIndex].yellow = true;
-            // Remove red mark if yellow is being added
             delete markedRows[rowIndex].red;
-        }
-        if (Object.keys(markedRows[rowIndex]).length === 0) delete markedRows[rowIndex];
-        saveMarkedRows();
-        updateMarkerTable();
-        resetCheckboxClickState();
-    } else if (checkboxClickState.count === 3) {
-        // Triple-click: Toggle red mark
-        if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
-        if (markedRows[rowIndex].red) {
-            delete markedRows[rowIndex].red;
-        } else {
-            markedRows[rowIndex].red = true;
-            // Remove yellow mark if red is being added
-            delete markedRows[rowIndex].yellow;
-        }
-        if (Object.keys(markedRows[rowIndex]).length === 0) delete markedRows[rowIndex];
-        saveMarkedRows();
-        updateMarkerTable();
-        resetCheckboxClickState();
+            checkboxClickState.count = 0; // Reset for the next cycle
+            break;
+    }
+
+    if (Object.keys(markedRows[rowIndex]).length === 0) {
+        delete markedRows[rowIndex];
     }
     
-    // Reset after 1 second if no further click
+    saveMarkedRows();
+    updateMarkerTable();
+    
+    // Reset after a timeout if the sequence is not continued
     clearTimeout(checkboxClickState.timeout);
     checkboxClickState.timeout = setTimeout(() => {
         resetCheckboxClickState();
