@@ -131,7 +131,7 @@ const defaultMarkerColumns = [
     { key: 'musicCo', label: 'Music Co' },
     { key: 'nocId', label: 'NOC ID' },
     { key: 'nocTitle', label: 'NOC Title' },
-    { key: 'recognize', label: 'Recognize' }, // For the button
+    { key: 'recognize', label: 'Recognize' }, // For the Recognize button
     { key: 'view', label: 'View' } // For the view button
 ];
 
@@ -359,7 +359,7 @@ function initializeVideoPlayer() {
     });
 }
 
-// New function to upload video to GCS in the background
+// New function to upload video to GCS in the background using signed URLs
 function uploadVideoToGCS(file) {
     if (uploadInProgress) {
         console.log('Upload already in progress, skipping...');
@@ -368,9 +368,8 @@ function uploadVideoToGCS(file) {
     
     uploadInProgress = true;
     const playerStatus = document.getElementById('playerStatus');
-    
-    const formData = new FormData();
-    formData.append('video', file);
+    playerStatus.style.display = 'block';
+    playerStatus.className = 'alert alert-info';
     
     // Create progress indicator
     const progressDiv = document.createElement('div');
@@ -379,51 +378,75 @@ function uploadVideoToGCS(file) {
         <div class="progress-bar">
             <div class="progress-fill"></div>
         </div>
-        <div class="progress-text">Uploading to cloud: 0%</div>
+        <div class="progress-text">Preparing upload...</div>
     `;
+    playerStatus.innerHTML = ''; 
     playerStatus.appendChild(progressDiv);
-    
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload-video-to-gcs', true);
-    
-    xhr.upload.onprogress = function(e) {
-        if (e.lengthComputable) {
-            const percentComplete = (e.loaded / e.total) * 100;
-            progressDiv.querySelector('.progress-fill').style.width = percentComplete + '%';
-            progressDiv.querySelector('.progress-text').textContent = `Uploading to cloud: ${Math.round(percentComplete)}%`;
+
+    // 1. Get the signed URL from our server
+    fetch('/api/generate-upload-url', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Failed to get upload URL') });
         }
-    };
-    
-    xhr.onload = function() {
-        uploadInProgress = false;
-        
-        if (xhr.status === 200) {
-            const result = JSON.parse(xhr.responseText);
-            if (result.status === 'success') {
-                currentGcsPath = result.gcs_path;
+        return response.json();
+    })
+    .then(data => {
+        if (data.status !== 'success') {
+            throw new Error(data.error || 'Could not get upload URL.');
+        }
+
+        // 2. Upload the file directly to GCS using the signed URL
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', data.signedUrl, true);
+        xhr.setRequestHeader('Content-Type', file.type);
+
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                progressDiv.querySelector('.progress-fill').style.width = percentComplete + '%';
+                progressDiv.querySelector('.progress-text').textContent = `Uploading to cloud: ${Math.round(percentComplete)}%`;
+            }
+        };
+
+        xhr.onload = function() {
+            uploadInProgress = false;
+            if (xhr.status === 200) {
+                currentGcsPath = data.gcsPath; // The path for our backend to use
                 playerStatus.className = 'alert alert-success';
                 playerStatus.textContent = 'Video loaded and uploaded to cloud successfully!';
-                progressDiv.remove();
-                setTimeout(() => { playerStatus.style.display = 'none'; }, 3000);
+                setTimeout(() => { 
+                    playerStatus.style.display = 'none';
+                    progressDiv.remove(); 
+                }, 3000);
                 console.log('Video uploaded to GCS:', currentGcsPath);
             } else {
-                throw new Error(result.error || 'Upload failed');
+                throw new Error('Direct GCS upload failed: ' + xhr.statusText);
             }
-        } else {
-            throw new Error('Upload failed: ' + xhr.statusText);
-        }
-    };
-    
-    xhr.onerror = function() {
+        };
+
+        xhr.onerror = function() {
+            uploadInProgress = false;
+            throw new Error('Network error during GCS upload.');
+        };
+
+        xhr.send(file);
+    })
+    .catch(error => {
         uploadInProgress = false;
-        playerStatus.className = 'alert alert-warning';
-        playerStatus.textContent = 'Video loaded locally. Cloud upload failed - recognition may not work.';
-        progressDiv.remove();
-        setTimeout(() => { playerStatus.style.display = 'none'; }, 5000);
-        console.error('GCS upload failed');
-    };
-    
-    xhr.send(formData);
+        playerStatus.className = 'alert alert-danger';
+        playerStatus.textContent = 'Cloud upload failed. Recognition will not work. Error: ' + error.message;
+        console.error('GCS upload process failed:', error);
+    });
 }
 
 function initializeMarkerTable() {

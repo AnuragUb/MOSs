@@ -1095,259 +1095,6 @@ def vlc_volume():
 def export_settings():
     return render_template('export_settings.html')
 
-@app.route('/generate-upload-url', methods=['POST'])
-def generate_upload_url():
-    data = request.json
-    filename = data['filename']
-    bucket_name = 'mos-aat'
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(f'uploads/{filename}')
-    url = blob.generate_signed_url(
-        version='v4',
-        expiration=timedelta(minutes=15),
-        method='PUT',
-        content_type='application/octet-stream',
-    )
-    return jsonify({'url': url})
-
-@app.route('/process-uploaded-video', methods=['POST'])
-def process_uploaded_video():
-    data = request.json
-    filename = data['filename']
-    bucket_name = 'mos-aat'
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(f'uploads/{filename}')
-    local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    blob.download_to_filename(local_path)
-    # Convert if WMV, else just copy
-    if filename.lower().endswith('.wmv'):
-        output_filename = f"{os.path.splitext(filename)[0]}.mp4"
-        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
-        convert_wmv_to_mp4(local_path, output_path)
-        # Upload converted file
-        converted_blob = bucket.blob(f'converted/{output_filename}')
-        converted_blob.upload_from_filename(output_path)
-        # Clean up
-        os.remove(local_path)
-        os.remove(output_path)
-        # Generate signed URL for converted file
-        url = converted_blob.generate_signed_url(
-            version='v4',
-            expiration=timedelta(hours=1),
-            method='GET',
-        )
-        return jsonify({'converted_url': url})
-    else:
-        # For non-WMV, just move to converted/
-        converted_blob = bucket.blob(f'converted/{filename}')
-        converted_blob.rewrite(blob)
-        url = converted_blob.generate_signed_url(
-            version='v4',
-            expiration=timedelta(hours=1),
-            method='GET',
-        )
-        return jsonify({'converted_url': url})
-
-@app.route('/api/music-co', methods=['GET'])
-def list_music_co():
-    search = request.args.get('search', '').lower()
-    docs = firestore_client.collection(MUSIC_CO_COLLECTION).stream()
-    results = []
-    for doc in docs:
-        data = doc.to_dict()
-        name = data.get('name', '')
-        if not search or search in name.lower():
-            results.append({'id': doc.id, 'name': name})
-    return jsonify(results)
-
-@app.route('/api/music-co', methods=['POST'])
-def add_music_co():
-    data = request.json
-    name = data.get('name', '').strip()
-    if not name:
-        return jsonify({'error': 'Name is required'}), 400
-    # Prevent duplicates
-    docs = firestore_client.collection(MUSIC_CO_COLLECTION).where('name', '==', name).stream()
-    if any(True for _ in docs):
-        return jsonify({'error': 'Music Co already exists'}), 400
-    doc_ref = firestore_client.collection(MUSIC_CO_COLLECTION).document()
-    doc_ref.set({'name': name})
-    return jsonify({'id': doc_ref.id, 'name': name})
-
-@app.route('/api/music-co/<id>', methods=['DELETE'])
-def delete_music_co(id):
-    doc_ref = firestore_client.collection(MUSIC_CO_COLLECTION).document(id)
-    if not doc_ref.get().exists:
-        return jsonify({'error': 'Music Co not found'}), 404
-    doc_ref.delete()
-    return jsonify({'success': True})
-
-@app.route('/music-co')
-def music_co_manager():
-    return render_template('music_co.html')
-
-@app.route('/usage')
-def usage_manager():
-    return render_template('usage.html')
-
-@app.route('/api/usage', methods=['GET'])
-def list_usage():
-    try:
-        db = firestore.Client()
-        usage_ref = db.collection('usage')
-        usage_docs = usage_ref.stream()
-        usage_list = [{'id': doc.id, 'name': doc.to_dict()['name']} for doc in usage_docs]
-        return jsonify(usage_list)
-    except Exception as e:
-        logger.error(f"Error listing usage options: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/usage', methods=['POST'])
-def add_usage():
-    try:
-        data = request.json
-        name = data.get('name')
-        if not name:
-            return jsonify({'error': 'Name is required'}), 400
-
-        db = firestore.Client()
-        usage_ref = db.collection('usage')
-        usage_ref.add({'name': name})
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        logger.error(f"Error adding usage option: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/usage/<id>', methods=['DELETE'])
-def delete_usage(id):
-    try:
-        db = firestore.Client()
-        usage_ref = db.collection('usage').document(id)
-        usage_ref.delete()
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        logger.error(f"Error deleting usage option: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/autosave', methods=['POST'])
-def autosave():
-    try:
-        if db is None:
-            logger.error("Firestore not initialized")
-            return jsonify({'error': 'Database not available'}), 503
-            
-        session_id = session.get('session_id')
-        if not session_id:
-            session_id = str(uuid.uuid4())
-            session['session_id'] = session_id
-        
-        data = request.json
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-            
-        # Validate required fields
-        if not isinstance(data.get('markers'), list):
-            return jsonify({'error': 'Invalid markers data'}), 400
-            
-        # Store the data with timestamp
-        save_data = {
-            'markers': data['markers'],
-            'videoState': data.get('videoState'),
-            'exportSettings': data.get('exportSettings', {}),
-            'markedRows': data.get('markedRows', {}),
-            'exceptionSettings': data.get('exceptionSettings', {}),
-            'timestamp': datetime.datetime.now().isoformat()
-        }
-        
-        try:
-            db.collection('autosaves').document(session_id).set(save_data)
-            return '', 204
-        except Exception as db_error:
-            logger.error(f"Database operation failed: {str(db_error)}")
-            return jsonify({'error': 'Failed to save data'}), 500
-            
-    except Exception as e:
-        logger.error(f"Error in autosave: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/loadsave')
-def loadsave():
-    try:
-        if db is None:
-            logger.error("Firestore not initialized")
-            return jsonify({'error': 'Database not available'}), 503
-            
-        session_id = session.get('session_id')
-        if not session_id:
-            return jsonify({})
-            
-        try:
-            doc = db.collection('autosaves').document(session_id).get()
-            if doc.exists:
-                data = doc.to_dict()
-                # Validate data before sending
-                if not isinstance(data.get('markers'), list):
-                    return jsonify({})
-                return jsonify(data)
-            return jsonify({})
-        except Exception as db_error:
-            logger.error(f"Database operation failed: {str(db_error)}")
-            return jsonify({'error': 'Failed to load data'}), 500
-            
-    except Exception as e:
-        logger.error(f"Error in loadsave: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/upload-video-to-gcs', methods=['POST'])
-def upload_video_to_gcs():
-    """Upload video file to GCS and return the GCS path"""
-    try:
-        if 'video' not in request.files:
-            return jsonify({'error': 'No video file provided'}), 400
-        
-        file = request.files['video']
-        if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
-
-        # Generate unique filename
-        file_extension = os.path.splitext(file.filename)[1]
-        unique_filename = f"{uuid.uuid4()}{file_extension}"
-        gcs_path = f"videos/{unique_filename}"
-        
-        # Create temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-            file.save(temp_file.name)
-            temp_path = temp_file.name
-        
-        try:
-            # Upload to GCS
-            storage_client = storage.Client()
-            bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME', 'mos-aat'))
-            blob = bucket.blob(gcs_path)
-            
-            # Upload with content type
-            content_type = 'video/mp4' if file_extension.lower() == '.mp4' else 'video/x-ms-wmv'
-            blob.upload_from_filename(temp_path, content_type=content_type)
-            
-            logger.info(f"Successfully uploaded video to GCS: {gcs_path}")
-            
-            return jsonify({
-                'status': 'success',
-                'gcs_path': gcs_path,
-                'filename': unique_filename
-            })
-            
-        finally:
-            # Clean up temporary file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-                
-    except Exception as e:
-        logger.error(f"Error uploading video to GCS: {str(e)}")
-        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-
 @app.route('/api/recognize-gcs-segment', methods=['POST'])
 def recognize_gcs_segment():
     """Recognize audio from a segment of a video stored in GCS"""
@@ -1487,10 +1234,129 @@ def recognize_gcs_segment():
         logger.error(f"Unexpected error in recognize_gcs_segment: {str(e)}")
         return jsonify({'status': 'error', 'message': f'Unexpected error: {str(e)}'}), 500
 
+@app.route('/api/generate-upload-url', methods=['POST'])
+def generate_upload_url():
+    """Generate a signed URL for uploading a file directly to GCS."""
+    try:
+        data = request.get_json()
+        filename = data.get('filename')
+        content_type = data.get('contentType')
+
+        if not filename or not content_type:
+            return jsonify({'error': 'Missing filename or content type'}), 400
+
+        # Generate a unique name for the file in GCS
+        file_extension = os.path.splitext(filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        gcs_path = f"videos/{unique_filename}"
+        
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
+        blob = bucket.blob(gcs_path)
+
+        # Generate a v4 signed URL for uploading a file
+        url = blob.generate_signed_url(
+            version="v4",
+            # This URL is valid for 15 minutes
+            expiration=timedelta(minutes=15),
+            # Allow PUT requests with the specified content_type.
+            method="PUT",
+            content_type=content_type,
+        )
+
+        logger.info(f"Generated signed URL for {gcs_path}")
+        
+        return jsonify({
+            'status': 'success',
+            'signedUrl': url,
+            'gcsPath': gcs_path,
+            'filename': unique_filename
+        })
+
+    except Exception as e:
+        logger.error(f"Error generating signed URL: {str(e)}")
+        return jsonify({'error': f'Failed to generate upload URL: {str(e)}'}), 500
+
 @app.route('/view-recognition')
 def view_recognition():
     """Renders a page to display recognition data."""
     return render_template('view_recognition.html')
+
+@app.route('/api/loadsave')
+def loadsave():
+    try:
+        if db is None:
+            logger.error("Firestore not initialized")
+            return jsonify({'error': 'Database not available'}), 503
+            
+        session_id = session.get('session_id')
+        if not session_id:
+            return jsonify({})
+            
+        try:
+            doc = db.collection('autosaves').document(session_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                # Validate data before sending
+                if not isinstance(data.get('markers'), list):
+                    return jsonify({})
+                return jsonify(data)
+            return jsonify({})
+        except Exception as db_error:
+            logger.error(f"Database operation failed: {str(db_error)}")
+            return jsonify({'error': 'Failed to load data'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in loadsave: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/upload-video-to-gcs', methods=['POST'])
+def upload_video_to_gcs():
+    """Upload video file to GCS and return the GCS path"""
+    try:
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video file provided'}), 400
+        
+        file = request.files['video']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+
+        # Generate unique filename
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        gcs_path = f"videos/{unique_filename}"
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            file.save(temp_file.name)
+            temp_path = temp_file.name
+        
+        try:
+            # Upload to GCS
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME', 'mos-aat'))
+            blob = bucket.blob(gcs_path)
+            
+            # Upload with content type
+            content_type = 'video/mp4' if file_extension.lower() == '.mp4' else 'video/x-ms-wmv'
+            blob.upload_from_filename(temp_path, content_type=content_type)
+            
+            logger.info(f"Successfully uploaded video to GCS: {gcs_path}")
+            
+            return jsonify({
+                'status': 'success',
+                'gcs_path': gcs_path,
+                'filename': unique_filename
+            })
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+                
+    except Exception as e:
+        logger.error(f"Error uploading video to GCS: {str(e)}")
+        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True) 
