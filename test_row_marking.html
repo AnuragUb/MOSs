@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Row Marking Test</title>
+    <style>
+        body {
+            background-color: #23272e;
+            color: #e6e6e6;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        
+        .table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        .table th, .table td {
+            border: 1px solid #353a42;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .table th {
+            background-color: #282c34;
+        }
+        
+        .checkbox-cell {
+            cursor: pointer;
+            position: relative;
+            background-color: rgba(255, 255, 255, 0.05);
+            transition: background-color 0.2s ease;
+        }
+        
+        .checkbox-cell:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .checkbox-cell.clicked {
+            background-color: rgba(255, 255, 255, 0.2);
+            animation: clickFeedback 0.3s ease;
+        }
+        
+        @keyframes clickFeedback {
+            0% { background-color: rgba(255, 255, 255, 0.3); }
+            100% { background-color: rgba(255, 255, 255, 0.05); }
+        }
+        
+        .checkbox-cell::before {
+            content: "Double-click: Yellow | Triple-click: Red";
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+        }
+        
+        .checkbox-cell:hover::before {
+            opacity: 1;
+        }
+        
+        .marked-yellow {
+            background-color: #fff3cd !important;
+            color: #000 !important;
+        }
+        
+        .marked-red {
+            background-color: #f8d7da !important;
+            color: #000 !important;
+        }
+        
+        .mark-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .remove-mark-btn {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        
+        .row-checkbox {
+            cursor: pointer;
+            z-index: 1;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <h1>Row Marking Test</h1>
+    <p>Double-click the checkbox column for yellow marking, triple-click for red marking.</p>
+    
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Select</th>
+                <th>Seq</th>
+                <th>TCR In</th>
+                <th>TCR Out</th>
+                <th>Title</th>
+            </tr>
+        </thead>
+        <tbody id="testTableBody">
+        </tbody>
+    </table>
+    
+    <div style="margin-top: 20px;">
+        <button onclick="addTestRow()">Add Test Row</button>
+        <button onclick="clearMarks()">Clear All Marks</button>
+    </div>
+    
+    <script>
+        let markers = [];
+        let markedRows = {};
+        let checkboxClickState = { row: null, count: 0, timeout: null, lastClickTime: 0 };
+        
+        function saveMarkedRows() {
+            localStorage.setItem('markedRows', JSON.stringify(markedRows));
+        }
+        
+        function loadMarkedRows() {
+            try {
+                const savedMarkedRows = localStorage.getItem('markedRows');
+                if (savedMarkedRows) markedRows = JSON.parse(savedMarkedRows);
+            } catch (e) { 
+                markedRows = {}; 
+            }
+        }
+        
+        function handleCheckboxCellClick(rowIndex, event) {
+            const currentTime = Date.now();
+            const timeDiff = currentTime - checkboxClickState.lastClickTime;
+            
+            // Add visual feedback
+            const checkboxCell = event.target.closest('.checkbox-cell');
+            if (checkboxCell) {
+                checkboxCell.classList.add('clicked');
+                setTimeout(() => {
+                    checkboxCell.classList.remove('clicked');
+                }, 300);
+            }
+            
+            // Reset state if clicking on a different row or if too much time has passed
+            if (checkboxClickState.row !== rowIndex || timeDiff > 500) {
+                resetCheckboxClickState();
+                checkboxClickState.row = rowIndex;
+                checkboxClickState.count = 0;
+            }
+            
+            checkboxClickState.count++;
+            checkboxClickState.lastClickTime = currentTime;
+            
+            if (checkboxClickState.count === 2) {
+                // Double-click: Toggle yellow mark
+                if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
+                if (markedRows[rowIndex].yellow) {
+                    delete markedRows[rowIndex].yellow;
+                } else {
+                    markedRows[rowIndex].yellow = true;
+                    // Remove red mark if yellow is being added
+                    delete markedRows[rowIndex].red;
+                }
+                if (Object.keys(markedRows[rowIndex]).length === 0) delete markedRows[rowIndex];
+                saveMarkedRows();
+                updateTestTable();
+                resetCheckboxClickState();
+            } else if (checkboxClickState.count === 3) {
+                // Triple-click: Toggle red mark
+                if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
+                if (markedRows[rowIndex].red) {
+                    delete markedRows[rowIndex].red;
+                } else {
+                    markedRows[rowIndex].red = true;
+                    // Remove yellow mark if red is being added
+                    delete markedRows[rowIndex].yellow;
+                }
+                if (Object.keys(markedRows[rowIndex]).length === 0) delete markedRows[rowIndex];
+                saveMarkedRows();
+                updateTestTable();
+                resetCheckboxClickState();
+            }
+            
+            // Reset after 1 second if no further click
+            clearTimeout(checkboxClickState.timeout);
+            checkboxClickState.timeout = setTimeout(() => {
+                resetCheckboxClickState();
+            }, 1000);
+        }
+        
+        function resetCheckboxClickState() {
+            checkboxClickState = { row: null, count: 0, timeout: null, lastClickTime: 0 };
+        }
+        
+        function updateTestTable() {
+            const tableBody = document.getElementById('testTableBody');
+            tableBody.innerHTML = '';
+            
+            markers.forEach((marker, index) => {
+                const row = document.createElement('tr');
+                
+                // Apply color classes if marked
+                const mark = markedRows[index] || {};
+                if (mark.yellow) row.classList.add('marked-yellow');
+                if (mark.red) row.classList.add('marked-red');
+                
+                // Add checkbox cell
+                const checkboxCell = document.createElement('td');
+                checkboxCell.style.position = 'relative';
+                checkboxCell.className = 'checkbox-cell';
+                checkboxCell.dataset.rowIndex = index;
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'row-checkbox';
+                checkboxCell.appendChild(checkbox);
+                
+                // Add click event listener for row marking
+                checkboxCell.addEventListener('click', (e) => {
+                    if (e.target === checkbox || e.target.classList.contains('remove-mark-btn')) return;
+                    handleCheckboxCellClick(index, e);
+                });
+                
+                // Prevent checkbox clicks from bubbling
+                checkbox.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+                
+                // Add mark indicators and remove buttons if marked
+                let markCount = 0;
+                if (mark.yellow) {
+                    const markDot = document.createElement('span');
+                    markDot.className = 'mark-dot';
+                    markDot.style.backgroundColor = '#ffc107';
+                    markDot.title = 'Yellow mark';
+                    markDot.style.left = (markCount * 20) + 'px';
+                    checkboxCell.appendChild(markDot);
+                    
+                    const removeMarkBtn = document.createElement('button');
+                    removeMarkBtn.className = 'remove-mark-btn';
+                    removeMarkBtn.title = 'Remove yellow mark';
+                    removeMarkBtn.innerHTML = '&times;';
+                    removeMarkBtn.style.left = (markCount * 20) + 'px';
+                    removeMarkBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        delete markedRows[index].yellow;
+                        if (Object.keys(markedRows[index]).length === 0) delete markedRows[index];
+                        saveMarkedRows();
+                        updateTestTable();
+                    };
+                    checkboxCell.appendChild(removeMarkBtn);
+                    markCount++;
+                }
+                if (mark.red) {
+                    const markDot = document.createElement('span');
+                    markDot.className = 'mark-dot';
+                    markDot.style.backgroundColor = '#dc3545';
+                    markDot.title = 'Red mark';
+                    markDot.style.left = (markCount * 20) + 'px';
+                    checkboxCell.appendChild(markDot);
+                    
+                    const removeMarkBtn = document.createElement('button');
+                    removeMarkBtn.className = 'remove-mark-btn';
+                    removeMarkBtn.title = 'Remove red mark';
+                    removeMarkBtn.innerHTML = '&times;';
+                    removeMarkBtn.style.left = (markCount * 20) + 'px';
+                    removeMarkBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        delete markedRows[index].red;
+                        if (Object.keys(markedRows[index]).length === 0) delete markedRows[index];
+                        saveMarkedRows();
+                        updateTestTable();
+                    };
+                    checkboxCell.appendChild(removeMarkBtn);
+                    markCount++;
+                }
+                
+                row.appendChild(checkboxCell);
+                
+                // Add other cells
+                const seqCell = document.createElement('td');
+                seqCell.textContent = index + 1;
+                row.appendChild(seqCell);
+                
+                const tcrInCell = document.createElement('td');
+                tcrInCell.textContent = marker.tcrIn || '';
+                row.appendChild(tcrInCell);
+                
+                const tcrOutCell = document.createElement('td');
+                tcrOutCell.textContent = marker.tcrOut || '';
+                row.appendChild(tcrOutCell);
+                
+                const titleCell = document.createElement('td');
+                titleCell.textContent = marker.title || '';
+                row.appendChild(titleCell);
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function addTestRow() {
+            const newMarker = {
+                tcrIn: '00:00:00:00',
+                tcrOut: '00:00:30:00',
+                title: 'Test Title ' + (markers.length + 1)
+            };
+            markers.push(newMarker);
+            updateTestTable();
+        }
+        
+        function clearMarks() {
+            markedRows = {};
+            saveMarkedRows();
+            updateTestTable();
+        }
+        
+        // Initialize
+        loadMarkedRows();
+        updateTestTable();
+        
+        // Add some test rows
+        for (let i = 0; i < 3; i++) {
+            addTestRow();
+        }
+    </script>
+</body>
+</html> 

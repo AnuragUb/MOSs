@@ -153,6 +153,9 @@ const columnNameMap = {
 // Add a new variable to track the pauseWithTCRMark toggle
 let pauseWithTCRMark = false;
 
+// Add a new variable to track checkbox clicks for row marking
+let checkboxClickState = { row: null, count: 0, timeout: null, lastClickTime: 0 };
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing main page components...');
@@ -879,13 +882,29 @@ function updateMarkerTable() {
         if (mark.red) row.classList.add('marked-red');
         if (mark.exception) row.classList.add('marked-exception');
         
-        // Add checkbox cell
+        // Add checkbox cell with click tracking for row marking
         const checkboxCell = document.createElement('td');
         checkboxCell.style.position = 'relative';
+        checkboxCell.className = 'checkbox-cell';
+        checkboxCell.dataset.rowIndex = actualIndex;
+        
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'row-checkbox';
         checkboxCell.appendChild(checkbox);
+        
+        // Add click event listener for row marking (double-click = yellow, triple-click = red)
+        checkboxCell.addEventListener('click', (e) => {
+            // Don't trigger if clicking on the checkbox itself or remove buttons
+            if (e.target === checkbox || e.target.classList.contains('remove-mark-btn')) return;
+            
+            handleCheckboxCellClick(actualIndex, e);
+        });
+        
+        // Prevent checkbox clicks from bubbling to the cell
+        checkbox.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
         
         // --- Add mark indicators and remove buttons if marked ---
         let markCount = 0;
@@ -2027,55 +2046,24 @@ function initializeExportSettings() {
 }
 
 function initializeRowMarking() {
+    // Keep only the exception modal functionality
     const rowMarkBtn = document.getElementById('rowMarkBtn');
-    const rowMarkModal = document.getElementById('rowMarkModal');
     const exceptionModal = document.getElementById('exceptionModal');
-    const closeBtn = rowMarkModal.querySelector('.close');
-    const markYellowBtn = document.getElementById('markYellowBtn');
-    const markRedBtn = document.getElementById('markRedBtn');
-    const markExceptionBtn = document.getElementById('markExceptionBtn');
-    const unmarkBtn = document.getElementById('unmarkBtn');
-    const saveMarksBtn = document.getElementById('saveMarksBtn');
-
+    
     // Exception modal elements
     const exceptionCloseBtn = exceptionModal.querySelector('.close');
     const applyExceptionBtn = document.getElementById('applyException');
     const cancelExceptionBtn = document.getElementById('cancelException');
 
-    rowMarkBtn.addEventListener('click', () => {
-        const selectedRows = document.querySelectorAll('.row-checkbox:checked');
-        if (selectedRows.length === 0) {
-            alert('Please select rows to mark');
-            return;
-        }
-        updateModalMarkStates();
-        rowMarkModal.style.display = 'block';
-    });
-
-    closeBtn.addEventListener('click', () => {
-        rowMarkModal.style.display = 'none';
-    });
-
-    markYellowBtn.addEventListener('click', () => {
-        toggleSelectedRowsMark('yellow');
-    });
-    markRedBtn.addEventListener('click', () => {
-        toggleSelectedRowsMark('red');
-    });
-    markExceptionBtn.addEventListener('click', () => {
-        rowMarkModal.style.display = 'none';
-        exceptionModal.style.display = 'block';
-    });
-    if (unmarkBtn) {
-        unmarkBtn.addEventListener('click', () => {
-            markSelectedRows(null);
-            updateModalMarkStates();
-        });
-    }
-    if (saveMarksBtn) {
-        saveMarksBtn.addEventListener('click', () => {
-            saveMarkedRows();
-            rowMarkModal.style.display = 'none';
+    // Update the row mark button to only handle exceptions
+    if (rowMarkBtn) {
+        rowMarkBtn.addEventListener('click', () => {
+            const selectedRows = document.querySelectorAll('.row-checkbox:checked');
+            if (selectedRows.length === 0) {
+                alert('Please select rows to mark as exceptions');
+                return;
+            }
+            exceptionModal.style.display = 'block';
         });
     }
 
@@ -2099,77 +2087,12 @@ function initializeRowMarking() {
         exceptionModal.style.display = 'none';
     });
 
-    // Close modals when clicking outside
+    // Close modal when clicking outside
     window.addEventListener('click', (e) => {
-        if (e.target === rowMarkModal) {
-            rowMarkModal.style.display = 'none';
-        }
         if (e.target === exceptionModal) {
             exceptionModal.style.display = 'none';
         }
     });
-}
-
-function updateModalMarkStates() {
-    const selectedRows = document.querySelectorAll('.row-checkbox:checked');
-    if (selectedRows.length === 0) return;
-    
-    // Get the first selected row to check its current marks
-    const firstRow = selectedRows[0].closest('tr');
-    const rowIndex = parseInt(firstRow.querySelector('.seq-cell').textContent) - 1;
-    const mark = markedRows[rowIndex] || {};
-    
-    // Update button states to show which marks are active
-    const markYellowBtn = document.getElementById('markYellowBtn');
-    const markRedBtn = document.getElementById('markRedBtn');
-    const markExceptionBtn = document.getElementById('markExceptionBtn');
-    
-    if (mark.yellow) {
-        markYellowBtn.style.backgroundColor = '#ffc107';
-        markYellowBtn.style.color = '#000';
-        markYellowBtn.textContent = 'Yellow ✓';
-    } else {
-        markYellowBtn.style.backgroundColor = '#ffc107';
-        markYellowBtn.style.color = '#000';
-        markYellowBtn.textContent = 'Yellow';
-    }
-    
-    if (mark.red) {
-        markRedBtn.style.backgroundColor = '#dc3545';
-        markRedBtn.style.color = '#fff';
-        markRedBtn.textContent = 'Red ✓';
-    } else {
-        markRedBtn.style.backgroundColor = '#dc3545';
-        markRedBtn.style.color = '#fff';
-        markRedBtn.textContent = 'Red';
-    }
-    
-    if (mark.exception) {
-        markExceptionBtn.style.backgroundColor = '#6c757d';
-        markExceptionBtn.style.color = '#fff';
-        markExceptionBtn.textContent = 'Exception ✓';
-    } else {
-        markExceptionBtn.style.backgroundColor = '#6c757d';
-        markExceptionBtn.style.color = '#fff';
-        markExceptionBtn.textContent = 'Exception';
-    }
-}
-
-function toggleSelectedRowsMark(color) {
-    const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-    checkboxes.forEach(checkbox => {
-        const row = checkbox.closest('tr');
-        const rowIndex = parseInt(row.querySelector('.seq-cell').textContent) - 1;
-        if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
-        if (markedRows[rowIndex][color]) {
-            delete markedRows[rowIndex][color];
-            if (Object.keys(markedRows[rowIndex]).length === 0) delete markedRows[rowIndex];
-        } else {
-            markedRows[rowIndex][color] = true;
-        }
-    });
-    updateMarkerTable(); // Update table immediately to show colors
-    updateModalMarkStates(); // Update modal to show current state
 }
 
 function markSelectedRows(color) {
@@ -2700,4 +2623,72 @@ function updateDuration(rowIndex) {
             }
         }
     }
+}
+
+// Add this function after the existing click handling functions
+function handleCheckboxCellClick(rowIndex, event) {
+    const currentTime = Date.now();
+    const timeDiff = currentTime - checkboxClickState.lastClickTime;
+    
+    // Add visual feedback
+    const checkboxCell = event.target.closest('.checkbox-cell');
+    if (checkboxCell) {
+        checkboxCell.classList.add('clicked');
+        setTimeout(() => {
+            checkboxCell.classList.remove('clicked');
+        }, 300);
+    }
+    
+    // Reset state if clicking on a different row or if too much time has passed
+    if (checkboxClickState.row !== rowIndex || timeDiff > 500) {
+        resetCheckboxClickState();
+        checkboxClickState.row = rowIndex;
+        checkboxClickState.count = 0;
+    }
+    
+    checkboxClickState.count++;
+    checkboxClickState.lastClickTime = currentTime;
+    
+    // Save state before making changes
+    saveToHistory();
+    
+    if (checkboxClickState.count === 2) {
+        // Double-click: Toggle yellow mark
+        if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
+        if (markedRows[rowIndex].yellow) {
+            delete markedRows[rowIndex].yellow;
+        } else {
+            markedRows[rowIndex].yellow = true;
+            // Remove red mark if yellow is being added
+            delete markedRows[rowIndex].red;
+        }
+        if (Object.keys(markedRows[rowIndex]).length === 0) delete markedRows[rowIndex];
+        saveMarkedRows();
+        updateMarkerTable();
+        resetCheckboxClickState();
+    } else if (checkboxClickState.count === 3) {
+        // Triple-click: Toggle red mark
+        if (!markedRows[rowIndex]) markedRows[rowIndex] = {};
+        if (markedRows[rowIndex].red) {
+            delete markedRows[rowIndex].red;
+        } else {
+            markedRows[rowIndex].red = true;
+            // Remove yellow mark if red is being added
+            delete markedRows[rowIndex].yellow;
+        }
+        if (Object.keys(markedRows[rowIndex]).length === 0) delete markedRows[rowIndex];
+        saveMarkedRows();
+        updateMarkerTable();
+        resetCheckboxClickState();
+    }
+    
+    // Reset after 1 second if no further click
+    clearTimeout(checkboxClickState.timeout);
+    checkboxClickState.timeout = setTimeout(() => {
+        resetCheckboxClickState();
+    }, 1000);
+}
+
+function resetCheckboxClickState() {
+    checkboxClickState = { row: null, count: 0, timeout: null, lastClickTime: 0 };
 }

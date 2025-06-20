@@ -1154,6 +1154,57 @@ body {
     width: 90px !important;
 }
 
+/* Checkbox cell styling for row marking */
+.checkbox-cell {
+    cursor: pointer;
+    position: relative;
+    background-color: rgba(255, 255, 255, 0.05);
+    transition: background-color 0.2s ease;
+}
+
+.checkbox-cell:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.checkbox-cell.clicked {
+    background-color: rgba(255, 255, 255, 0.2);
+    animation: clickFeedback 0.3s ease;
+}
+
+@keyframes clickFeedback {
+    0% { background-color: rgba(255, 255, 255, 0.3); }
+    100% { background-color: rgba(255, 255, 255, 0.05); }
+}
+
+.checkbox-cell::before {
+    content: "Double-click: Yellow | Triple-click: Red";
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+}
+
+.checkbox-cell:hover::before {
+    opacity: 1;
+}
+
+/* Ensure the checkbox itself doesn't trigger the cell click */
+.checkbox-cell .row-checkbox {
+    cursor: pointer;
+    z-index: 1;
+    position: relative;
+}
+
 /* Seq column */
 .table th.seq, .table td.seq, .table th[data-field="seq"], .table td[data-field="seq"] {
     min-width: 50px !important;
