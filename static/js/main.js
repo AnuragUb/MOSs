@@ -975,7 +975,7 @@ function updateMarkerTable() {
             marker.tcrIn = e.target.value;
             updateDuration(actualIndex);
         });
-        // Highlight on blur
+        // Highlight on blur and manage focus
         tcrInInput.addEventListener('blur', function(e) {
             e.target.classList.add('tcr-blur');
         });
@@ -998,7 +998,7 @@ function updateMarkerTable() {
             marker.tcrOut = e.target.value;
             updateDuration(actualIndex);
         });
-        // Highlight on blur
+        // Highlight on blur and manage focus
         tcrOutInput.addEventListener('blur', function(e) {
             e.target.classList.add('tcr-blur');
         });
@@ -1241,9 +1241,14 @@ function setupKeyboardShortcuts() {
         const tableBody = document.getElementById('markerTableBody');
         const activeElement = document.activeElement;
         
-        // If in input/select, let default behavior for arrows
+        // If in input/select, let default behavior for most keys
         if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
-            return;
+            // Allow shortcuts even when an input is focused
+            if (e.altKey && (e.key === '1' || e.key === '2')) {
+                // Do nothing here, will be handled below
+            } else {
+                return; // Block other shortcuts
+            }
         }
         
         // Undo (Ctrl + Z)
