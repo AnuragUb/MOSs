@@ -593,6 +593,31 @@ function initializeMarkerTable() {
                     
                     const result = await resp.json();
                     marker.recognition = result;
+                    
+                    // Auto-populate fields from recognition result
+                    if (result.status === 'success' && result.result) {
+                        const rec = result.result;
+                        console.log('Recognition result:', rec);
+                        
+                        // Map API fields to table columns
+                        if (rec.album) {
+                            marker.filmTitle = rec.album;
+                            console.log('Set Film/Album Title to:', rec.album);
+                        }
+                        if (rec.apple_music && rec.apple_music.composerName) {
+                            marker.composer = rec.apple_music.composerName;
+                            console.log('Set Composer to:', rec.apple_music.composerName);
+                        }
+                        if (rec.label) {
+                            marker.musicCo = rec.label;
+                            console.log('Set Music Co to:', rec.label);
+                        }
+                        if (rec.lyricist) {
+                            marker.lyricist = rec.lyricist;
+                            console.log('Set Lyricist to:', rec.lyricist);
+                        }
+                    }
+                    
                     updateMarkerTable();
                     
                     setTimeout(() => {
