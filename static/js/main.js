@@ -277,6 +277,16 @@ function initializeVideoPlayer() {
         videoFileInput.addEventListener('change', function(event) {
             if (event.target.files && event.target.files[0]) {
                 const file = event.target.files[0];
+                const videoPlayer = document.getElementById('videoPlayer');
+
+                // Create a local URL for immediate playback in the browser
+                const localUrl = URL.createObjectURL(file);
+                videoPlayer.src = localUrl;
+                videoPlayer.load();
+                console.log('Video loaded into player for local playback.');
+
+                currentVideoFile = file; // Keep track of the file object
+                
                 const MAX_SIZE = 32 * 1024 * 1024; // 32MB
 
                 if (file.size < MAX_SIZE) {
