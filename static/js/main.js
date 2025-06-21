@@ -269,46 +269,26 @@ function initializeVideoPlayer() {
         updateButtonMode();
     });
 
-    loadVideoBtn.addEventListener('click', () => {
-        videoFileInput.click();
-    });
+    if (loadVideoBtn) {
+        loadVideoBtn.addEventListener('click', () => videoFileInput.click());
+    }
 
-    // Handle video file upload with background GCS upload
-    document.getElementById('videoFileInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        const videoPlayer = document.getElementById('videoPlayer');
-        const playerStatus = document.getElementById('playerStatus');
-        
-        if (file && file.type === 'video/mp4') {
-            // Set exportSettings.fileName to the base name of the file if not set
-            const baseName = file.name.replace(/\.[^/.]+$/, "");
-            let exportSettings = JSON.parse(localStorage.getItem('exportSettings')) || {};
-            if (!exportSettings.fileName || exportSettings.fileName === 'exported_file') {
-                exportSettings.fileName = baseName;
-                localStorage.setItem('exportSettings', JSON.stringify(exportSettings));
+    if (videoFileInput) {
+        videoFileInput.addEventListener('change', function(event) {
+            if (event.target.files && event.target.files[0]) {
+                const file = event.target.files[0];
+                const MAX_SIZE = 32 * 1024 * 1024; // 32MB
+
+                if (file.size < MAX_SIZE) {
+                    console.log(`File size is under 32MB (${(file.size / (1024*1024)).toFixed(2)}MB). Uploading via server proxy.`);
+                    uploadVideoViaProxy(file);
+                } else {
+                    console.log(`File size is over 32MB (${(file.size / (1024*1024)).toFixed(2)}MB). Uploading directly to GCS.`);
+                    uploadVideoToGCS(file);
+                }
             }
-            
-            // Create local URL for immediate playback
-            const url = URL.createObjectURL(file);
-            videoPlayer.src = url;
-            videoPlayer.load();
-            currentVideoFile = file;
-            currentVideo = null; // Clear URL reference
-            
-            // Show loading status
-            playerStatus.style.display = 'block';
-            playerStatus.className = 'alert alert-info';
-            playerStatus.textContent = 'Loading video and uploading to cloud...';
-            
-            // Start background upload to GCS
-            uploadVideoToGCS(file);
-            
-        } else {
-            playerStatus.style.display = 'block';
-            playerStatus.className = 'alert alert-danger';
-            playerStatus.textContent = 'Please select a valid MP4 file.';
-        }
-    });
+        });
+    }
 
     loadUrlBtn.addEventListener('click', async function() {
         const url = videoUrlInput.value.trim();
@@ -356,6 +336,46 @@ function initializeVideoPlayer() {
         if (e.key === 'Enter') {
             loadUrlBtn.click();
         }
+    });
+}
+
+function uploadVideoViaProxy(file) {
+    const formData = new FormData();
+    formData.append('video', file);
+
+    const playerStatus = document.getElementById('playerStatus');
+    playerStatus.innerHTML = `
+        <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <span>Uploading small file via server...</span>
+        </div>`;
+    playerStatus.style.display = 'block';
+    uploadInProgress = true;
+
+    fetch('/api/upload-video-to-gcs', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            playerStatus.textContent = 'Upload successful! Video is ready.';
+            currentGcsPath = data.gcs_path;
+            console.log('Video ready to be processed from GCS path:', currentGcsPath);
+        } else {
+            throw new Error(data.error || 'Proxy upload failed.');
+        }
+    })
+    .catch(error => {
+        console.error('GCS proxy upload process failed:', error);
+        playerStatus.textContent = `Upload failed: ${error.message}`;
+    })
+    .finally(() => {
+        uploadInProgress = false;
+        // Hide status after a few seconds
+        setTimeout(() => {
+            playerStatus.style.display = 'none';
+        }, 5000);
     });
 }
 
