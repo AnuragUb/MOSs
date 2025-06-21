@@ -1176,14 +1176,92 @@ function updateMarkerTable() {
         ['title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'].forEach(field => {
             const cell = document.createElement('td');
             if (field === 'musicCo') {
+                cell.className = 'music-co-cell'; // Add class for dropdown targeting
+                const container = document.createElement('div');
+                container.className = 'dropdown-container';
+                
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.className = 'table-input';
+                input.className = 'form-control music-co-input';
                 input.value = marker[field] || '';
-                input.dataset.field = field;
-                input.setAttribute('list', 'musicCoOptions');
-                makeInputResizable(input);
+                input.placeholder = 'Search Music Co...';
                 
+                const dropdown = document.createElement('div');
+                dropdown.className = 'custom-dropdown';
+                
+                // Initially populate with all options
+                updateDropdownOptions(dropdown, musicCoOptions, '');
+                
+                // Show dropdown on focus
+                input.addEventListener('focus', () => {
+                    dropdown.style.display = 'block';
+                    updateDropdownOptions(dropdown, musicCoOptions, input.value);
+                });
+                
+                // Filter options on input with improved search
+                input.addEventListener('input', (e) => {
+                    const value = e.target.value.toLowerCase();
+                    const words = value.split(/\s+/).filter(word => word.length > 0);
+                    
+                    const filteredOptions = musicCoOptions.filter(option => {
+                        const optionLower = option.toLowerCase();
+                        // Match if all words are found in the option
+                        return words.every(word => optionLower.includes(word));
+                    });
+                    
+                    updateDropdownOptions(dropdown, filteredOptions, value);
+                    dropdown.style.display = 'block';
+                });
+                
+                // Handle option selection
+                dropdown.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('dropdown-option')) {
+                        input.value = e.target.textContent;
+                        dropdown.style.display = 'none';
+                        // Update the marker data
+                        marker[field] = input.value;
+                    }
+                });
+                
+                // Handle keyboard navigation
+                input.addEventListener('keydown', (e) => {
+                    const options = dropdown.querySelectorAll('.dropdown-option');
+                    const currentIndex = Array.from(options).findIndex(opt => opt.classList.contains('selected'));
+                    
+                    switch(e.key) {
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            if (currentIndex < options.length - 1) {
+                                options[currentIndex]?.classList.remove('selected');
+                                options[currentIndex + 1].classList.add('selected');
+                                options[currentIndex + 1].scrollIntoView({ block: 'nearest' });
+                            }
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            if (currentIndex > 0) {
+                                options[currentIndex]?.classList.remove('selected');
+                                options[currentIndex - 1].classList.add('selected');
+                                options[currentIndex - 1].scrollIntoView({ block: 'nearest' });
+                            }
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            const selectedOption = dropdown.querySelector('.dropdown-option.selected');
+                            if (selectedOption) {
+                                input.value = selectedOption.textContent;
+                                dropdown.style.display = 'none';
+                                marker[field] = input.value;
+                            }
+                            break;
+                        case 'Escape':
+                            e.preventDefault();
+                            dropdown.style.display = 'none';
+                            break;
+                    }
+                });
+                
+                // Handle change event to update marker data
                 input.addEventListener('change', (e) => {
                     marker[field] = e.target.value;
                     if (activePasteColumns[field]) {
@@ -1192,7 +1270,16 @@ function updateMarkerTable() {
                     }
                 });
                 
-                cell.appendChild(input);
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!container.contains(e.target)) {
+                        dropdown.style.display = 'none';
+                    }
+                });
+                
+                container.appendChild(input);
+                container.appendChild(dropdown);
+                cell.appendChild(container);
             } else {
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -2448,7 +2535,7 @@ function loadMusicCoOptions() {
         .then(response => response.json())
         .then(data => {
             musicCoOptions = data.map(item => item.name);
-            // No longer need to call updateMusicCoDropdown() since we're using datalist
+            updateMusicCoDropdown();
         })
         .catch(error => console.error('Error loading music co options:', error));
 }
@@ -2484,6 +2571,11 @@ function updateUsageDropdown() {
 function updateMusicCoDropdown() {
     const musicCoCells = document.querySelectorAll('.music-co-cell');
     musicCoCells.forEach(cell => {
+        // Skip if cell already has the complex dropdown
+        if (cell.querySelector('.dropdown-container')) {
+            return;
+        }
+        
         const currentValue = cell.textContent;
         const container = document.createElement('div');
         container.className = 'dropdown-container';
