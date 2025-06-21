@@ -1176,31 +1176,15 @@ function updateMarkerTable() {
         ['title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'].forEach(field => {
             const cell = document.createElement('td');
             if (field === 'musicCo') {
-                const select = document.createElement('select');
-                select.className = 'table-input';
-                select.dataset.field = field;
-                makeInputResizable(select);
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'table-input';
+                input.value = marker[field] || '';
+                input.dataset.field = field;
+                input.setAttribute('list', 'musicCoOptions');
+                makeInputResizable(input);
                 
-                // Add empty option
-                const emptyOpt = document.createElement('option');
-                emptyOpt.value = '';
-                emptyOpt.textContent = '';
-                select.appendChild(emptyOpt);
-                
-                // Fetch and add music co options
-                fetch('/api/music-co')
-                    .then(res => res.json())
-                    .then(data => {
-                        data.forEach(item => {
-                            const opt = document.createElement('option');
-                            opt.value = item.name;
-                            opt.textContent = item.name;
-                            if (marker[field] === item.name) opt.selected = true;
-                            select.appendChild(opt);
-                        });
-                    });
-                
-                select.addEventListener('change', (e) => {
+                input.addEventListener('change', (e) => {
                     marker[field] = e.target.value;
                     if (activePasteColumns[field]) {
                         if (!manualEdits[field]) manualEdits[field] = {};
@@ -1208,7 +1192,7 @@ function updateMarkerTable() {
                     }
                 });
                 
-                cell.appendChild(select);
+                cell.appendChild(input);
             } else {
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -2464,7 +2448,7 @@ function loadMusicCoOptions() {
         .then(response => response.json())
         .then(data => {
             musicCoOptions = data.map(item => item.name);
-            updateMusicCoDropdown();
+            // No longer need to call updateMusicCoDropdown() since we're using datalist
         })
         .catch(error => console.error('Error loading music co options:', error));
 }
@@ -2648,6 +2632,20 @@ function addDatalists() {
     const musicCoDatalist = document.createElement('datalist');
     musicCoDatalist.id = 'musicCoOptions';
     document.body.appendChild(musicCoDatalist);
+    
+    // Populate Music Co datalist with options from API
+    fetch('/api/music-co')
+        .then(res => res.json())
+        .then(data => {
+            data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.name;
+                musicCoDatalist.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Failed to load Music Co options:', error);
+        });
 }
 
 // --- Session-based autosave ---
