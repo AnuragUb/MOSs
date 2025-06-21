@@ -659,6 +659,27 @@ function initializeMarkerTable() {
                 alert('Video not uploaded to cloud yet. Please wait for upload to complete or try again.');
             }
         }
+
+        if (e.target.classList.contains('search-youtube-btn')) {
+            const idx = +e.target.dataset.index;
+            const marker = markers[idx];
+            
+            // Prioritize recognition data, fall back to table data
+            const recognitionResult = marker.recognition?.result;
+            const title = recognitionResult?.title || marker.title || '';
+            const artist = recognitionResult?.artist || marker.composer || '';
+            const album = recognitionResult?.album || marker.filmTitle || '';
+
+            const searchQuery = `${title} ${artist} ${album}`.replace(/\s+/g, ' ').trim();
+
+            if (searchQuery) {
+                console.log(`Searching YouTube for: "${searchQuery}"`);
+                const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
+                window.open(youtubeUrl, '_blank');
+            } else {
+                alert('Not enough information to perform a search. Please fill in the title, composer, or film/album fields, or run recognition first.');
+            }
+        }
     });
 
     // Add datalists
@@ -1210,6 +1231,15 @@ function updateMarkerTable() {
             viewCell.appendChild(viewBtn);
         }
         row.appendChild(viewCell);
+
+        // Add Actions cell
+        const actionsCell = document.createElement('td');
+        const searchBtn = document.createElement('button');
+        searchBtn.className = 'btn btn-info btn-sm search-youtube-btn';
+        searchBtn.textContent = 'Search YouTube';
+        searchBtn.dataset.index = actualIndex;
+        actionsCell.appendChild(searchBtn);
+        row.appendChild(actionsCell);
         
         tableBody.appendChild(row);
     });
