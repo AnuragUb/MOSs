@@ -1169,6 +1169,16 @@ def list_usage():
         logger.error(f"Error listing usage options: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/music-co-management')
+def music_co_management():
+    """Renders the Music Co Management page."""
+    return render_template('music_co.html')
+
+@app.route('/usage-management')
+def usage_management():
+    """Renders the Usage Management page."""
+    return render_template('usage.html')
+
 @app.route('/export-settings')
 def export_settings():
     return render_template('export_settings.html')
