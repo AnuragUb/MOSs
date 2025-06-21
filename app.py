@@ -1134,6 +1134,41 @@ def vlc_volume():
         logger.error(f"Error setting volume: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/music-co', methods=['GET'])
+def list_music_co():
+    """Lists music companies from Firestore, with optional search."""
+    try:
+        if firestore_client is None:
+            return jsonify({'error': 'Firestore not initialized'}), 503
+        
+        search = request.args.get('search', '').lower()
+        docs = firestore_client.collection(MUSIC_CO_COLLECTION).stream()
+        results = []
+        for doc in docs:
+            data = doc.to_dict()
+            name = data.get('name', '')
+            if not search or search in name.lower():
+                results.append({'id': doc.id, 'name': name})
+        return jsonify(results)
+    except Exception as e:
+        logger.error(f"Error listing music companies: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage', methods=['GET'])
+def list_usage():
+    """Lists usage options from Firestore."""
+    try:
+        if db is None:
+            return jsonify({'error': 'Firestore not initialized'}), 503
+            
+        usage_ref = db.collection('usage')
+        usage_docs = usage_ref.stream()
+        usage_list = [{'id': doc.id, 'name': doc.to_dict()['name']} for doc in usage_docs]
+        return jsonify(usage_list)
+    except Exception as e:
+        logger.error(f"Error listing usage options: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/export-settings')
 def export_settings():
     return render_template('export_settings.html')
