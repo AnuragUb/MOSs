@@ -1320,6 +1320,11 @@ def generate_upload_url():
         bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
         blob = bucket.blob(gcs_path)
 
+        # The email of the service account that has the "Service Account Token Creator" role.
+        # This will be used by the library to sign the URL via the IAM API,
+        # which is the correct way to do it in a key-less environment like Cloud Run.
+        signer_email = "cloud-run-gcs-signer@mos-atomantstudios.iam.gserviceaccount.com"
+
         # Generate a v4 signed URL for uploading a file
         url = blob.generate_signed_url(
             version="v4",
@@ -1328,9 +1333,10 @@ def generate_upload_url():
             # Allow PUT requests with the specified content_type.
             method="PUT",
             content_type=content_type,
+            service_account_email=signer_email
         )
 
-        logger.info(f"Generated signed URL for {gcs_path}")
+        logger.info(f"Generated signed URL for {gcs_path} using IAM signer.")
         
         return jsonify({
             'status': 'success',
