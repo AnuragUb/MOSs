@@ -35,6 +35,7 @@ steps:
       - '20'
       - '--timeout'
       - '900'
+      - '--startup-cpu-boost'
       - '--set-env-vars'
       - 'GCS_BUCKET_NAME=mos-aat,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,FLASK_SECRET_KEY=9rHms6H3UDZVQTcIGYTEHfB9uOLz7gGF2M1pzbEaEtoHh8Qys_j_mb2eiNPwp79HxmiCcLXY2mj20aa_dgW7Fw'
       - '--set-env-vars'

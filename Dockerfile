@@ -20,6 +20,9 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p /tmp/uploads
 
+# Make startup check script executable
+RUN chmod +x startup_check.py
+
 # Set environment variables
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
@@ -28,8 +31,8 @@ ENV CPU_LIMIT=1
 ENV MAX_CONCURRENCY=80
 ENV TIMEOUT=300
 
-# Run the application with optimized settings for free tier
-CMD exec gunicorn \
+# Run startup check and then the application
+CMD python startup_check.py && exec gunicorn \
     --bind :$PORT \
     --workers 1 \
     --threads 8 \

@@ -52,7 +52,7 @@ try:
         
     logger.info("VLC initialized successfully")
 except Exception as e:
-    logger.error(f"Error initializing VLC: {str(e)}")
+    logger.warning(f"VLC initialization failed (this is normal in Cloud Run): {str(e)}")
     vlc_instance = None
     player = None
 
@@ -111,6 +111,27 @@ initialize_gcs_client()
 @app.route('/')
 def index():
     return render_template('splash.html')
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Cloud Run startup probe"""
+    try:
+        # Basic health checks - only check essential services
+        if storage_client is None:
+            return jsonify({'status': 'unhealthy', 'error': 'GCS client not initialized'}), 503
+        
+        # Firestore is optional for basic functionality
+        # VLC is optional and not required for startup
+        
+        return jsonify({
+            'status': 'healthy', 
+            'timestamp': datetime.now().isoformat(),
+            'gcs_ready': storage_client is not None,
+            'firestore_ready': firestore_client is not None
+        }), 200
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 503
 
 @app.route('/main')
 def main():
