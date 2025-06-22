@@ -34,6 +34,9 @@ app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key')  # Set securely in production!
 
+# Configure maximum file size (1000MB)
+app.config['MAX_CONTENT_LENGTH'] = 1000 * 1024 * 1024  # 1000MB in bytes
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

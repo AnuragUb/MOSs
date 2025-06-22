@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     vlc \
     libvlc-dev \
+    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -14,8 +15,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and nginx configuration
 COPY . .
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Create uploads directory
 RUN mkdir -p /tmp/uploads
@@ -26,7 +28,7 @@ RUN chmod +x startup_check.py
 # Set environment variables
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
-ENV MEMORY_LIMIT=256Mi
+ENV MEMORY_LIMIT=1Gi
 ENV CPU_LIMIT=1
 ENV MAX_CONCURRENCY=80
 ENV TIMEOUT=300
@@ -41,3 +43,4 @@ CMD python startup_check.py && exec gunicorn \
     --worker-tmp-dir /dev/shm \
     --log-level info \
     app:app 
+# Note: If you need Nginx, use a process manager or custom entrypoint script for multi-process support in Cloud Run. 
