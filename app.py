@@ -94,39 +94,16 @@ except Exception as e:
 storage_client = None
 
 def initialize_gcs_client():
-    """Initializes the GCS client with credentials from Secret Manager."""
+    """Initializes the GCS client using the application's default credentials,
+    which are inherited from the Cloud Run service account."""
     global storage_client
     try:
-        project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
-        secret_name = "gcs-service-account-key"
-        secret_version = "latest"
-
-        # Create the Secret Manager client.
-        client = secretmanager.SecretManagerServiceClient()
-
-        # Build the resource name of the secret version.
-        name = f"projects/{project_id}/secrets/{secret_name}/versions/{secret_version}"
-
-        # Access the secret version.
-        response = client.access_secret_version(name=name)
-        
-        # Extract the payload as a dictionary.
-        secret_payload = response.payload.data.decode("UTF-8")
-        credentials_info = json.loads(secret_payload)
-
-        # Create credentials from the secret.
-        credentials = service_account.Credentials.from_service_account_info(credentials_info)
-        
-        # Initialize the storage client with the explicit credentials
-        storage_client = storage.Client(credentials=credentials)
-        
-        logger.info("Successfully initialized GCS client using credentials from Secret Manager.")
-
-    except Exception as e:
-        logger.error(f"Failed to initialize GCS client from Secret Manager: {e}")
-        logger.warning("Falling back to default application credentials for GCS client.")
-        # Fallback to default credentials if secret access fails
         storage_client = storage.Client()
+        logger.info("Successfully initialized GCS client using Application Default Credentials.")
+    except Exception as e:
+        logger.error(f"FATAL: Failed to initialize GCS client: {e}")
+        # The application cannot function without GCS, so we don't set a fallback.
+        storage_client = None
 
 # Initialize GCS client on application startup
 initialize_gcs_client()
@@ -381,10 +358,11 @@ def export_markers(format):
             start_row = len(header_rows) + blank_lines + 2 if markers else len(header_rows) + blank_lines + 1
             for i, marker in enumerate(markers):
                 color = marker.get('markColor', '')
-                if color == 'yellow':
+                # Handle combined markColor values (e.g., 'yellow,exception', 'red,exception')
+                if 'yellow' in color:
                     for cell in ws[start_row + i]:
                         cell.fill = yellow_fill
-                elif color == 'red':
+                elif 'red' in color:
                     for cell in ws[start_row + i]:
                         cell.fill = red_fill
             # --- END: Color marked rows ---
