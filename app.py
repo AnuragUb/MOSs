@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 import uuid
 from google.cloud import secretmanager
 from google.oauth2 import service_account
+import shutil
 
 # Load environment variables
 load_dotenv()
@@ -142,6 +143,7 @@ def main():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    """DEPRECATED: This route is for basic local uploads, GCS is preferred."""
     try:
         if 'video' not in request.files:
             return jsonify({'error': 'No video file provided'}), 400
@@ -149,75 +151,18 @@ def upload_file():
         file = request.files['video']
         if file.filename == '':
             return jsonify({'error': 'No selected file'}), 400
-
-        # Check file size
-        file.seek(0, os.SEEK_END)
-        file_size = file.tell()
-        file.seek(0)
         
-        if file_size > app.config['MAX_CONTENT_LENGTH']:
-            return jsonify({
-                'error': f'File too large. Maximum size is {app.config["MAX_CONTENT_LENGTH"] / (1024*1024)}MB'
-            }), 413
-
-        # Create uploads directory if it doesn't exist
+        # This is a fallback and does not handle large files or GCS correctly.
+        # It's kept for potential local testing but not for production use.
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        
-        # Save the uploaded file
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{timestamp}_{secure_filename(file.filename)}"
+        filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
 
-        # Check if it's a WMV file
-        if filename.lower().endswith('.wmv'):
-            try:
-                # Convert WMV to MP4
-                output_filename = f"{os.path.splitext(filename)[0]}.mp4"
-                output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
-                
-                # Convert the file
-                convert_wmv_to_mp4(filepath, output_path)
-                
-                # Upload to GCS
-                gcs_filename = f"videos/{output_filename}"
-                upload_to_gcs(output_path, gcs_filename)
-                
-                # Clean up temporary files
-                os.remove(filepath)
-                os.remove(output_path)
-                
-                # Generate signed URL
-                url = generate_signed_url(gcs_filename)
-                return jsonify({'filename': url})
-                
-            except Exception as e:
-                # Clean up on error
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                if os.path.exists(output_path):
-                    os.remove(output_path)
-                return jsonify({'error': f'Error converting video: {str(e)}'}), 500
-        else:
-            # For non-WMV files, just upload to GCS
-            try:
-                gcs_filename = f"videos/{filename}"
-                upload_to_gcs(filepath, gcs_filename)
-                
-                # Clean up temporary file
-                os.remove(filepath)
-                
-                # Generate signed URL
-                url = generate_signed_url(gcs_filename)
-                return jsonify({'filename': url})
-                
-            except Exception as e:
-                # Clean up on error
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                return jsonify({'error': f'Error uploading video: {str(e)}'}), 500
+        return jsonify({'filename': filename})
                 
     except Exception as e:
+        logger.error(f"Error in basic upload: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/uploads/<filename>')
@@ -1340,24 +1285,25 @@ def generate_upload_url():
         unique_filename = f"{uuid.uuid4()}{file_extension}"
         gcs_path = f"videos/{unique_filename}"
         
-        # Use the globally initialized storage client
-        bucket = storage_client.bucket(os.getenv('GCS_BUCKET_NAME'))
+        bucket_name = os.getenv('GCS_BUCKET_NAME')
+        if not bucket_name:
+            raise Exception("GCS_BUCKET_NAME environment variable not set.")
+        
+        bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(gcs_path)
 
-        # The email of the service account that has the "Service Account Token Creator" role.
-        # This will be used by the library to sign the URL via the IAM API,
-        # which is the correct way to do it in a key-less environment like Cloud Run.
+        # This service account is the identity of the Cloud Run service itself.
+        # It needs the "Service Account Token Creator" role on itself to sign URLs.
         signer_email = "cloud-run-gcs-signer@mos-atomantstudios.iam.gserviceaccount.com"
 
         # Generate a v4 signed URL for uploading a file
         url = blob.generate_signed_url(
             version="v4",
-            # This URL is valid for 15 minutes
             expiration=timedelta(minutes=15),
-            # Allow PUT requests with the specified content_type.
             method="PUT",
             content_type=content_type,
-            service_account_email=signer_email
+            service_account_email=signer_email,
+            access_token=None # Let the library handle auth
         )
 
         logger.info(f"Generated signed URL for {gcs_path} using IAM signer.")

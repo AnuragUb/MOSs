@@ -395,7 +395,6 @@ function uploadVideoToGCS(file) {
         console.log('Upload already in progress, skipping...');
         return;
     }
-    
     uploadInProgress = true;
     const playerStatus = document.getElementById('playerStatus');
     playerStatus.style.display = 'block';
@@ -434,7 +433,7 @@ function uploadVideoToGCS(file) {
         if (data.status !== 'success') {
             throw new Error(data.error || 'Could not get upload URL.');
         }
-
+        
         // 2. Upload the file directly to GCS using the signed URL
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', data.signedUrl, true);
@@ -454,7 +453,7 @@ function uploadVideoToGCS(file) {
                 currentGcsPath = data.gcsPath; // The path for our backend to use
                 playerStatus.className = 'alert alert-success';
                 playerStatus.textContent = 'Video loaded and uploaded to cloud successfully!';
-                setTimeout(() => { 
+                setTimeout(() => {
                     playerStatus.style.display = 'none';
                     progressDiv.remove(); 
                 }, 3000);
@@ -477,6 +476,10 @@ function uploadVideoToGCS(file) {
         playerStatus.textContent = 'Cloud upload failed. Recognition will not work. Error: ' + error.message;
         console.error('GCS upload process failed:', error);
     });
+}
+
+function loadVideoFromServer(filename) {
+    // ... existing code ...
 }
 
 function initializeMarkerTable() {
