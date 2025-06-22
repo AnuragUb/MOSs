@@ -13,6 +13,12 @@ uploads/
 *.xlsx
 *.bat
 
+# Environment and credentials
+.env
+*.json
+!package.json
+!package-lock.json
+
 # IDE
 .vscode/
 .idea/

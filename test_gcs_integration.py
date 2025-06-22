@@ -8,7 +8,11 @@ import os
 import tempfile
 import requests
 import json
+from dotenv import load_dotenv
 from google.cloud import storage
+
+# Load environment variables from .env file
+load_dotenv()
 
 def test_gcs_connection():
     """Test if GCS connection works"""
