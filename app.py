@@ -74,7 +74,7 @@ UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads'
 if not os.path.exists(UPLOADS_DIR):
     os.makedirs(UPLOADS_DIR)
 
-AUDD_API_TOKEN = '04e48a84490a8a2f0bf327b274404905'  # Replace with your actual API token
+AUDD_API_TOKEN = os.environ.get('AUDD_API_TOKEN')
 
 # Initialize Firestore client with proper error handling
 try:
