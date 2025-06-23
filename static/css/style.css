@@ -967,11 +967,11 @@ body {
 
 /* Row Marking Styles */
 .marked-yellow {
-    background-color: #fff3cd !important;
+    background-color: rgba(255, 235, 59, 0.15) !important; /* Yellow overlay */
 }
 
 .marked-red {
-    background-color: #5d3a40 !important;
+    background-color: rgba(239, 83, 80, 0.15) !important; /* Red overlay */
 }
 
 .marked-exception {
