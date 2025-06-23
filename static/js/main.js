@@ -1565,15 +1565,16 @@ function setupKeyboardShortcuts() {
         if (e.key === 'Period' || e.key === '>' || (e.shiftKey && e.key === '.')) {
             e.preventDefault();
             if (videoPlayer) {
-                // Ensure video is paused
                 videoPlayer.pause();
-                // Calculate frame duration
-                const frameDuration = 1 / window.frameRate;
-                // Round to nearest frame
-                const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
+                let frameRate = window.frameRate;
+                if (!frameRate || isNaN(frameRate) || frameRate < 10) frameRate = 25; // fallback
+                const frameDuration = 1 / frameRate;
+                const currentFrame = Math.floor(videoPlayer.currentTime * frameRate);
                 const newTime = (currentFrame + 1) * frameDuration;
-                videoPlayer.currentTime = newTime;
-                console.log(`Frame forward: ${currentFrame} → ${currentFrame + 1} (${newTime.toFixed(3)}s) at ${window.frameRate}fps`);
+                if (newTime <= videoPlayer.duration) {
+                    videoPlayer.currentTime = newTime;
+                    console.log(`Frame forward: ${currentFrame} → ${currentFrame + 1} (${newTime.toFixed(3)}s) at ${frameRate}fps`);
+                }
             }
             return;
         }
@@ -1581,15 +1582,14 @@ function setupKeyboardShortcuts() {
         if (e.key === 'Comma' || e.key === '<' || (e.shiftKey && e.key === ',')) {
             e.preventDefault();
             if (videoPlayer) {
-                // Ensure video is paused
                 videoPlayer.pause();
-                // Calculate frame duration
-                const frameDuration = 1 / window.frameRate;
-                // Round to nearest frame
-                const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
+                let frameRate = window.frameRate;
+                if (!frameRate || isNaN(frameRate) || frameRate < 10) frameRate = 25; // fallback
+                const frameDuration = 1 / frameRate;
+                const currentFrame = Math.floor(videoPlayer.currentTime * frameRate);
                 const newTime = Math.max(0, (currentFrame - 1) * frameDuration);
                 videoPlayer.currentTime = newTime;
-                console.log(`Frame backward: ${currentFrame} → ${currentFrame - 1} (${newTime.toFixed(3)}s) at ${window.frameRate}fps`);
+                console.log(`Frame backward: ${currentFrame} → ${currentFrame - 1} (${newTime.toFixed(3)}s) at ${frameRate}fps`);
             }
             return;
         }
