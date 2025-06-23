@@ -92,6 +92,11 @@ body {
     background: #181a20;
 }
 
+/* Remove any hover effects that might darken the video */
+#videoPlayer:hover {
+    background: #181a20;
+}
+
 #videoPlayer::-webkit-media-controls {
     background-color: rgba(0, 0, 0, 0.7);
 }
@@ -114,13 +119,22 @@ body {
     color: var(--text-primary);
 }
 
-/* Ensure controls are always visible */
+/* Ensure controls are always visible and prevent darkening */
 #videoPlayer:not([controls]) {
     pointer-events: none;
 }
 
 #videoPlayer[controls] {
     pointer-events: auto;
+}
+
+/* Prevent video container from darkening on hover */
+.video-container:hover {
+    background: #181a20;
+}
+
+.video-container:hover video {
+    background: #181a20;
 }
 
 /* Controls */
@@ -1525,4 +1539,28 @@ body {
     color: #721c24;
     background-color: #f8d7da;
     border-color: #f5c6cb;
+}
+
+/* Keyboard shortcut hints */
+.text-muted {
+    color: var(--text-secondary) !important;
+}
+
+kbd {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+    color: var(--text-primary);
+    display: inline-block;
+    font-size: 0.85em;
+    font-weight: 700;
+    line-height: 1;
+    padding: 2px 4px;
+    white-space: nowrap;
+    margin: 0 2px;
+}
+
+kbd:hover {
+    background-color: var(--hover-color);
 } 

@@ -1474,7 +1474,9 @@ function setupKeyboardShortcuts() {
                 const frameDuration = 1 / window.frameRate;
                 // Round to nearest frame
                 const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
-                videoPlayer.currentTime = (currentFrame + 1) * frameDuration;
+                const newTime = (currentFrame + 1) * frameDuration;
+                videoPlayer.currentTime = newTime;
+                console.log(`Frame forward: ${currentFrame} → ${currentFrame + 1} (${newTime.toFixed(3)}s) at ${window.frameRate}fps`);
             }
             return;
         }
@@ -1488,7 +1490,9 @@ function setupKeyboardShortcuts() {
                 const frameDuration = 1 / window.frameRate;
                 // Round to nearest frame
                 const currentFrame = Math.round(videoPlayer.currentTime * window.frameRate);
-                videoPlayer.currentTime = Math.max(0, (currentFrame - 1) * frameDuration);
+                const newTime = Math.max(0, (currentFrame - 1) * frameDuration);
+                videoPlayer.currentTime = newTime;
+                console.log(`Frame backward: ${currentFrame} → ${currentFrame - 1} (${newTime.toFixed(3)}s) at ${window.frameRate}fps`);
             }
             return;
         }
