@@ -204,6 +204,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeRowMarking();
     initializeColumnResize();
     setupSeqHeaderDoubleClick();
+    initializeTitleTagModal();
     
     // Load options from Firestore
     loadUsageOptions();
@@ -3003,4 +3004,126 @@ function handleCheckboxCellClick(rowIndex, event) {
 
 function resetCheckboxClickState() {
     checkboxClickState = { row: null, count: 0, timeout: null, lastClickTime: 0 };
+}
+
+// Initialize title tag modal functionality
+function initializeTitleTagModal() {
+    const applyTitleBtn = document.getElementById('applyTitleBtn');
+    const titleTagModal = document.getElementById('titleTagModal');
+    const titleTagSelect = document.getElementById('titleTagSelect');
+    const applyTitleTagBtn = document.getElementById('applyTitleTagBtn');
+    const cancelTitleTagBtn = document.getElementById('cancelTitleTagBtn');
+    const applyToAllSelected = document.getElementById('applyToAllSelected');
+    
+    // Close modal elements
+    const closeButtons = titleTagModal.querySelectorAll('.close');
+    
+    // Show modal when button is clicked
+    applyTitleBtn.addEventListener('click', () => {
+        // Check if any rows are selected
+        const selectedRows = getSelectedRows();
+        if (selectedRows.length === 0) {
+            alert('Please select at least one row first.');
+            return;
+        }
+        
+        // Populate the dropdown with unknown tags
+        populateTitleTagDropdown();
+        
+        // Show the modal
+        titleTagModal.style.display = 'block';
+    });
+    
+    // Close modal when clicking close buttons
+    closeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            titleTagModal.style.display = 'none';
+        });
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (event) => {
+        if (event.target === titleTagModal) {
+            titleTagModal.style.display = 'none';
+        }
+    });
+    
+    // Cancel button
+    cancelTitleTagBtn.addEventListener('click', () => {
+        titleTagModal.style.display = 'none';
+    });
+    
+    // Apply title tag button
+    applyTitleTagBtn.addEventListener('click', () => {
+        const selectedTag = titleTagSelect.value;
+        if (!selectedTag) {
+            alert('Please select a title tag.');
+            return;
+        }
+        
+        const selectedRows = getSelectedRows();
+        const applyToAll = applyToAllSelected.checked;
+        
+        if (applyToAll) {
+            // Apply to all selected rows
+            selectedRows.forEach(rowIndex => {
+                markers[rowIndex].title = selectedTag;
+            });
+        } else {
+            // Apply only to the first selected row
+            markers[selectedRows[0]].title = selectedTag;
+        }
+        
+        // Update the table
+        updateMarkerTable();
+        
+        // Close the modal
+        titleTagModal.style.display = 'none';
+        
+        // Show success message
+        const message = applyToAll ? 
+            `Applied "${selectedTag}" to ${selectedRows.length} rows.` : 
+            `Applied "${selectedTag}" to row ${selectedRows[0] + 1}.`;
+        alert(message);
+    });
+}
+
+// Get selected row indices
+function getSelectedRows() {
+    const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+    const selectedRows = [];
+    
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const tbody = row.closest('tbody');
+        const rowIndex = Array.from(tbody.children).indexOf(row);
+        selectedRows.push(rowIndex);
+    });
+    
+    return selectedRows;
+}
+
+// Populate the title tag dropdown with unknown tags
+function populateTitleTagDropdown() {
+    const titleTagSelect = document.getElementById('titleTagSelect');
+    
+    // Clear existing options except the first one
+    titleTagSelect.innerHTML = '<option value="">-- Select a title tag --</option>';
+    
+    // Add unknown tags options
+    if (unknownTagsOptions && unknownTagsOptions.length > 0) {
+        unknownTagsOptions.forEach(tag => {
+            const option = document.createElement('option');
+            option.value = tag;
+            option.textContent = tag;
+            titleTagSelect.appendChild(option);
+        });
+    } else {
+        // If no unknown tags, add a placeholder
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No unknown tags available';
+        option.disabled = true;
+        titleTagSelect.appendChild(option);
+    }
 }

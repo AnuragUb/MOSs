@@ -1672,4 +1672,77 @@ kbd:hover {
 /* Ensure table responsive doesn't clip dropdowns */
 .table-responsive {
     overflow: visible !important;
+}
+
+/* Title Tag Modal Styles */
+#titleTagModal .modal-content {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+}
+
+#titleTagModal .modal-header {
+    border-bottom: 1px solid var(--border-color);
+}
+
+#titleTagModal .modal-header .btn-close {
+    color: var(--text-primary);
+}
+
+#titleTagModal .modal-body {
+    padding: 1rem;
+}
+
+#titleTagModal .form-label {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+#titleTagModal .form-select {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+#titleTagModal .form-select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(127, 156, 245, 0.2);
+}
+
+#titleTagModal .form-check-label {
+    color: var(--text-primary);
+}
+
+#titleTagModal .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+#titleTagModal .btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
+}
+
+#titleTagModal .btn-primary {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+#titleTagModal .btn-primary:hover {
+    background-color: #5a7be0;
+}
+
+#titleTagModal .btn-secondary {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+#titleTagModal .btn-secondary:hover {
+    background-color: var(--hover-color);
 } 
