@@ -1044,7 +1044,21 @@ body {
 /* Exception Modal Styles */
 #exceptionModal .modal-content {
     max-width: 450px;
-    background-color: #fff;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+#exceptionModal .modal-header {
+    border-bottom: 1px solid var(--border-color);
+}
+
+#exceptionModal .modal-header .btn-close {
+    filter: invert(1);
+}
+
+#exceptionModal .modal-body {
+    padding: 1.5rem;
 }
 
 .exception-options {
@@ -1054,19 +1068,20 @@ body {
     gap: 15px;
 }
 
-.exception-checkbox {
+.exception-checkbox label {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s;
+    color: var(--text-primary);
 }
 
-.exception-checkbox:hover {
-    background-color: #f8f9fa;
+.exception-checkbox label:hover {
+    background-color: var(--hover-color);
 }
 
 .exception-checkbox input[type="checkbox"] {
@@ -1077,7 +1092,6 @@ body {
 
 .exception-checkbox span {
     font-weight: 500;
-    color: #212529;
 }
 
 .exception-actions {
