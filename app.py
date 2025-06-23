@@ -31,16 +31,21 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+# --- FINGERPRINT ---
+# Add a unique log message to verify deployment
+current_version = "v3.0.0 - " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.info(f"--- APPLICATION STARTING - VERSION {current_version} ---")
+# --- END FINGERPRINT ---
+
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key')  # Set securely in production!
 
 # Configure maximum file size (1000MB)
 app.config['MAX_CONTENT_LENGTH'] = 1000 * 1024 * 1024  # 1000MB in bytes
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Initialize VLC instance with proper error handling
 try:
