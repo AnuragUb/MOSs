@@ -65,7 +65,7 @@ body {
     width: 100%;
     height: 400px;
     position: relative;
-    background: #181a20;
+    background: transparent !important;
     margin-bottom: 1rem;
     min-height: 200px;
     min-width: 300px;
@@ -81,7 +81,7 @@ body {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background: #181a20;
+    background: transparent !important;
 }
 
 /* Video Controls Styling */
@@ -89,12 +89,12 @@ body {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background: #181a20;
+    background: transparent !important;
 }
 
 /* Remove any hover effects that might darken the video */
 #videoPlayer:hover {
-    background: #181a20;
+    background: transparent !important;
 }
 
 #videoPlayer::-webkit-media-controls {
@@ -130,11 +130,11 @@ body {
 
 /* Prevent video container from darkening on hover */
 .video-container:hover {
-    background: #181a20;
+    background: transparent !important;
 }
 
 .video-container:hover video {
-    background: #181a20;
+    background: transparent !important;
 }
 
 /* Controls */
@@ -1603,4 +1603,50 @@ kbd:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
     padding: 4px 8px;
+}
+
+/* Combobox for Title column */
+.title-combobox-container {
+    position: relative;
+    width: 100%;
+}
+.title-combobox-input {
+    width: 100%;
+    min-width: 0;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+.combobox-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.combobox-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    transition: background 0.18s;
+    font-size: 1rem;
+}
+.combobox-option:hover {
+    background: var(--hover-color);
+    color: #fff;
+}
+.combobox-option:active {
+    background: var(--accent-color);
+    color: #fff;
 } 

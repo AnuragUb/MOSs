@@ -162,6 +162,7 @@ let checkboxClickState = { row: null, count: 0, timeout: null, lastClickTime: 0 
 // Add these variables at the top with other global variables
 let currentGcsPath = null; // Store the GCS path for the current video
 let uploadInProgress = false; // Track upload status
+let isLoadingData = false; // Track when we're loading data to prevent auto-fill interference
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -171,8 +172,10 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         const savedMarkers = localStorage.getItem('markers');
         if (savedMarkers) {
+            isLoadingData = true; // Set loading flag
             markers = JSON.parse(savedMarkers);
             console.log('Loaded markers from localStorage:', markers.length);
+            isLoadingData = false; // Reset loading flag
         }
         
         const savedHeaderRows = localStorage.getItem('headerRows');
@@ -182,6 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     } catch (e) {
         console.error('Error loading markers from localStorage:', e);
+        isLoadingData = false; // Reset loading flag on error
     }
     
     initializeVideoPlayer();
@@ -1220,67 +1224,95 @@ function updateMarkerTable() {
                 
                 cell.appendChild(select);
             } else if (field === 'title') {
-                // Create a container for title input and dropdown
+                // Create a combobox: input with dropdown for unknown tags
                 const container = document.createElement('div');
-                container.className = 'title-cell-container';
-                container.style.display = 'flex';
-                container.style.gap = '5px';
-                container.style.alignItems = 'center';
-                
+                container.className = 'title-combobox-container';
+                container.style.position = 'relative';
+                container.style.width = '100%';
+
                 // Create the text input
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.className = 'table-input';
+                input.className = 'table-input title-combobox-input';
                 input.value = marker[field] || '';
                 input.dataset.field = field;
-                input.style.flex = '1';
+                input.autocomplete = 'off';
+                input.style.width = '100%';
                 makeInputResizable(input);
-                input.addEventListener('change', (e) => {
-                    const newValue = e.target.value;
-                    marker[field] = newValue;
+
+                // Create the dropdown
+                const dropdown = document.createElement('div');
+                dropdown.className = 'combobox-dropdown';
+                dropdown.style.display = 'none';
+                dropdown.style.position = 'absolute';
+                dropdown.style.top = '100%';
+                dropdown.style.left = '0';
+                dropdown.style.right = '0';
+                dropdown.style.zIndex = '1000';
+                dropdown.style.background = 'var(--bg-tertiary)';
+                dropdown.style.border = '1px solid var(--border-color)';
+                dropdown.style.borderRadius = '4px';
+                dropdown.style.maxHeight = '180px';
+                dropdown.style.overflowY = 'auto';
+
+                // Helper to render dropdown options
+                function renderDropdownOptions(filterText = '') {
+                    dropdown.innerHTML = '';
+                    const filtered = unknownTagsOptions.filter(opt =>
+                        opt.toLowerCase().includes(filterText.toLowerCase())
+                    );
+                    if (filtered.length === 0) {
+                        const noOpt = document.createElement('div');
+                        noOpt.className = 'combobox-option';
+                        noOpt.textContent = 'No matches';
+                        noOpt.style.color = '#888';
+                        dropdown.appendChild(noOpt);
+                        return;
+                    }
+                    filtered.forEach(option => {
+                        const optDiv = document.createElement('div');
+                        optDiv.className = 'combobox-option';
+                        optDiv.textContent = option;
+                        optDiv.style.cursor = 'pointer';
+                        optDiv.addEventListener('mousedown', (e) => {
+                            e.preventDefault(); // Prevent input blur
+                            input.value = option;
+                            marker[field] = option;
+                            dropdown.style.display = 'none';
+                            if (activePasteColumns[field]) {
+                                if (!manualEdits[field]) manualEdits[field] = {};
+                                manualEdits[field][actualIndex] = true;
+                            }
+                        });
+                        dropdown.appendChild(optDiv);
+                    });
+                }
+
+                // Show dropdown on focus/click
+                input.addEventListener('focus', () => {
+                    renderDropdownOptions(input.value);
+                    dropdown.style.display = 'block';
+                });
+                input.addEventListener('click', () => {
+                    renderDropdownOptions(input.value);
+                    dropdown.style.display = 'block';
+                });
+                // Filter dropdown as user types
+                input.addEventListener('input', (e) => {
+                    marker[field] = e.target.value;
+                    renderDropdownOptions(input.value);
                     if (activePasteColumns[field]) {
                         if (!manualEdits[field]) manualEdits[field] = {};
                         manualEdits[field][actualIndex] = true;
                     }
                 });
-                
-                // Create the dropdown for unknown tags
-                const select = document.createElement('select');
-                select.className = 'table-input unknown-tags-dropdown';
-                select.style.width = 'auto';
-                select.style.minWidth = '120px';
-                select.style.maxWidth = '150px';
-                
-                // Add empty option
-                const emptyOpt = document.createElement('option');
-                emptyOpt.value = '';
-                emptyOpt.textContent = 'Unknown Tags';
-                select.appendChild(emptyOpt);
-                
-                // Add unknown tags options
-                unknownTagsOptions.forEach(option => {
-                    const opt = document.createElement('option');
-                    opt.value = option;
-                    opt.textContent = option;
-                    select.appendChild(opt);
+                // Hide dropdown on blur (with timeout to allow click)
+                input.addEventListener('blur', () => {
+                    setTimeout(() => { dropdown.style.display = 'none'; }, 150);
                 });
-                
-                // Handle dropdown change
-                select.addEventListener('change', (e) => {
-                    if (e.target.value) {
-                        marker[field] = e.target.value;
-                        input.value = e.target.value;
-                        // Reset dropdown to empty
-                        select.value = '';
-                        if (activePasteColumns[field]) {
-                            if (!manualEdits[field]) manualEdits[field] = {};
-                            manualEdits[field][actualIndex] = true;
-                        }
-                    }
-                });
-                
+
                 container.appendChild(input);
-                container.appendChild(select);
+                container.appendChild(dropdown);
                 cell.appendChild(container);
             } else {
                 const input = document.createElement('input');
@@ -1699,9 +1731,10 @@ function updateMarkerTableHeader() {
 // When adding a new row, auto-fill active columns only if they haven't been manually edited
 function addMarkerRow(newMarker) {
     // For each special column, if active, copy from first row only if the field is empty
+    // AND we're not currently loading data
     const specialColumns = ['filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle', 'title'];
     specialColumns.forEach(col => {
-        if (activePasteColumns[col] && markers.length > 0 && !newMarker[col]) {
+        if (activePasteColumns[col] && markers.length > 0 && !newMarker[col] && !isLoadingData) {
             newMarker[col] = markers[0][col] || '';
         }
     });
@@ -1885,6 +1918,9 @@ function extractFieldValue(headerRows, fieldName) {
 }
 
 function loadCueSheetData(header, data) {
+    // Set loading flag to prevent auto-fill interference
+    isLoadingData = true;
+    
     // Map file columns to app columns using mapping
     let lowerHeader = header.map(h => h.trim().toLowerCase());
     console.log('Lowercase header:', lowerHeader);
@@ -1920,8 +1956,8 @@ function loadCueSheetData(header, data) {
                 marker[field] += ':00';
             }
         });
-        // Set filmTitle to showName if available
-        if (showName) {
+        // Set filmTitle to showName only if it's empty (preserve manual data)
+        if (showName && (!marker.filmTitle || marker.filmTitle.trim() === '')) {
             marker.filmTitle = showName;
         }
         return marker;
@@ -1966,6 +2002,9 @@ function loadCueSheetData(header, data) {
         console.error('Failed to save headerRows/markers to localStorage:', e);
     }
     // --- END: Save metadata and marker data to localStorage for export ---
+    
+    // Reset loading flag after data is loaded
+    isLoadingData = false;
 }
 
 function initializeClearTableButton() {
@@ -2817,6 +2856,7 @@ window.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data && data.markers && data.markers.length > 0) {
                 if (confirm('Restore your last saved work from this session?')) {
+                    isLoadingData = true; // Set loading flag
                     markers = data.markers;
                     
                     // Restore export settings
@@ -2847,6 +2887,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     updateMarkerTable();
+                    isLoadingData = false; // Reset loading flag
                 }
             }
         })
