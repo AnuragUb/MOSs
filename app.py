@@ -25,7 +25,7 @@ import uuid
 from google.cloud import secretmanager
 from google.oauth2 import service_account
 import shutil
-import google.auth
+from google.auth import compute_engine
 
 # Load environment variables
 load_dotenv()
@@ -104,15 +104,17 @@ except Exception as e:
 storage_client = None
 
 def initialize_gcs_client():
-    """Initializes the GCS client using the application's default credentials,
-    which are inherited from the Cloud Run service account."""
+    """Initializes the GCS client by explicitly using Compute Engine credentials,
+    which correctly sources the identity from the instance metadata server."""
     global storage_client
     try:
-        storage_client = storage.Client()
-        logger.info("Successfully initialized GCS client using Application Default Credentials.")
+        # Explicitly create credentials from the metadata server.
+        # This resolves the ambiguity where google.auth.default() was failing.
+        credentials = compute_engine.Credentials()
+        storage_client = storage.Client(credentials=credentials)
+        logger.info(f"Successfully initialized GCS client with explicit Compute Engine credentials.")
     except Exception as e:
-        logger.error(f"FATAL: Failed to initialize GCS client: {e}")
-        # The application cannot function without GCS, so we don't set a fallback.
+        logger.error(f"FATAL: Failed to initialize GCS client with explicit credentials: {e}")
         storage_client = None
 
 # Initialize GCS client on application startup
@@ -1400,65 +1402,6 @@ def upload_video_to_gcs():
     except Exception as e:
         logger.error(f"Error uploading video to GCS: {str(e)}")
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-
-@app.route('/debug-auth')
-def debug_auth():
-    """A temporary endpoint to debug the authentication environment."""
-    auth_info = {
-        "fingerprint": f"DEBUGGER_ENDPOINT_V1 - {current_version}",
-        "service_account_email": "Could not determine email.",
-        "project_id": "Could not determine project.",
-        "google_app_creds_env_var": os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', 'Not Set')
-    }
-    try:
-        credentials, project_id = google.auth.default()
-        auth_info['project_id'] = project_id
-        if hasattr(credentials, 'service_account_email'):
-            auth_info['service_account_email'] = credentials.service_account_email
-        else:
-            # For ComputeEngineCredentials, we might need to query the metadata server directly
-            # but for now, we'll see what google.auth.default() provides.
-            auth_info['service_account_email'] = "N/A on this credential type (e.g., ComputeEngineCredentials)"
-
-    except Exception as e:
-        auth_info['error'] = str(e)
-
-    return jsonify(auth_info)
-
-@app.route('/debug-auth-v2')
-def debug_auth_v2():
-    """A more robust endpoint to debug the authentication environment."""
-    import google.auth
-    import requests as http_requests
-
-    auth_info = {
-        "fingerprint": f"DEBUGGER_ENDPOINT_V2 - {current_version}",
-        "auth_default_email": "Not determined",
-        "auth_default_type": "Not determined",
-        "metadata_server_email": "Not determined",
-        "google_app_creds_env_var": os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', 'Not Set')
-    }
-
-    # Method 1: Use google.auth.default()
-    try:
-        credentials, project_id = google.auth.default()
-        auth_info["auth_default_type"] = str(type(credentials))
-        if hasattr(credentials, 'service_account_email'):
-            auth_info['auth_default_email'] = credentials.service_account_email
-    except Exception as e:
-        auth_info['auth_default_error'] = str(e)
-
-    # Method 2: Directly query the metadata server
-    try:
-        metadata_server_url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email"
-        headers = {"Metadata-Flavor": "Google"}
-        response = http_requests.get(metadata_server_url, headers=headers, timeout=3)
-        response.raise_for_status()
-        auth_info['metadata_server_email'] = response.text
-    except Exception as e:
-        auth_info['metadata_server_error'] = str(e)
-
-    return jsonify(auth_info)
 
 if __name__ == '__main__':
     app.run(debug=True) 
