@@ -7,6 +7,7 @@ let activeCell = null;
 let isNextMarkTcrIn = true; // For single button mode toggle
 let usageOptions = [];
 let musicCoOptions = [];
+let unknownTagsOptions = [];
 let usageCounts = { BI: 0, BV: 0, VI: 0, VV: 0, SRC: 0, 'BI,BV': 0, 'VI,VV': 0, 'BI,VV': 0,'VI,BV': 0 };
 let extraColumns = [];
 let seqClickState = { row: null, count: 0, timeout: null }; // For tracking triple clicks
@@ -203,6 +204,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load options from Firestore
     loadUsageOptions();
     loadMusicCoOptions();
+    loadUnknownTagsOptions();
     
     // Load usage counts from localStorage
     loadUsageCounts();
@@ -1217,6 +1219,69 @@ function updateMarkerTable() {
                 });
                 
                 cell.appendChild(select);
+            } else if (field === 'title') {
+                // Create a container for title input and dropdown
+                const container = document.createElement('div');
+                container.className = 'title-cell-container';
+                container.style.display = 'flex';
+                container.style.gap = '5px';
+                container.style.alignItems = 'center';
+                
+                // Create the text input
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'table-input';
+                input.value = marker[field] || '';
+                input.dataset.field = field;
+                input.style.flex = '1';
+                makeInputResizable(input);
+                input.addEventListener('change', (e) => {
+                    const newValue = e.target.value;
+                    marker[field] = newValue;
+                    if (activePasteColumns[field]) {
+                        if (!manualEdits[field]) manualEdits[field] = {};
+                        manualEdits[field][actualIndex] = true;
+                    }
+                });
+                
+                // Create the dropdown for unknown tags
+                const select = document.createElement('select');
+                select.className = 'table-input unknown-tags-dropdown';
+                select.style.width = 'auto';
+                select.style.minWidth = '120px';
+                select.style.maxWidth = '150px';
+                
+                // Add empty option
+                const emptyOpt = document.createElement('option');
+                emptyOpt.value = '';
+                emptyOpt.textContent = 'Unknown Tags';
+                select.appendChild(emptyOpt);
+                
+                // Add unknown tags options
+                unknownTagsOptions.forEach(option => {
+                    const opt = document.createElement('option');
+                    opt.value = option;
+                    opt.textContent = option;
+                    select.appendChild(opt);
+                });
+                
+                // Handle dropdown change
+                select.addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        marker[field] = e.target.value;
+                        input.value = e.target.value;
+                        // Reset dropdown to empty
+                        select.value = '';
+                        if (activePasteColumns[field]) {
+                            if (!manualEdits[field]) manualEdits[field] = {};
+                            manualEdits[field][actualIndex] = true;
+                        }
+                    }
+                });
+                
+                container.appendChild(input);
+                container.appendChild(select);
+                cell.appendChild(container);
             } else {
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -2479,6 +2544,17 @@ function loadMusicCoOptions() {
             updateMusicCoDropdown();
         })
         .catch(error => console.error('Error loading music co options:', error));
+}
+
+// Add this function to load unknown tags options from Firestore
+function loadUnknownTagsOptions() {
+    fetch('/api/unknown-tags')
+        .then(response => response.json())
+        .then(data => {
+            unknownTagsOptions = data.map(item => item.name);
+            console.log('Loaded unknown tags options:', unknownTagsOptions);
+        })
+        .catch(error => console.error('Error loading unknown tags options:', error));
 }
 
 // Update the usage dropdown

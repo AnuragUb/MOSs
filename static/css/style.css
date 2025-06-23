@@ -1563,4 +1563,44 @@ kbd {
 
 kbd:hover {
     background-color: var(--hover-color);
+}
+
+/* Title cell container styling */
+.title-cell-container {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    width: 100%;
+}
+
+.title-cell-container .table-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.unknown-tags-dropdown {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.unknown-tags-dropdown:hover {
+    border-color: var(--accent-color);
+}
+
+.unknown-tags-dropdown:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(127, 156, 245, 0.2);
+}
+
+.unknown-tags-dropdown option {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: 4px 8px;
 } 

@@ -1197,6 +1197,67 @@ def delete_usage(doc_id):
         logger.error(f"Error deleting usage option: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/unknown-tags', methods=['GET'])
+def list_unknown_tags():
+    """Lists unknown tags from Firestore."""
+    try:
+        if db is None:
+            return jsonify({'error': 'Firestore not initialized'}), 503
+            
+        unknown_tags_ref = db.collection('unknown_tags')
+        unknown_tags_docs = unknown_tags_ref.stream()
+        unknown_tags_list = [{'id': doc.id, 'name': doc.to_dict()['name']} for doc in unknown_tags_docs]
+        return jsonify(unknown_tags_list)
+    except Exception as e:
+        logger.error(f"Error listing unknown tags: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/unknown-tags', methods=['POST'])
+def add_unknown_tag():
+    """Adds a new unknown tag to Firestore."""
+    try:
+        if db is None:
+            return jsonify({'error': 'Firestore not initialized'}), 503
+        
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        
+        if not name:
+            return jsonify({'error': 'Unknown tag name is required'}), 400
+        
+        # Check if name already exists
+        existing_docs = db.collection('unknown_tags').where('name', '==', name).stream()
+        if list(existing_docs):
+            return jsonify({'error': 'Unknown tag with this name already exists'}), 409
+        
+        # Add new unknown tag
+        doc_ref = db.collection('unknown_tags').add({'name': name})
+        
+        return jsonify({'id': doc_ref[1].id, 'name': name, 'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error adding unknown tag: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/unknown-tags/<doc_id>', methods=['DELETE'])
+def delete_unknown_tag(doc_id):
+    """Deletes an unknown tag from Firestore."""
+    try:
+        if db is None:
+            return jsonify({'error': 'Firestore not initialized'}), 503
+        
+        # Check if document exists
+        doc_ref = db.collection('unknown_tags').document(doc_id)
+        if not doc_ref.get().exists:
+            return jsonify({'error': 'Unknown tag not found'}), 404
+        
+        # Delete the document
+        doc_ref.delete()
+        
+        return jsonify({'status': 'success', 'message': 'Unknown tag deleted successfully'})
+    except Exception as e:
+        logger.error(f"Error deleting unknown tag: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/music-co')
 def music_co_management():
     """Renders the Music Co Management page."""
@@ -1206,6 +1267,11 @@ def music_co_management():
 def usage_management():
     """Renders the Usage Management page."""
     return render_template('usage.html')
+
+@app.route('/unknown-tags')
+def unknown_tags_management():
+    """Renders the Unknown Tags Management page."""
+    return render_template('unknown_tags.html')
 
 @app.route('/export-settings')
 def export_settings():
