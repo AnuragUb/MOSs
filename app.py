@@ -203,16 +203,8 @@ def export_markers(format):
         blank_lines = payload.get('blankLines', 0)
         fields_to_export = payload.get('fieldsToExport')
         field_labels = payload.get('fieldLabels', {})
-        time_format = payload.get('timeFormat', 'HH:MM:SS')  # Default to HH:MM:SS
-
-        def format_time(seconds, include_frames=False):
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            secs = int(seconds % 60)
-            if include_frames:
-                frames = int(round((seconds % 1) * 25))  # Assuming 25 fps
-                return f"{hours:02d}:{minutes:02d}:{secs:02d}:{frames:02d}"
-            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+        # Correctly get time_format, default to 'timecode' (HH:MM:SS)
+        time_format = payload.get('timeFormat', 'timecode')
 
         def convert_time_fields(row):
             new_row = row.copy()
@@ -220,38 +212,27 @@ def export_markers(format):
                 import re
                 return isinstance(val, str) and re.match(r"^\d{2}:\d{2}:\d{2}(:\d{2})?$", val)
 
-            # Handle TCR In
-            if 'tcrIn' in new_row and new_row['tcrIn']:
-                if is_timecode_string(new_row['tcrIn']):
-                    if time_format == 'HH:MM:SS' and len(new_row['tcrIn'].split(':')) == 4:
-                        new_row['tcrIn'] = ':'.join(new_row['tcrIn'].split(':')[:3])
-                else:
-                    try:
-                        new_row['tcrIn'] = format_time(float(new_row['tcrIn']), time_format == 'HH:MM:SS:FF')
-                    except (ValueError, TypeError):
-                        new_row['tcrIn'] = ''
+            def timecode_to_seconds(tc_str):
+                parts = list(map(int, tc_str.split(':')))
+                seconds = parts[0] * 3600 + parts[1] * 60 + parts[2]
+                if len(parts) == 4:
+                    seconds += parts[3] / 25.0 # Assuming 25 fps
+                return seconds
 
-            # Handle TCR Out
-            if 'tcrOut' in new_row and new_row['tcrOut']:
-                if is_timecode_string(new_row['tcrOut']):
-                    if time_format == 'HH:MM:SS' and len(new_row['tcrOut'].split(':')) == 4:
-                        new_row['tcrOut'] = ':'.join(new_row['tcrOut'].split(':')[:3])
-                else:
-                    try:
-                        new_row['tcrOut'] = format_time(float(new_row['tcrOut']), time_format == 'HH:MM:SS:FF')
-                    except (ValueError, TypeError):
-                        new_row['tcrOut'] = ''
+            def seconds_to_timecode(s, with_frames=False):
+                h = int(s // 3600)
+                m = int((s % 3600) // 60)
+                sec = int(s % 60)
+                if with_frames:
+                    f = int(round((s % 1) * 25))
+                    return f"{h:02d}:{m:02d}:{sec:02d}:{f:02d}"
+                return f"{h:02d}:{m:02d}:{sec:02d}"
 
-            # Handle Duration
-            if 'duration' in new_row and new_row['duration']:
-                if is_timecode_string(new_row['duration']):
-                    if time_format == 'HH:MM:SS' and len(new_row['duration'].split(':')) == 4:
-                        new_row['duration'] = ':'.join(new_row['duration'].split(':')[:3])
-                else:
-                    try:
-                        new_row['duration'] = format_time(float(new_row['duration']), time_format == 'HH:MM:SS:FF')
-                    except (ValueError, TypeError):
-                        new_row['duration'] = ''
+            # The fields to convert
+            for field in ['tcrIn', 'tcrOut', 'duration']:
+                if field in new_row and new_row[field] and is_timecode_string(new_row[field]):
+                    seconds = timecode_to_seconds(new_row[field])
+                    new_row[field] = seconds_to_timecode(seconds, with_frames=(time_format == 'timecode_frames'))
 
             return new_row
 
