@@ -1425,5 +1425,40 @@ def debug_auth():
 
     return jsonify(auth_info)
 
+@app.route('/debug-auth-v2')
+def debug_auth_v2():
+    """A more robust endpoint to debug the authentication environment."""
+    import google.auth
+    import requests as http_requests
+
+    auth_info = {
+        "fingerprint": f"DEBUGGER_ENDPOINT_V2 - {current_version}",
+        "auth_default_email": "Not determined",
+        "auth_default_type": "Not determined",
+        "metadata_server_email": "Not determined",
+        "google_app_creds_env_var": os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', 'Not Set')
+    }
+
+    # Method 1: Use google.auth.default()
+    try:
+        credentials, project_id = google.auth.default()
+        auth_info["auth_default_type"] = str(type(credentials))
+        if hasattr(credentials, 'service_account_email'):
+            auth_info['auth_default_email'] = credentials.service_account_email
+    except Exception as e:
+        auth_info['auth_default_error'] = str(e)
+
+    # Method 2: Directly query the metadata server
+    try:
+        metadata_server_url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email"
+        headers = {"Metadata-Flavor": "Google"}
+        response = http_requests.get(metadata_server_url, headers=headers, timeout=3)
+        response.raise_for_status()
+        auth_info['metadata_server_email'] = response.text
+    except Exception as e:
+        auth_info['metadata_server_error'] = str(e)
+
+    return jsonify(auth_info)
+
 if __name__ == '__main__':
     app.run(debug=True) 
