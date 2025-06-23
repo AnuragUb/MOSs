@@ -971,16 +971,16 @@ body {
 }
 
 .marked-red {
-    background-color: #f8d7da !important;
+    background-color: #5d3a40 !important;
 }
 
 .marked-exception {
-    background-color: #e9ecef !important;
-    border-left: 4px solid #6c757d !important;
+    background-color: #4a4a4a !important;
+    color: var(--text-primary) !important;
 }
 
 .marked-exception td {
-    background-color: #e9ecef !important;
+    background-color: transparent !important;
 }
 
 .marked-exception .table-input {
@@ -1120,31 +1120,31 @@ body {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    margin-right: 5px;
-    border: 2px solid #fff;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
+    margin-right: 4px;
+    vertical-align: middle;
 }
 
 /* Remove mark button */
 .remove-mark-btn {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background-color: #dc3545;
+    display: inline-block;
+    background: #dc3545;
     color: white;
     border: none;
-    font-size: 12px;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    line-height: 14px;
+    text-align: center;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
+    font-size: 12px;
+    font-weight: bold;
+    vertical-align: middle;
+    padding: 0;
+    margin-left: 5px;
+}
+
+.remove-mark-btn:hover {
+    background: #c82333;
 }
 
 /* Checkbox column (first column) */
