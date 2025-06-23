@@ -25,6 +25,7 @@ import uuid
 from google.cloud import secretmanager
 from google.oauth2 import service_account
 import shutil
+import google.auth
 
 # Load environment variables
 load_dotenv()
@@ -1399,6 +1400,30 @@ def upload_video_to_gcs():
     except Exception as e:
         logger.error(f"Error uploading video to GCS: {str(e)}")
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+
+@app.route('/debug-auth')
+def debug_auth():
+    """A temporary endpoint to debug the authentication environment."""
+    auth_info = {
+        "fingerprint": f"DEBUGGER_ENDPOINT_V1 - {current_version}",
+        "service_account_email": "Could not determine email.",
+        "project_id": "Could not determine project.",
+        "google_app_creds_env_var": os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', 'Not Set')
+    }
+    try:
+        credentials, project_id = google.auth.default()
+        auth_info['project_id'] = project_id
+        if hasattr(credentials, 'service_account_email'):
+            auth_info['service_account_email'] = credentials.service_account_email
+        else:
+            # For ComputeEngineCredentials, we might need to query the metadata server directly
+            # but for now, we'll see what google.auth.default() provides.
+            auth_info['service_account_email'] = "N/A on this credential type (e.g., ComputeEngineCredentials)"
+
+    except Exception as e:
+        auth_info['error'] = str(e)
+
+    return jsonify(auth_info)
 
 if __name__ == '__main__':
     app.run(debug=True) 
