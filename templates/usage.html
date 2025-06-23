@@ -92,8 +92,14 @@
         // Load existing usage options
         function loadUsageOptions() {
             fetch('/api/usage')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Fetched usage list:', data);
                     const usageList = document.getElementById('usageList');
                     usageList.innerHTML = '';
                     data.forEach(usage => {
@@ -106,13 +112,24 @@
                         usageList.appendChild(item);
                     });
                 })
-                .catch(error => console.error('Error loading usage options:', error));
+                .catch(error => {
+                    console.error('Error loading usage options:', error);
+                    alert('Error loading usage options: ' + error.message);
+                });
         }
 
         // Add new usage option
         document.getElementById('addUsageForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const name = document.getElementById('usageName').value;
+            const name = document.getElementById('usageName').value.trim();
+            
+            if (!name) {
+                alert('Please enter a usage name');
+                return;
+            }
+            
+            console.log('Adding usage:', name);
+            
             fetch('/api/usage', {
                 method: 'POST',
                 headers: {
@@ -120,22 +137,49 @@
                 },
                 body: JSON.stringify({ name })
             })
-            .then(response => response.json())
-            .then(() => {
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Add usage result:', data);
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
                 document.getElementById('usageName').value = '';
                 loadUsageOptions();
             })
-            .catch(error => console.error('Error adding usage option:', error));
+            .catch(error => {
+                console.error('Error adding usage option:', error);
+                alert('Error adding usage option: ' + error.message);
+            });
         });
 
         // Delete usage option
         function deleteUsage(id) {
             if (confirm('Are you sure you want to delete this usage option?')) {
+                console.log('Deleting usage with ID:', id);
+                
                 fetch(`/api/usage/${id}`, {
                     method: 'DELETE'
                 })
-                .then(() => loadUsageOptions())
-                .catch(error => console.error('Error deleting usage option:', error));
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Delete usage result:', data);
+                    loadUsageOptions();
+                })
+                .catch(error => {
+                    console.error('Error deleting usage option:', error);
+                    alert('Error deleting usage option: ' + error.message);
+                });
             }
         }
 

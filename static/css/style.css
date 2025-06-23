@@ -84,6 +84,45 @@ body {
     background: #181a20;
 }
 
+/* Video Controls Styling */
+#videoPlayer {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #181a20;
+}
+
+#videoPlayer::-webkit-media-controls {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+#videoPlayer::-webkit-media-controls-panel {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+#videoPlayer::-webkit-media-controls-play-button {
+    background-color: var(--accent-color);
+    border-radius: 50%;
+}
+
+#videoPlayer::-webkit-media-controls-timeline {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+#videoPlayer::-webkit-media-controls-current-time-display,
+#videoPlayer::-webkit-media-controls-time-remaining-display {
+    color: var(--text-primary);
+}
+
+/* Ensure controls are always visible */
+#videoPlayer:not([controls]) {
+    pointer-events: none;
+}
+
+#videoPlayer[controls] {
+    pointer-events: auto;
+}
+
 /* Controls */
 .controls {
     padding: 1rem;

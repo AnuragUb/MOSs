@@ -1090,6 +1090,52 @@ def list_music_co():
         logger.error(f"Error listing music companies: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/music-co', methods=['POST'])
+def add_music_co():
+    """Adds a new music company to Firestore."""
+    try:
+        if firestore_client is None:
+            return jsonify({'error': 'Firestore not initialized'}), 503
+        
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        
+        if not name:
+            return jsonify({'error': 'Music company name is required'}), 400
+        
+        # Check if name already exists
+        existing_docs = firestore_client.collection(MUSIC_CO_COLLECTION).where('name', '==', name).stream()
+        if list(existing_docs):
+            return jsonify({'error': 'Music company with this name already exists'}), 409
+        
+        # Add new music company
+        doc_ref = firestore_client.collection(MUSIC_CO_COLLECTION).add({'name': name})
+        
+        return jsonify({'id': doc_ref[1].id, 'name': name, 'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error adding music company: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/music-co/<doc_id>', methods=['DELETE'])
+def delete_music_co(doc_id):
+    """Deletes a music company from Firestore."""
+    try:
+        if firestore_client is None:
+            return jsonify({'error': 'Firestore not initialized'}), 503
+        
+        # Check if document exists
+        doc_ref = firestore_client.collection(MUSIC_CO_COLLECTION).document(doc_id)
+        if not doc_ref.get().exists:
+            return jsonify({'error': 'Music company not found'}), 404
+        
+        # Delete the document
+        doc_ref.delete()
+        
+        return jsonify({'status': 'success', 'message': 'Music company deleted successfully'})
+    except Exception as e:
+        logger.error(f"Error deleting music company: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/usage', methods=['GET'])
 def list_usage():
     """Lists usage options from Firestore."""
@@ -1103,6 +1149,52 @@ def list_usage():
         return jsonify(usage_list)
     except Exception as e:
         logger.error(f"Error listing usage options: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage', methods=['POST'])
+def add_usage():
+    """Adds a new usage option to Firestore."""
+    try:
+        if db is None:
+            return jsonify({'error': 'Firestore not initialized'}), 503
+        
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        
+        if not name:
+            return jsonify({'error': 'Usage name is required'}), 400
+        
+        # Check if name already exists
+        existing_docs = db.collection('usage').where('name', '==', name).stream()
+        if list(existing_docs):
+            return jsonify({'error': 'Usage option with this name already exists'}), 409
+        
+        # Add new usage option
+        doc_ref = db.collection('usage').add({'name': name})
+        
+        return jsonify({'id': doc_ref[1].id, 'name': name, 'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error adding usage option: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/usage/<doc_id>', methods=['DELETE'])
+def delete_usage(doc_id):
+    """Deletes a usage option from Firestore."""
+    try:
+        if db is None:
+            return jsonify({'error': 'Firestore not initialized'}), 503
+        
+        # Check if document exists
+        doc_ref = db.collection('usage').document(doc_id)
+        if not doc_ref.get().exists:
+            return jsonify({'error': 'Usage option not found'}), 404
+        
+        # Delete the document
+        doc_ref.delete()
+        
+        return jsonify({'status': 'success', 'message': 'Usage option deleted successfully'})
+    except Exception as e:
+        logger.error(f"Error deleting usage option: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/music-co')

@@ -6,6 +6,47 @@
     <title>Music Co. Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        .container {
+            background-color: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 2rem;
+            margin-top: 2rem;
+            box-shadow: var(--panel-shadow);
+            border: 1px solid var(--border-color);
+        }
+        h1 {
+            color: var(--text-primary);
+            margin-bottom: 1.5rem;
+        }
+        .form-label {
+            color: var(--text-primary);
+        }
+        .form-control {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+        .form-control:focus {
+            background-color: var(--bg-tertiary);
+            border-color: var(--accent-color);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 0.25rem rgba(127, 156, 245, 0.25);
+        }
+        .list-group-item {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        .list-group-item:last-child {
+            margin-bottom: 0;
+        }
+    </style>
 </head>
 <body class="music-co-page">
     <div class="container mt-5">
@@ -23,8 +64,14 @@
     <script>
         function fetchMusicCoList() {
             fetch('/api/music-co')
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`HTTP error! status: ${res.status}`);
+                    }
+                    return res.json();
+                })
                 .then(data => {
+                    console.log('Fetched music co list:', data);
                     const list = document.getElementById('musicCoList');
                     list.innerHTML = '';
                     data.forEach(item => {
@@ -37,28 +84,60 @@
                         delBtn.onclick = function() {
                             if (confirm('Delete this Music Co?')) {
                                 fetch(`/api/music-co/${item.id}`, { method: 'DELETE' })
-                                    .then(res => res.json())
-                                    .then(() => fetchMusicCoList());
+                                    .then(res => {
+                                        if (!res.ok) {
+                                            throw new Error(`HTTP error! status: ${res.status}`);
+                                        }
+                                        return res.json();
+                                    })
+                                    .then(result => {
+                                        console.log('Delete result:', result);
+                                        fetchMusicCoList();
+                                    })
+                                    .catch(error => {
+                                        console.error('Error deleting music co:', error);
+                                        alert('Error deleting music co: ' + error.message);
+                                    });
                             }
                         };
                         li.appendChild(delBtn);
                         list.appendChild(li);
                     });
+                })
+                .catch(error => {
+                    console.error('Error fetching music co list:', error);
+                    alert('Error loading music co list: ' + error.message);
                 });
         }
         document.getElementById('addMusicCoBtn').onclick = function() {
             const name = document.getElementById('newMusicCo').value.trim();
             if (!name) return alert('Enter a name');
+            
+            console.log('Adding music co:', name);
+            
             fetch('/api/music-co', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name })
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
+                }
+                return res.json();
+            })
             .then(data => {
-                if (data.error) return alert(data.error);
+                console.log('Add result:', data);
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
                 document.getElementById('newMusicCo').value = '';
                 fetchMusicCoList();
+            })
+            .catch(error => {
+                console.error('Error adding music co:', error);
+                alert('Error adding music co: ' + error.message);
             });
         };
         fetchMusicCoList();
