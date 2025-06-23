@@ -20,6 +20,8 @@ steps:
       - 'asia-south1'
       - '--service-account'
       - 'cloud-run-gcs-signer@mos-atomantstudios.iam.gserviceaccount.com'
+      - '--scopes'
+      - 'https://www.googleapis.com/auth/cloud-platform'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
