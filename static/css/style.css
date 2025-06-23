@@ -1130,12 +1130,7 @@ body {
 
 /* Marked row indicator dot */
 .mark-dot {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    margin-right: 4px;
-    vertical-align: middle;
+    display: none;
 }
 
 /* Remove mark button */
