@@ -118,48 +118,7 @@
 /* Add Font Awesome if not already included */
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
 
-/* Main container */
-.app-container {
-    display: flex;
-    min-height: 100vh;
-    width: 100%;
-    position: relative;
-    background-color: var(--bg-primary);
-    overflow-y: auto;
-}
-
-/* Video Section */
-.video-section {
-    flex: 1;
-    min-width: 400px;
-    max-width: 80%;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    background: var(--bg-secondary);
-    padding: 1rem;
-    margin-right: 0.5rem;
-    border-radius: 10px;
-    box-shadow: var(--panel-shadow);
-    overflow: auto;
-    border: 1px solid var(--border-color);
-}
-
-/* Marker Section */
-.marker-section {
-    flex: 1;
-    min-width: 300px;
-    max-width: 80%;
-    position: relative;
-    background: var(--bg-secondary);
-    padding: 1rem;
-    margin-left: 0.5rem;
-    border-radius: 10px;
-    box-shadow: var(--panel-shadow);
-    overflow: auto;
-    border: 1px solid var(--border-color);
-}
-
+/* Remove conflicting video section styles - these are now handled in style.css */
 /* Table header should also be sticky */
 .table thead th {
     position: sticky;

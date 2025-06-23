@@ -1614,6 +1614,7 @@ kbd:hover {
 .title-combobox-container {
     position: relative;
     overflow: visible !important;
+    z-index: 1;
 }
 .title-combobox-input {
     width: 100%;
@@ -1638,6 +1639,7 @@ kbd:hover {
     max-height: 180px;
     overflow-y: auto;
     box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    display: none;
 }
 .combobox-option {
     padding: 8px 12px;
@@ -1654,4 +1656,20 @@ kbd:hover {
 .combobox-option:active {
     background: var(--accent-color);
     color: #fff;
+}
+
+/* Ensure table cells with combobox don't clip the dropdown */
+.table td[data-field="title"] {
+    overflow: visible !important;
+    position: relative;
+}
+
+/* Ensure table body doesn't clip dropdowns */
+.table tbody {
+    overflow: visible !important;
+}
+
+/* Ensure table responsive doesn't clip dropdowns */
+.table-responsive {
+    overflow: visible !important;
 } 
