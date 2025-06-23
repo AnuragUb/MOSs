@@ -1,21 +1,27 @@
-# Upload Folder WMV to MP4 Converter
+# Upload Folder WMV to MP4 Converter with Priority Processing
 
-This converter monitors your web app's `uploads` folder and automatically converts WMV files to MP4 while preserving the folder structure.
+This converter monitors your web app's `uploads` folder and automatically converts WMV files to MP4 while preserving the folder structure. **NEW: Priority folder support for urgent files!**
 
 ## How It Works
 
 1. **Monitors the `uploads` folder** every 30 seconds
-2. **Scans recursively** - finds WMV files in all subfolders
-3. **Preserves folder structure** - maintains the same folder hierarchy in the `converted` folder
-4. **Skips existing files** - won't reconvert files that are already converted
-5. **Logs all activity** - keeps detailed logs in the `logs` folder
+2. **Processes PRIORITY folder first** - urgent files get converted immediately
+3. **Then processes regular uploads** - normal files are converted after priority files
+4. **Scans recursively** - finds WMV files in all subfolders
+5. **Preserves folder structure** - maintains the same folder hierarchy in the `converted` folder
+6. **Skips existing files** - won't reconvert files that are already converted
+7. **Logs all activity** - keeps detailed logs in the `logs` folder
 
 ## Folder Structure
 
 ```
 Your Project/
 ├── uploads/                    # Input folder (WMV files)
-│   ├── video1.wmv
+│   ├── priority/               # 🚨 PRIORITY FOLDER - urgent files processed FIRST
+│   │   ├── urgent_video1.wmv
+│   │   └── emergency/
+│   │       └── urgent_video2.wmv
+│   ├── video1.wmv             # Regular files processed SECOND
 │   ├── folder1/
 │   │   ├── video2.wmv
 │   │   └── subfolder/
@@ -23,7 +29,11 @@ Your Project/
 │   └── folder2/
 │       └── video4.wmv
 ├── converted/                  # Output folder (MP4 files)
-│   ├── video1.mp4
+│   ├── priority/               # Priority files converted first
+│   │   ├── urgent_video1.mp4
+│   │   └── emergency/
+│   │       └── urgent_video2.mp4
+│   ├── video1.mp4             # Regular files converted second
 │   ├── folder1/
 │   │   ├── video2.mp4
 │   │   └── subfolder/
@@ -33,6 +43,19 @@ Your Project/
 ├── logs/                       # Log files
 └── upload_folder_converter.bat # The converter script
 ```
+
+## Priority Processing
+
+### 🚨 **Priority Folder: `uploads\priority\`**
+- **Processed FIRST** in every scan cycle
+- **Urgent files** get immediate attention
+- **Perfect for time-sensitive conversions**
+- **Same folder structure preservation**
+
+### 📁 **Regular Uploads: `uploads\`**
+- **Processed SECOND** after priority files
+- **Normal workflow** for regular files
+- **Same reliable conversion** as before
 
 ## Usage
 
@@ -44,15 +67,36 @@ upload_folder_converter.bat
 ### 2. **Let It Run**
 - The converter will run continuously
 - It scans every 30 seconds for new WMV files
+- **Priority files are processed first**, then regular files
 - Just leave it running in the background
 
 ### 3. **Upload Files**
-- Place WMV files in the `uploads` folder
-- Create subfolders as needed
-- The converter will automatically detect and convert them
+
+#### **For Urgent Files:**
+- Place WMV files in `uploads\priority\`
+- Create subfolders as needed: `uploads\priority\emergency\`
+- **These files will be converted FIRST**
+
+#### **For Regular Files:**
+- Place WMV files in `uploads\`
+- Create subfolders as needed: `uploads\folder1\subfolder\`
+- **These files will be converted AFTER priority files**
+
+## Processing Order
+
+1. **Scan Priority Folder** (`uploads\priority\`)
+   - Convert all WMV files found here FIRST
+   - Preserve folder structure in `converted\priority\`
+
+2. **Scan Regular Uploads** (`uploads\`)
+   - Convert all WMV files found here SECOND
+   - Preserve folder structure in `converted\`
+
+3. **Wait 30 seconds** and repeat
 
 ## Features
 
+- ✅ **Priority processing** - urgent files converted first
 - ✅ **Based on your working converter** - uses the same reliable logic
 - ✅ **Recursive scanning** - finds files in all subfolders
 - ✅ **Folder structure preservation** - maintains your folder hierarchy
@@ -70,6 +114,7 @@ upload_folder_converter.bat
 ## Configuration
 
 The script uses these default settings:
+- **Priority folder:** `uploads\priority`
 - **Input folder:** `uploads`
 - **Output folder:** `converted`
 - **Log folder:** `logs`
@@ -78,28 +123,33 @@ The script uses these default settings:
 
 ## Example Workflow
 
-1. **Start the converter:**
-   ```cmd
-   upload_folder_converter.bat
-   ```
+### **Urgent Conversion:**
+1. **Place urgent file:** `uploads\priority\urgent_video.wmv`
+2. **Converter detects it** in next scan (within 30 seconds)
+3. **Converts immediately** to `converted\priority\urgent_video.mp4`
+4. **Available for use** right away
 
-2. **Upload files to your web app** (they go to `uploads/`)
-
-3. **The converter automatically:**
-   - Detects new WMV files
-   - Converts them to MP4
-   - Preserves folder structure
-   - Logs the process
-
-4. **Find converted files in `converted/` folder**
+### **Regular Conversion:**
+1. **Place regular file:** `uploads\folder1\video.wmv`
+2. **Converter processes priority files first**
+3. **Then converts regular file** to `converted\folder1\video.mp4`
+4. **Available after priority processing**
 
 ## Logs
 
 Check the `logs/` folder for detailed conversion logs:
 - `upload_conversion_YYYYMMDD_HHMMSS.log`
-- Shows all conversions, skips, and errors
+- Shows priority vs regular processing
 - Timestamped entries for easy tracking
+- Clear indication of which files are priority vs regular
 
 ## Stopping the Converter
 
-Press `Ctrl+C` to stop the converter when needed. 
+Press `Ctrl+C` to stop the converter when needed.
+
+## Tips
+
+- **Use priority folder sparingly** - only for truly urgent files
+- **Regular uploads folder** is perfect for normal workflow
+- **Both folders preserve structure** - organize files however you need
+- **Logs show processing order** - easy to track what's happening 
