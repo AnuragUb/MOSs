@@ -1,11 +1,11 @@
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '--no-cache', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/moss-app:latest', '.']
+    args: ['build', '--no-cache', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/moss-app:latest-v4', '.']
 
   # Push the container image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/moss-app:latest']
+    args: ['push', 'asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/moss-app:latest-v4']
 
   # Deploy container image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -15,7 +15,7 @@ steps:
       - 'deploy'
       - 'mos-atomantstudios'
       - '--image'
-      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/moss-app:latest'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/moss-app:latest-v4'
       - '--region'
       - 'asia-south1'
       - '--service-account'
@@ -44,4 +44,4 @@ steps:
       - 'REQUEST_SIZE_LIMIT=2147483648'
 
 images:
-  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/moss-app:latest' 
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/moss-app:latest-v4' 
