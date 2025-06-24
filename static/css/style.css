@@ -102,21 +102,22 @@ body {
     background: none !important;
 }
 
+/* Remove problematic webkit media controls that cause darkening */
 #videoPlayer::-webkit-media-controls {
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: transparent !important;
 }
 
 #videoPlayer::-webkit-media-controls-panel {
-    background-color: rgba(0, 0, 0, 0.8);
+    background-color: transparent !important;
 }
 
 #videoPlayer::-webkit-media-controls-play-button {
-    background-color: var(--accent-color);
+    background-color: transparent !important;
     border-radius: 50%;
 }
 
 #videoPlayer::-webkit-media-controls-timeline {
-    background-color: rgba(255, 255, 255, 0.3);
+    background-color: transparent !important;
 }
 
 #videoPlayer::-webkit-media-controls-current-time-display,
