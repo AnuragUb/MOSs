@@ -204,6 +204,14 @@
             <h3>Configure Exception Settings</h3>
             <div class="exception-options">
                 <div class="exception-checkbox">
+                    <input type="checkbox" id="exceptionFilmTitle" name="filmTitle">
+                    <label for="exceptionFilmTitle">Skip Film/Album Title Auto-fill</label>
+                </div>
+                <div class="exception-checkbox">
+                    <input type="checkbox" id="exceptionTitlePrefix" name="titlePrefix">
+                    <label for="exceptionTitlePrefix">Skip Title Prefix Auto-fill</label>
+                </div>
+                <div class="exception-checkbox">
                     <input type="checkbox" id="exceptionSkipExport" name="skipExport">
                     <label for="exceptionSkipExport">Skip in Export</label>
                 </div>
@@ -217,7 +225,8 @@
                 </div>
             </div>
             <div class="exception-actions">
-                <button class="btn btn-primary" id="saveExceptionBtn">Save Settings</button>
+                <button class="btn btn-primary" id="applyException">Apply Exception</button>
+                <button class="btn btn-secondary" id="cancelException">Cancel</button>
             </div>
         </div>
     </div>
