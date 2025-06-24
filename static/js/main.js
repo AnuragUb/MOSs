@@ -1516,28 +1516,37 @@ function setupKeyboardShortcuts() {
         const tableBody = document.getElementById('markerTableBody');
         const activeElement = document.activeElement;
         
-        // If in input/select, let default behavior for most keys
-        if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') {
-            // Allow shortcuts even when an input is focused
-            if (e.altKey && (e.key === '1' || e.key === '2')) {
-                // Do nothing here, will be handled below
-            } else {
-                return; // Block other shortcuts
-            }
-        }
-        
-        // Undo (Ctrl + Z)
+        // Application-level shortcuts that should always work
+        // Undo (Ctrl + Z) - Always prevent default and use application undo
         if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
             e.preventDefault();
+            e.stopPropagation();
             undo();
             return;
         }
         
-        // Redo (Ctrl + Shift + Z)
+        // Redo (Ctrl + Shift + Z) - Always prevent default and use application redo
         if (e.ctrlKey && e.key === 'z' && e.shiftKey) {
             e.preventDefault();
+            e.stopPropagation();
             redo();
             return;
+        }
+        
+        // If in input/select, let default behavior for most other keys
+        if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT' || activeElement.tagName === 'TEXTAREA') {
+            // Allow shortcuts even when an input is focused, but not for typing-related keys
+            if (e.altKey && (e.key === '1' || e.key === '2')) {
+                // Do nothing here, will be handled below
+            } else if (e.ctrlKey && (e.key === 'z' || e.key === 'y')) {
+                // Already handled above
+                return;
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                // Only handle Delete/Backspace if not in an input field
+                return;
+            } else {
+                return; // Block other shortcuts when in input
+            }
         }
         
         // Alt + 1 for TCR In (or both in single button mode)
@@ -1610,9 +1619,13 @@ function setupKeyboardShortcuts() {
             return;
         }
         
-        // Delete key
+        // Delete key - only when not in input field
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            deleteSelectedRows();
+            const activeElement = document.activeElement;
+            if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'SELECT' && activeElement.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                deleteSelectedRows();
+            }
             return;
         }
     });
