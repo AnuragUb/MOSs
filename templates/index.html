@@ -267,29 +267,29 @@
 
     <!-- Clear Column Modal -->
     <div id="clearColumnModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>Clear Column Data</h3>
+        <div class="modal-content" style="background-color: #2d3748; color: #e2e8f0; border: 1px solid #4a5568;">
+            <span class="close" style="color: #e2e8f0;">&times;</span>
+            <h3 style="color: #f7fafc;">Clear Column Data</h3>
             <div class="mb-3">
-                <label for="clearColumnSelect" class="form-label">Select Column to Clear:</label>
-                <select id="clearColumnSelect" class="form-select">
+                <label for="clearColumnSelect" class="form-label" style="color: #e2e8f0;">Select Column to Clear:</label>
+                <select id="clearColumnSelect" class="form-select" style="background-color: #4a5568; color: #e2e8f0; border: 1px solid #718096;">
                     <option value="">-- Select a column --</option>
                 </select>
             </div>
             <div class="mb-3">
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="clearSelectedRowsOnly">
-                    <label class="form-check-label" for="clearSelectedRowsOnly">
+                    <input class="form-check-input" type="checkbox" id="clearSelectedRowsOnly" style="background-color: #4a5568; border-color: #718096;">
+                    <label class="form-check-label" for="clearSelectedRowsOnly" style="color: #e2e8f0;">
                         Clear only selected rows (leave unchecked to clear entire column)
                     </label>
                 </div>
             </div>
-            <div class="alert alert-warning">
+            <div class="alert alert-warning" style="background-color: #744210; color: #fbd38d; border: 1px solid #d69e2e;">
                 <strong>Warning:</strong> This action will permanently clear all data in the selected column. This cannot be undone.
             </div>
             <div class="modal-actions">
-                <button class="btn btn-danger" id="confirmClearColumnBtn">Clear Column</button>
-                <button class="btn btn-secondary" id="cancelClearColumnBtn">Cancel</button>
+                <button class="btn btn-danger" id="confirmClearColumnBtn" style="background-color: #c53030; border-color: #c53030;">Clear Column</button>
+                <button class="btn btn-secondary" id="cancelClearColumnBtn" style="background-color: #4a5568; border-color: #4a5568; color: #e2e8f0;">Cancel</button>
             </div>
         </div>
     </div>

@@ -3237,8 +3237,13 @@ function initializeClearColumnModal() {
             return;
         }
         
+        // Get all table headers with data-field attribute (includes custom columns)
         const tableHeaders = table.querySelectorAll('thead th[data-field]');
         console.log('Found table headers:', tableHeaders.length);
+        
+        // Also check for any headers without data-field that might be custom columns
+        const allHeaders = table.querySelectorAll('thead th');
+        console.log('Total headers found:', allHeaders.length);
         
         tableHeaders.forEach(header => {
             const field = header.getAttribute('data-field');
@@ -3246,15 +3251,34 @@ function initializeClearColumnModal() {
             
             console.log('Processing header:', field, text);
             
-            // Skip certain columns that shouldn't be cleared
-            if (field !== 'seq' && field !== 'tcrIn' && field !== 'tcrOut' && field !== 'duration') {
+            // Allow all columns to be cleared, but mark protected ones
+            const isProtected = field === 'seq' || field === 'tcrIn' || field === 'tcrOut' || field === 'duration';
+            
+            const option = document.createElement('option');
+            option.value = field;
+            option.textContent = isProtected ? `${text} ⚠️ (Protected)` : text;
+            option.dataset.protected = isProtected;
+            clearColumnSelect.appendChild(option);
+            console.log('Added option:', field, text, isProtected ? '(protected)' : '');
+        });
+        
+        // Also check for any custom columns that might not have data-field
+        allHeaders.forEach(header => {
+            const field = header.getAttribute('data-field');
+            const text = header.textContent.trim();
+            
+            // If this header doesn't have a data-field but has text, it might be a custom column
+            if (!field && text && !['#Seq', 'TCR In', 'TCR Out', 'Duration', 'Usage', 'Title', 'Film/Album Title', 'Composer', 'Lyricist', 'Music Co', 'NOC ID', 'NOC Title', 'Recognize', 'Actions'].includes(text)) {
+                console.log('Found potential custom column without data-field:', text);
+                // Create a field name from the text
+                const customField = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+                
                 const option = document.createElement('option');
-                option.value = field;
-                option.textContent = text;
+                option.value = customField;
+                option.textContent = `${text} (Custom)`;
+                option.dataset.protected = false;
                 clearColumnSelect.appendChild(option);
-                console.log('Added option:', field, text);
-            } else {
-                console.log('Skipped protected column:', field);
+                console.log('Added custom option:', customField, text);
             }
         });
         
@@ -3285,6 +3309,25 @@ function initializeClearColumnModal() {
         if (!selectedColumn) {
             alert('Please select a column to clear.');
             return;
+        }
+
+        // Check if this is a protected column
+        const selectedOption = clearColumnSelect.querySelector(`option[value="${selectedColumn}"]`);
+        const isProtected = selectedOption && selectedOption.dataset.protected === 'true';
+        
+        if (isProtected) {
+            const confirmClear = confirm(
+                `⚠️ WARNING: You are about to clear the "${selectedColumn}" column.\n\n` +
+                `This column contains critical data that may affect:\n` +
+                `• Duration calculations\n` +
+                `• Video synchronization\n` +
+                `• Export functionality\n\n` +
+                `Are you sure you want to continue?`
+            );
+            
+            if (!confirmClear) {
+                return;
+            }
         }
 
         if (onlySelectedRows) {
