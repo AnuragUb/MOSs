@@ -12,6 +12,7 @@ let usageCounts = { BI: 0, BV: 0, VI: 0, VV: 0, SRC: 0, 'BI,BV': 0, 'VI,VV': 0, 
 let extraColumns = [];
 let seqClickState = { row: null, count: 0, timeout: null }; // For tracking triple clicks
 let headerRows = [];
+let deletedRows = []; // Track deleted rows for potential restoration
 
 // Add undo/redo history tracking
 let history = [];
@@ -28,8 +29,41 @@ function saveToHistory() {
     // Create deep copy of current state
     const currentState = {
         markers: JSON.parse(JSON.stringify(markers)),
-        markedRows: JSON.parse(JSON.stringify(markedRows))
+        markedRows: JSON.parse(JSON.stringify(markedRows)),
+        deletedRows: JSON.parse(JSON.stringify(deletedRows || [])),
+        actionType: 'edit' // Default action type
     };
+    
+    // Add to history
+    history.push(currentState);
+    historyIndex++;
+    
+    // Trim history if it gets too long
+    if (history.length > MAX_HISTORY) {
+        history.shift();
+        historyIndex--;
+    }
+}
+
+// Function to save history with specific action type
+function saveToHistoryWithAction(actionType, deletedRowsData = null) {
+    // Remove any future states if we're not at the end of history
+    if (historyIndex < history.length - 1) {
+        history = history.slice(0, historyIndex + 1);
+    }
+    
+    // Create deep copy of current state
+    const currentState = {
+        markers: JSON.parse(JSON.stringify(markers)),
+        markedRows: JSON.parse(JSON.stringify(markedRows)),
+        deletedRows: JSON.parse(JSON.stringify(deletedRows || [])),
+        actionType: actionType
+    };
+    
+    // If we have deleted rows data, store it for potential restoration
+    if (deletedRowsData && actionType === 'delete') {
+        currentState.deletedRowsData = JSON.parse(JSON.stringify(deletedRowsData));
+    }
     
     // Add to history
     history.push(currentState);
@@ -49,6 +83,33 @@ function undo() {
         const previousState = history[historyIndex];
         markers = JSON.parse(JSON.stringify(previousState.markers));
         markedRows = JSON.parse(JSON.stringify(previousState.markedRows));
+        
+        // If the previous state had deleted rows data, we can show a message
+        if (previousState.deletedRowsData) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'alert alert-info';
+            successDiv.style.position = 'fixed';
+            successDiv.style.top = '20px';
+            successDiv.style.right = '20px';
+            successDiv.style.zIndex = '9999';
+            successDiv.style.minWidth = '300px';
+            successDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-undo me-2"></i>
+                    <span>Restored ${previousState.deletedRowsData.length} deleted row(s).</span>
+                </div>
+            `;
+            
+            document.body.appendChild(successDiv);
+            
+            // Remove the message after 3 seconds
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.parentNode.removeChild(successDiv);
+                }
+            }, 3000);
+        }
+        
         updateMarkerTable();
     }
 }
@@ -60,6 +121,33 @@ function redo() {
         const nextState = history[historyIndex];
         markers = JSON.parse(JSON.stringify(nextState.markers));
         markedRows = JSON.parse(JSON.stringify(nextState.markedRows));
+        
+        // If the next state is a delete action, show a message
+        if (nextState.actionType === 'delete') {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'alert alert-warning';
+            successDiv.style.position = 'fixed';
+            successDiv.style.top = '20px';
+            successDiv.style.right = '20px';
+            successDiv.style.zIndex = '9999';
+            successDiv.style.minWidth = '300px';
+            successDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-redo me-2"></i>
+                    <span>Redid deletion of ${nextState.deletedRowsData ? nextState.deletedRowsData.length : 0} row(s).</span>
+                </div>
+            `;
+            
+            document.body.appendChild(successDiv);
+            
+            // Remove the message after 3 seconds
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.parentNode.removeChild(successDiv);
+                }
+            }, 3000);
+        }
+        
         updateMarkerTable();
     }
 }
@@ -2162,19 +2250,80 @@ function deleteSelectedRows() {
         return;
     }
     
-    // Save state before making changes
-    saveToHistory();
-    
-    // Get indices of selected rows
+    // Get indices of selected rows and store the deleted data
     const selectedIndices = Array.from(checkboxes).map(checkbox => 
         parseInt(checkbox.closest('tr').dataset.rowIndex, 10)
     );
     
+    // Store the deleted rows data for potential restoration
+    const deletedRowsData = selectedIndices.map(index => ({
+        index: index,
+        marker: JSON.parse(JSON.stringify(markers[index])),
+        markedRow: markedRows[index] ? JSON.parse(JSON.stringify(markedRows[index])) : null,
+        exceptionSetting: exceptionSettings[index] ? JSON.parse(JSON.stringify(exceptionSettings[index])) : null
+    }));
+    
+    // Save state before making changes with delete action type
+    saveToHistoryWithAction('delete', deletedRowsData);
+    
     // Remove selected markers
     markers = markers.filter((_, index) => !selectedIndices.includes(index));
     
+    // Clean up markedRows and exceptionSettings for deleted indices
+    selectedIndices.forEach(index => {
+        delete markedRows[index];
+        delete exceptionSettings[index];
+    });
+    
+    // Reindex markedRows and exceptionSettings after deletion
+    const newMarkedRows = {};
+    const newExceptionSettings = {};
+    
+    Object.keys(markedRows).forEach(oldIndex => {
+        const oldIndexNum = parseInt(oldIndex);
+        const newIndex = oldIndexNum - selectedIndices.filter(i => i < oldIndexNum).length;
+        if (newIndex >= 0) {
+            newMarkedRows[newIndex] = markedRows[oldIndex];
+        }
+    });
+    
+    Object.keys(exceptionSettings).forEach(oldIndex => {
+        const oldIndexNum = parseInt(oldIndex);
+        const newIndex = oldIndexNum - selectedIndices.filter(i => i < oldIndexNum).length;
+        if (newIndex >= 0) {
+            newExceptionSettings[newIndex] = exceptionSettings[oldIndex];
+        }
+    });
+    
+    markedRows = newMarkedRows;
+    exceptionSettings = newExceptionSettings;
+    
     // Update the table
     updateMarkerTable();
+    
+    // Show success message
+    const successDiv = document.createElement('div');
+    successDiv.className = 'alert alert-success';
+    successDiv.style.position = 'fixed';
+    successDiv.style.top = '20px';
+    successDiv.style.right = '20px';
+    successDiv.style.zIndex = '9999';
+    successDiv.style.minWidth = '300px';
+    successDiv.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-trash me-2"></i>
+            <span>Deleted ${checkboxes.length} row(s). Use Ctrl+Z to undo.</span>
+        </div>
+    `;
+    
+    document.body.appendChild(successDiv);
+    
+    // Remove the message after 3 seconds
+    setTimeout(() => {
+        if (successDiv.parentNode) {
+            successDiv.parentNode.removeChild(successDiv);
+        }
+    }, 3000);
 }
 
 function initializeSequenceDirection() {
