@@ -1289,11 +1289,14 @@ function updateMarkerTable() {
                 let filtered = [];
                 let selectedIdx = -1;
                 function renderDropdown() {
+                    console.log('[MusicCo] renderDropdown called. Input value:', input.value);
                     dropdown.innerHTML = '';
                     const val = input.value.trim().toLowerCase();
                     filtered = musicCoOptions.filter(opt => opt.toLowerCase().includes(val));
+                    console.log('[MusicCo] Filtered options:', filtered);
                     if (val && !musicCoOptions.some(opt => opt.toLowerCase() === val)) {
                         filtered.push({ addNew: true, value: input.value });
+                        console.log('[MusicCo] Add new option:', input.value);
                     }
                     filtered.forEach((opt, i) => {
                         const div = document.createElement('div');
@@ -1309,21 +1312,31 @@ function updateMarkerTable() {
                         dropdown.appendChild(div);
                     });
                     dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
+                    console.log('[MusicCo] Dropdown display:', dropdown.style.display);
                 }
                 function selectOption(val) {
+                    console.log('[MusicCo] selectOption:', val);
                     input.value = val;
                     dropdown.style.display = 'none';
                     marker[field] = val;
-                    // Optionally add to musicCoOptions if new
                     if (val && !musicCoOptions.includes(val)) musicCoOptions.push(val);
                     if (activePasteColumns[field]) {
                         if (!manualEdits[field]) manualEdits[field] = {};
                         manualEdits[field][actualIndex] = true;
                     }
                 }
-                input.addEventListener('input', renderDropdown);
-                input.addEventListener('focus', renderDropdown);
-                input.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 150));
+                input.addEventListener('input', function(e) {
+                    console.log('[MusicCo] input event:', e.target.value);
+                    renderDropdown();
+                });
+                input.addEventListener('focus', function(e) {
+                    console.log('[MusicCo] focus event');
+                    renderDropdown();
+                });
+                input.addEventListener('blur', () => setTimeout(() => {
+                    dropdown.style.display = 'none';
+                    console.log('[MusicCo] blur event, hiding dropdown');
+                }, 150));
                 input.addEventListener('keydown', e => {
                     if (!filtered.length) return;
                     if (e.key === 'ArrowDown') {
