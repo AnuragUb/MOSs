@@ -1842,6 +1842,11 @@ function clearAppData() {
     // Reset usage counts
     usageCounts = { BI: 0, BV: 0, VI: 0, VV: 0, SRC: 0, 'BI,BV': 0, 'VI,VV': 0, 'BI,VV': 0, 'VI,BV': 0 };
     
+    // Clear recognition results from all markers (safety, in case any remain)
+    markers.forEach(marker => { delete marker.recognition; });
+    
+    updateMarkerTable();
+    
     console.log('Cleared all application data');
 }
 
@@ -1989,6 +1994,8 @@ function loadCueSheetData(header, data) {
         if (showName && (!marker.filmTitle || marker.filmTitle.trim() === '')) {
             marker.filmTitle = showName;
         }
+        // Ensure no recognition data is carried over
+        delete marker.recognition;
         return marker;
     });
 
@@ -2017,23 +2024,8 @@ function loadCueSheetData(header, data) {
     }
     // --- END: Logging for show info extraction ---
 
-    // Save show information to localStorage
-    localStorage.setItem('showInfo', JSON.stringify(showInfo));
-
+    // Update UI after loading new data
     updateMarkerTable();
-
-    // --- BEGIN: Save metadata and marker data to localStorage for export ---
-    try {
-        localStorage.setItem('headerRows', JSON.stringify(headerRows));
-        localStorage.setItem('markers', JSON.stringify(markers));
-        console.log('Saved headerRows and markers to localStorage for export.');
-    } catch (e) {
-        console.error('Failed to save headerRows/markers to localStorage:', e);
-    }
-    // --- END: Save metadata and marker data to localStorage for export ---
-    
-    // Reset loading flag after data is loaded
-    isLoadingData = false;
 }
 
 function initializeClearTableButton() {
