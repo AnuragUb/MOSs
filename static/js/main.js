@@ -3230,12 +3230,21 @@ function initializeClearColumnModal() {
     function populateColumnDropdown() {
         clearColumnSelect.innerHTML = '<option value="">-- Select a column --</option>';
         
-        // Get available columns from the table header
-        const tableHeaders = document.querySelectorAll('#markerTableBody').closest('table').querySelectorAll('thead th[data-field]');
+        // Get available columns from the table header - more robust approach
+        const table = document.querySelector('.table');
+        if (!table) {
+            console.error('Table not found');
+            return;
+        }
+        
+        const tableHeaders = table.querySelectorAll('thead th[data-field]');
+        console.log('Found table headers:', tableHeaders.length);
         
         tableHeaders.forEach(header => {
             const field = header.getAttribute('data-field');
             const text = header.textContent.trim();
+            
+            console.log('Processing header:', field, text);
             
             // Skip certain columns that shouldn't be cleared
             if (field !== 'seq' && field !== 'tcrIn' && field !== 'tcrOut' && field !== 'duration') {
@@ -3243,15 +3252,22 @@ function initializeClearColumnModal() {
                 option.value = field;
                 option.textContent = text;
                 clearColumnSelect.appendChild(option);
+                console.log('Added option:', field, text);
+            } else {
+                console.log('Skipped protected column:', field);
             }
         });
+        
+        console.log('Total options added:', clearColumnSelect.children.length - 1); // -1 for the placeholder
     }
 
     // Show modal
     function showClearColumnModal() {
+        console.log('Clear Column button clicked - opening modal');
         populateColumnDropdown();
         clearColumnModal.style.display = 'block';
         clearColumnSelect.focus();
+        console.log('Modal should now be visible');
     }
 
     // Hide modal
@@ -3362,7 +3378,10 @@ function initializeClearColumnModal() {
 
     // Event listeners
     if (clearColumnBtn) {
+        console.log('Clear Column button found, attaching event listener');
         clearColumnBtn.addEventListener('click', showClearColumnModal);
+    } else {
+        console.error('Clear Column button not found!');
     }
 
     if (closeBtn) {
