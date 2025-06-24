@@ -1275,44 +1275,77 @@ function updateMarkerTable() {
         ['title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'].forEach(field => {
             const cell = document.createElement('td');
             if (field === 'musicCo') {
-                const select = document.createElement('select');
-                select.className = 'table-input';
-                select.dataset.field = field;
-                makeInputResizable(select);
-                
-                // Add empty option
-                const emptyOpt = document.createElement('option');
-                emptyOpt.value = '';
-                emptyOpt.textContent = '';
-                select.appendChild(emptyOpt);
-                
-                // Add current value as an option if it's not in the list
-                if (marker[field] && !musicCoOptions.includes(marker[field])) {
-                    const currentOpt = document.createElement('option');
-                    currentOpt.value = marker[field];
-                    currentOpt.textContent = marker[field];
-                    currentOpt.selected = true;
-                    select.appendChild(currentOpt);
+                cell.classList.add('music-co-cell');
+                // Custom combobox
+                const container = document.createElement('div');
+                container.className = 'dropdown-container';
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'form-control music-co-input';
+                input.value = marker[field] || '';
+                input.placeholder = 'Select or type Music Co...';
+                const dropdown = document.createElement('div');
+                dropdown.className = 'custom-dropdown';
+                let filtered = [];
+                let selectedIdx = -1;
+                function renderDropdown() {
+                    dropdown.innerHTML = '';
+                    const val = input.value.trim().toLowerCase();
+                    filtered = musicCoOptions.filter(opt => opt.toLowerCase().includes(val));
+                    if (val && !musicCoOptions.some(opt => opt.toLowerCase() === val)) {
+                        filtered.push({ addNew: true, value: input.value });
+                    }
+                    filtered.forEach((opt, i) => {
+                        const div = document.createElement('div');
+                        div.className = 'dropdown-option' + (i === selectedIdx ? ' selected' : '');
+                        if (typeof opt === 'string') {
+                            div.textContent = opt;
+                            div.onclick = () => selectOption(opt);
+                        } else if (opt.addNew) {
+                            div.textContent = `Add new: "${opt.value}"`;
+                            div.classList.add('add-new');
+                            div.onclick = () => selectOption(opt.value);
+                        }
+                        dropdown.appendChild(div);
+                    });
+                    dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
                 }
-                
-                // Add music co options
-                musicCoOptions.forEach(option => {
-                    const opt = document.createElement('option');
-                    opt.value = option;
-                    opt.textContent = option;
-                    if (marker[field] === option) opt.selected = true;
-                    select.appendChild(opt);
-                });
-                
-                select.addEventListener('change', (e) => {
-                    marker[field] = e.target.value;
+                function selectOption(val) {
+                    input.value = val;
+                    dropdown.style.display = 'none';
+                    marker[field] = val;
+                    // Optionally add to musicCoOptions if new
+                    if (val && !musicCoOptions.includes(val)) musicCoOptions.push(val);
                     if (activePasteColumns[field]) {
                         if (!manualEdits[field]) manualEdits[field] = {};
                         manualEdits[field][actualIndex] = true;
                     }
+                }
+                input.addEventListener('input', renderDropdown);
+                input.addEventListener('focus', renderDropdown);
+                input.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 150));
+                input.addEventListener('keydown', e => {
+                    if (!filtered.length) return;
+                    if (e.key === 'ArrowDown') {
+                        selectedIdx = (selectedIdx + 1) % filtered.length;
+                        renderDropdown();
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowUp') {
+                        selectedIdx = (selectedIdx - 1 + filtered.length) % filtered.length;
+                        renderDropdown();
+                        e.preventDefault();
+                    } else if (e.key === 'Enter') {
+                        if (selectedIdx >= 0) {
+                            const opt = filtered[selectedIdx];
+                            selectOption(typeof opt === 'string' ? opt : opt.value);
+                        }
+                        e.preventDefault();
+                    }
                 });
-                
-                cell.appendChild(select);
+                container.appendChild(input);
+                container.appendChild(dropdown);
+                cell.innerHTML = '';
+                cell.appendChild(container);
             } else if (field === 'title') {
                 // Simple text input for title field (dropdown removed)
                 const input = document.createElement('input');
