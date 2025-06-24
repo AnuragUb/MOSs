@@ -205,6 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeColumnResize();
     setupSeqHeaderDoubleClick();
     initializeTitleTagModal();
+    initializeClearColumnModal();
     
     // Load options from Firestore
     loadUsageOptions();
@@ -3052,4 +3053,180 @@ function populateTitleTagDropdown() {
         option.disabled = true;
         titleTagSelect.appendChild(option);
     }
+}
+
+function initializeClearColumnModal() {
+    const clearColumnBtn = document.getElementById('clearColumnBtn');
+    const clearColumnModal = document.getElementById('clearColumnModal');
+    const clearColumnSelect = document.getElementById('clearColumnSelect');
+    const clearSelectedRowsOnly = document.getElementById('clearSelectedRowsOnly');
+    const confirmClearColumnBtn = document.getElementById('confirmClearColumnBtn');
+    const cancelClearColumnBtn = document.getElementById('cancelClearColumnBtn');
+    const closeBtn = clearColumnModal.querySelector('.close');
+
+    // Populate column dropdown
+    function populateColumnDropdown() {
+        clearColumnSelect.innerHTML = '<option value="">-- Select a column --</option>';
+        
+        // Get available columns from the table header
+        const tableHeaders = document.querySelectorAll('#markerTableBody').closest('table').querySelectorAll('thead th[data-field]');
+        
+        tableHeaders.forEach(header => {
+            const field = header.getAttribute('data-field');
+            const text = header.textContent.trim();
+            
+            // Skip certain columns that shouldn't be cleared
+            if (field !== 'seq' && field !== 'tcrIn' && field !== 'tcrOut' && field !== 'duration') {
+                const option = document.createElement('option');
+                option.value = field;
+                option.textContent = text;
+                clearColumnSelect.appendChild(option);
+            }
+        });
+    }
+
+    // Show modal
+    function showClearColumnModal() {
+        populateColumnDropdown();
+        clearColumnModal.style.display = 'block';
+        clearColumnSelect.focus();
+    }
+
+    // Hide modal
+    function hideClearColumnModal() {
+        clearColumnModal.style.display = 'none';
+        clearColumnSelect.value = '';
+        clearSelectedRowsOnly.checked = false;
+    }
+
+    // Clear column data
+    function clearColumnData() {
+        const selectedColumn = clearColumnSelect.value;
+        const onlySelectedRows = clearSelectedRowsOnly.checked;
+        
+        if (!selectedColumn) {
+            alert('Please select a column to clear.');
+            return;
+        }
+
+        if (onlySelectedRows) {
+            // Clear only selected rows
+            const selectedRows = document.querySelectorAll('.row-checkbox:checked');
+            if (selectedRows.length === 0) {
+                alert('Please select at least one row to clear.');
+                return;
+            }
+            
+            selectedRows.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const rowIndex = parseInt(row.dataset.rowIndex);
+                const cell = row.querySelector(`[data-field="${selectedColumn}"]`);
+                
+                if (cell) {
+                    const input = cell.querySelector('input, select, textarea');
+                    if (input) {
+                        input.value = '';
+                        // Trigger change event to update the marker data
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+                
+                // Clear the marker data
+                if (markers[rowIndex]) {
+                    markers[rowIndex][selectedColumn] = '';
+                }
+            });
+            
+            console.log(`Cleared column "${selectedColumn}" for ${selectedRows.length} selected rows.`);
+        } else {
+            // Clear entire column
+            const rows = document.querySelectorAll('#markerTableBody tr');
+            
+            rows.forEach((row, index) => {
+                const cell = row.querySelector(`[data-field="${selectedColumn}"]`);
+                
+                if (cell) {
+                    const input = cell.querySelector('input, select, textarea');
+                    if (input) {
+                        input.value = '';
+                        // Trigger change event to update the marker data
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+                
+                // Clear the marker data
+                if (markers[index]) {
+                    markers[index][selectedColumn] = '';
+                }
+            });
+            
+            console.log(`Cleared entire column "${selectedColumn}".`);
+        }
+
+        // Save to history for undo/redo
+        saveToHistory();
+        
+        // Show success message
+        const message = onlySelectedRows 
+            ? `Cleared column "${selectedColumn}" for ${selectedRows.length} selected rows.`
+            : `Cleared entire column "${selectedColumn}".`;
+        
+        // Create a temporary success message
+        const successDiv = document.createElement('div');
+        successDiv.className = 'alert alert-success';
+        successDiv.style.position = 'fixed';
+        successDiv.style.top = '20px';
+        successDiv.style.right = '20px';
+        successDiv.style.zIndex = '9999';
+        successDiv.style.minWidth = '300px';
+        successDiv.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-check-circle me-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        document.body.appendChild(successDiv);
+        
+        // Remove the message after 3 seconds
+        setTimeout(() => {
+            if (successDiv.parentNode) {
+                successDiv.parentNode.removeChild(successDiv);
+            }
+        }, 3000);
+
+        hideClearColumnModal();
+    }
+
+    // Event listeners
+    if (clearColumnBtn) {
+        clearColumnBtn.addEventListener('click', showClearColumnModal);
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', hideClearColumnModal);
+    }
+
+    if (cancelClearColumnBtn) {
+        cancelClearColumnBtn.addEventListener('click', hideClearColumnModal);
+    }
+
+    if (confirmClearColumnBtn) {
+        confirmClearColumnBtn.addEventListener('click', clearColumnData);
+    }
+
+    // Close modal when clicking outside
+    clearColumnModal.addEventListener('click', function(e) {
+        if (e.target === clearColumnModal) {
+            hideClearColumnModal();
+        }
+    });
+
+    // Handle Enter key in dropdown
+    clearColumnSelect.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            confirmClearColumnBtn.click();
+        }
+    });
 }

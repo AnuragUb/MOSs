@@ -117,6 +117,7 @@
             <div class="export-buttons mb-3">
                 <button class="btn btn-warning" id="rowMarkBtn">Mark Exceptions</button>
                 <button class="btn btn-info" id="applyTitleBtn">Apply Title Tag</button>
+                <button class="btn btn-secondary ms-2" id="clearColumnBtn">Clear Column</button>
                 <button class="btn btn-primary ms-2" id="exportBtn">Export</button>
                 <button class="btn btn-danger ms-2" id="clearTableBtn">Clear Table</button>
                 <button class="btn btn-danger ms-2" id="deleteSelectedBtn">Delete Selected</button>
@@ -253,6 +254,35 @@
             <div class="modal-actions">
                 <button class="btn btn-primary" id="applyTitleTagBtn">Apply Tag</button>
                 <button class="btn btn-secondary" id="cancelTitleTagBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear Column Modal -->
+    <div id="clearColumnModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Clear Column Data</h3>
+            <div class="mb-3">
+                <label for="clearColumnSelect" class="form-label">Select Column to Clear:</label>
+                <select id="clearColumnSelect" class="form-select">
+                    <option value="">-- Select a column --</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="clearSelectedRowsOnly">
+                    <label class="form-check-label" for="clearSelectedRowsOnly">
+                        Clear only selected rows (leave unchecked to clear entire column)
+                    </label>
+                </div>
+            </div>
+            <div class="alert alert-warning">
+                <strong>Warning:</strong> This action will permanently clear all data in the selected column. This cannot be undone.
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" id="confirmClearColumnBtn">Clear Column</button>
+                <button class="btn btn-secondary" id="cancelClearColumnBtn">Cancel</button>
             </div>
         </div>
     </div>
