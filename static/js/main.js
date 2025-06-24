@@ -1225,96 +1225,22 @@ function updateMarkerTable() {
                 
                 cell.appendChild(select);
             } else if (field === 'title') {
-                // Create a combobox: input with dropdown for unknown tags
-                const container = document.createElement('div');
-                container.className = 'title-combobox-container';
-                container.style.position = 'relative';
-                container.style.width = '100%';
-
-                // Create the text input
+                // Simple text input for title field (dropdown removed)
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.className = 'table-input title-combobox-input';
+                input.className = 'table-input';
                 input.value = marker[field] || '';
                 input.dataset.field = field;
-                input.autocomplete = 'off';
-                input.style.width = '100%';
                 makeInputResizable(input);
-
-                // Create the dropdown
-                const dropdown = document.createElement('div');
-                dropdown.className = 'combobox-dropdown';
-                dropdown.style.display = 'none';
-                dropdown.style.position = 'absolute';
-                dropdown.style.top = '100%';
-                dropdown.style.left = '0';
-                dropdown.style.right = '0';
-                dropdown.style.zIndex = '1000';
-                dropdown.style.background = 'var(--bg-tertiary)';
-                dropdown.style.border = '1px solid var(--border-color)';
-                dropdown.style.borderRadius = '4px';
-                dropdown.style.maxHeight = '180px';
-                dropdown.style.overflowY = 'auto';
-
-                // Helper to render dropdown options
-                function renderDropdownOptions(filterText = '') {
-                    dropdown.innerHTML = '';
-                    const filtered = unknownTagsOptions.filter(opt =>
-                        opt.toLowerCase().includes(filterText.toLowerCase())
-                    );
-                    if (filtered.length === 0) {
-                        const noOpt = document.createElement('div');
-                        noOpt.className = 'combobox-option';
-                        noOpt.textContent = 'No matches';
-                        noOpt.style.color = '#888';
-                        dropdown.appendChild(noOpt);
-                        return;
-                    }
-                    filtered.forEach(option => {
-                        const optDiv = document.createElement('div');
-                        optDiv.className = 'combobox-option';
-                        optDiv.textContent = option;
-                        optDiv.style.cursor = 'pointer';
-                        optDiv.addEventListener('mousedown', (e) => {
-                            e.preventDefault(); // Prevent input blur
-                            input.value = option;
-                            marker[field] = option;
-                            dropdown.style.display = 'none';
-                            if (activePasteColumns[field]) {
-                                if (!manualEdits[field]) manualEdits[field] = {};
-                                manualEdits[field][actualIndex] = true;
-                            }
-                        });
-                        dropdown.appendChild(optDiv);
-                    });
-                }
-
-                // Show dropdown on focus/click
-                input.addEventListener('focus', () => {
-                    renderDropdownOptions(input.value);
-                    dropdown.style.display = 'block';
-                });
-                input.addEventListener('click', () => {
-                    renderDropdownOptions(input.value);
-                    dropdown.style.display = 'block';
-                });
-                // Filter dropdown as user types
-                input.addEventListener('input', (e) => {
-                    marker[field] = e.target.value;
-                    renderDropdownOptions(input.value);
+                input.addEventListener('change', (e) => {
+                    const newValue = e.target.value;
+                    marker[field] = newValue;
                     if (activePasteColumns[field]) {
                         if (!manualEdits[field]) manualEdits[field] = {};
                         manualEdits[field][actualIndex] = true;
                     }
                 });
-                // Hide dropdown on blur (with timeout to allow click)
-                input.addEventListener('blur', () => {
-                    setTimeout(() => { dropdown.style.display = 'none'; }, 150);
-                });
-
-                container.appendChild(input);
-                container.appendChild(dropdown);
-                cell.appendChild(container);
+                cell.appendChild(input);
             } else {
                 const input = document.createElement('input');
                 input.type = 'text';
