@@ -93,13 +93,6 @@ except Exception as e:
     logger.error(f"Error initializing Firestore: {str(e)}")
     firestore_client = None
 
-# Initialize Firestore
-try:
-    db = firestore.Client()
-except Exception as e:
-    logger.error(f"Failed to initialize Firestore: {str(e)}")
-    db = None
-
 # --- Global Variables ---
 storage_client = None
 
@@ -1140,10 +1133,10 @@ def delete_music_co(doc_id):
 def list_usage():
     """Lists usage options from Firestore."""
     try:
-        if db is None:
+        if firestore_client is None:
             return jsonify({'error': 'Firestore not initialized'}), 503
             
-        usage_ref = db.collection('usage')
+        usage_ref = firestore_client.collection('usage')
         usage_docs = usage_ref.stream()
         usage_list = [{'id': doc.id, 'name': doc.to_dict()['name']} for doc in usage_docs]
         return jsonify(usage_list)
@@ -1155,7 +1148,7 @@ def list_usage():
 def add_usage():
     """Adds a new usage option to Firestore."""
     try:
-        if db is None:
+        if firestore_client is None:
             return jsonify({'error': 'Firestore not initialized'}), 503
         
         data = request.get_json()
@@ -1165,12 +1158,12 @@ def add_usage():
             return jsonify({'error': 'Usage name is required'}), 400
         
         # Check if name already exists
-        existing_docs = db.collection('usage').where('name', '==', name).stream()
+        existing_docs = firestore_client.collection('usage').where('name', '==', name).stream()
         if list(existing_docs):
             return jsonify({'error': 'Usage option with this name already exists'}), 409
         
         # Add new usage option
-        doc_ref = db.collection('usage').add({'name': name})
+        doc_ref = firestore_client.collection('usage').add({'name': name})
         
         return jsonify({'id': doc_ref[1].id, 'name': name, 'status': 'success'})
     except Exception as e:
@@ -1181,11 +1174,11 @@ def add_usage():
 def delete_usage(doc_id):
     """Deletes a usage option from Firestore."""
     try:
-        if db is None:
+        if firestore_client is None:
             return jsonify({'error': 'Firestore not initialized'}), 503
         
         # Check if document exists
-        doc_ref = db.collection('usage').document(doc_id)
+        doc_ref = firestore_client.collection('usage').document(doc_id)
         if not doc_ref.get().exists:
             return jsonify({'error': 'Usage option not found'}), 404
         
@@ -1201,10 +1194,10 @@ def delete_usage(doc_id):
 def list_unknown_tags():
     """Lists unknown tags from Firestore."""
     try:
-        if db is None:
+        if firestore_client is None:
             return jsonify({'error': 'Firestore not initialized'}), 503
             
-        unknown_tags_ref = db.collection('unknown_tags')
+        unknown_tags_ref = firestore_client.collection('unknown_tags')
         unknown_tags_docs = unknown_tags_ref.stream()
         unknown_tags_list = [{'id': doc.id, 'name': doc.to_dict()['name']} for doc in unknown_tags_docs]
         return jsonify(unknown_tags_list)
@@ -1216,7 +1209,7 @@ def list_unknown_tags():
 def add_unknown_tag():
     """Adds a new unknown tag to Firestore."""
     try:
-        if db is None:
+        if firestore_client is None:
             return jsonify({'error': 'Firestore not initialized'}), 503
         
         data = request.get_json()
@@ -1226,12 +1219,12 @@ def add_unknown_tag():
             return jsonify({'error': 'Unknown tag name is required'}), 400
         
         # Check if name already exists
-        existing_docs = db.collection('unknown_tags').where('name', '==', name).stream()
+        existing_docs = firestore_client.collection('unknown_tags').where('name', '==', name).stream()
         if list(existing_docs):
             return jsonify({'error': 'Unknown tag with this name already exists'}), 409
         
         # Add new unknown tag
-        doc_ref = db.collection('unknown_tags').add({'name': name})
+        doc_ref = firestore_client.collection('unknown_tags').add({'name': name})
         
         return jsonify({'id': doc_ref[1].id, 'name': name, 'status': 'success'})
     except Exception as e:
@@ -1242,11 +1235,11 @@ def add_unknown_tag():
 def delete_unknown_tag(doc_id):
     """Deletes an unknown tag from Firestore."""
     try:
-        if db is None:
+        if firestore_client is None:
             return jsonify({'error': 'Firestore not initialized'}), 503
         
         # Check if document exists
-        doc_ref = db.collection('unknown_tags').document(doc_id)
+        doc_ref = firestore_client.collection('unknown_tags').document(doc_id)
         if not doc_ref.get().exists:
             return jsonify({'error': 'Unknown tag not found'}), 404
         
@@ -1470,7 +1463,7 @@ def view_recognition():
 @app.route('/api/loadsave')
 def loadsave():
     try:
-        if db is None:
+        if firestore_client is None:
             logger.error("Firestore not initialized")
             return jsonify({'error': 'Database not available'}), 503
             
@@ -1479,7 +1472,7 @@ def loadsave():
             return jsonify({})
             
         try:
-            doc = db.collection('autosaves').document(session_id).get()
+            doc = firestore_client.collection('autosaves').document(session_id).get()
             if doc.exists:
                 data = doc.to_dict()
                 # Validate data before sending
