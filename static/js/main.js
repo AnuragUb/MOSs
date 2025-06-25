@@ -2242,11 +2242,11 @@ function showCopyDropdown(e, columnName) {
         <button class="close-dropdown">Close</button>
     `;
 
-    // Position the dropdown below the header
+    // Position the dropdown below the header using viewport coordinates
     const rect = header.getBoundingClientRect();
-    dropdown.style.position = 'absolute';
-    dropdown.style.top = `${rect.bottom}px`;
-    dropdown.style.left = `${rect.left}px`;
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = `${rect.bottom + window.scrollY}px`;
+    dropdown.style.left = `${rect.left + window.scrollX}px`;
 
     // Add click event to options
     dropdown.querySelectorAll('.copy-option').forEach(option => {
