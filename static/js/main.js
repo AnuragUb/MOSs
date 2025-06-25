@@ -292,7 +292,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeRowMarking();
     initializeColumnResize();
     setupSeqHeaderDoubleClick();
-    initializeTitleTagModal();
     initializeClearColumnModal();
     
     // Load options from Firestore
@@ -2618,10 +2617,7 @@ function loadUsageOptions() {
         .then(response => response.json())
         .then(data => {
             usageOptions = data.map(item => item.name);
-            // Update usage counts after loading options
-            updateUsageCounts();
-            // Refresh the table to show sorted options
-            updateMarkerTable();
+            updateUsageDropdown();
         })
         .catch(error => console.error('Error loading usage options:', error));
 }
@@ -2652,26 +2648,16 @@ function loadUnknownTagsOptions() {
 function updateUsageDropdown() {
     const usageCells = document.querySelectorAll('.usage-cell');
     usageCells.forEach(cell => {
-        const currentValue = cell.textContent;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'form-control usage-input';
-        input.value = currentValue;
-        input.list = 'usageOptions';
-        input.addEventListener('input', function(e) {
-            const value = e.target.value;
-            const datalist = document.getElementById('usageOptions');
-            datalist.innerHTML = '';
-            usageOptions
-                .filter(option => option.toLowerCase().includes(value.toLowerCase()))
-                .forEach(option => {
-                    const optionElement = document.createElement('option');
-                    optionElement.value = option;
-                    datalist.appendChild(optionElement);
-                });
+        const select = document.createElement('select');
+        select.className = 'form-control usage-select';
+        usageOptions.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            select.appendChild(opt);
         });
         cell.innerHTML = '';
-        cell.appendChild(input);
+        cell.appendChild(select);
     });
 }
 
@@ -3618,4 +3604,15 @@ function getFieldOptions(field) {
         }
     });
     return Array.from(options).sort();
+}
+
+// Add this function to load title tag preset options from Firestore
+function loadUnknownTagsOptions() {
+    fetch('/api/unknown-tags')
+        .then(response => response.json())
+        .then(data => {
+            unknownTagsOptions = data.map(item => item.name);
+            console.log('Loaded title tag preset options:', unknownTagsOptions);
+        })
+        .catch(error => console.error('Error loading title tag preset options:', error));
 }

@@ -134,8 +134,8 @@
                 const listItem = document.createElement('div');
                 listItem.className = 'list-group-item';
                 listItem.innerHTML = `
-                    <span>${tag}</span>
-                    <button class="btn btn-danger btn-sm" onclick="deleteTag('${tag}')">Delete</button>
+                    <span>${tag.name}</span>
+                    <button class="btn btn-danger btn-sm" onclick="deleteTag('${tag.id}')">Delete</button>
                 `;
                 tagsList.appendChild(listItem);
             });
