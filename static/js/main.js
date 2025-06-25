@@ -2226,8 +2226,16 @@ function initializeOffsetModal() {
 }
 
 function showCopyDropdown(e, columnName) {
-    if (!activePasteColumns[columnName]) return; // Only allow if in copy mode
+    console.log('showCopyDropdown called for column:', columnName);
+    if (!activePasteColumns[columnName]) {
+        console.log('Column not in active paste mode, returning');
+        return;
+    }
+    
     const header = e.target;
+    console.log('Header element:', header);
+    console.log('Header rect:', header.getBoundingClientRect());
+    
     const dropdown = document.createElement('div');
     dropdown.className = 'copy-dropdown';
     dropdown.innerHTML = `
@@ -2247,6 +2255,14 @@ function showCopyDropdown(e, columnName) {
     dropdown.style.position = 'fixed';
     dropdown.style.top = `${rect.bottom + window.scrollY}px`;
     dropdown.style.left = `${rect.left + window.scrollX}px`;
+    
+    console.log('Dropdown positioning:', {
+        top: dropdown.style.top,
+        left: dropdown.style.left,
+        rect: rect,
+        scrollY: window.scrollY,
+        scrollX: window.scrollX
+    });
 
     // Add click event to options
     dropdown.querySelectorAll('.copy-option').forEach(option => {
@@ -2288,6 +2304,8 @@ function showCopyDropdown(e, columnName) {
     });
 
     document.body.appendChild(dropdown);
+    console.log('Dropdown added to body:', dropdown);
+    console.log('Dropdown computed styles:', window.getComputedStyle(dropdown));
 }
 
 function deleteSelectedRows() {

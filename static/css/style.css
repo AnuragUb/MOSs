@@ -834,8 +834,8 @@ body {
 
 /* Copy dropdown styles */
 .copy-dropdown {
-    position: absolute;
-    background: var(--bg-tertiary);
+    position: fixed;
+    background: #2d2d2d !important;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
@@ -844,8 +844,11 @@ body {
     max-height: 300px;
     overflow-y: auto;
     /* Ensure dropdown is not clipped by parent containers */
-    position: fixed;
     transform: translateZ(0);
+    /* Ensure visibility */
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
 }
 
 .copy-title {
