@@ -3411,27 +3411,16 @@ function toggleInputMode(input, field, marker) {
     const currentValue = input.value;
     
     if (currentMode === 'input') {
-        // Switch to dropdown mode
+        // Switch to dropdown mode (simple <select>, browser-native search)
         input.dataset.mode = 'dropdown';
         
-        // Create dropdown container
-        const container = document.createElement('div');
-        container.className = 'dropdown-container toggleable-dropdown';
+        // Create select element
+        const select = document.createElement('select');
+        select.className = 'form-control toggleable-dropdown-select';
+        select.dataset.field = field;
+        select.dataset.mode = 'dropdown';
         
-        // Create new input for dropdown
-        const dropdownInput = document.createElement('input');
-        dropdownInput.type = 'text';
-        dropdownInput.className = 'form-control toggleable-dropdown-input';
-        dropdownInput.value = currentValue;
-        dropdownInput.placeholder = `Select or type ${field}...`;
-        dropdownInput.dataset.field = field;
-        dropdownInput.dataset.mode = 'dropdown';
-        
-        // Create dropdown
-        const dropdown = document.createElement('div');
-        dropdown.className = 'custom-dropdown';
-        
-        // Get options for this field (you can customize this based on field type)
+        // Get options for this field
         let options = [];
         if (field === 'composer') {
             options = getComposerOptions();
@@ -3440,98 +3429,40 @@ function toggleInputMode(input, field, marker) {
         } else if (field === 'filmTitle') {
             options = getFilmTitleOptions();
         } else if (field === 'musicCo') {
-            options = musicCoOptions; // Use the existing musicCoOptions array
+            options = musicCoOptions;
+        } else if (field === 'usage') {
+            options = usageOptions;
         } else {
             options = getFieldOptions(field);
         }
         
-        let filtered = [];
-        let selectedIdx = -1;
-        
-        function renderDropdown() {
-            dropdown.innerHTML = '';
-            const val = dropdownInput.value.trim().toLowerCase();
-            filtered = options.filter(opt => opt.toLowerCase().includes(val));
-            
-            filtered.forEach((opt, i) => {
-                const div = document.createElement('div');
-                div.className = 'dropdown-option' + (i === selectedIdx ? ' selected' : '');
-                div.textContent = opt;
-                div.title = opt;
-                div.onclick = () => selectOption(opt);
-                dropdown.appendChild(div);
-            });
-            dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
-        }
-        
-        function selectOption(val) {
-            dropdownInput.value = val;
-            dropdown.style.display = 'none';
-            marker[field] = val;
-            
-            // Update the appropriate options array based on field type
-            if (field === 'musicCo' && val && !musicCoOptions.includes(val)) {
-                musicCoOptions.push(val);
-            }
-            
-            if (activePasteColumns[field]) {
-                if (!manualEdits[field]) manualEdits[field] = {};
-                manualEdits[field][actualIndex] = true;
-            }
-        }
-        
-        // Add event listeners
-        dropdownInput.addEventListener('input', renderDropdown);
-        dropdownInput.addEventListener('focus', renderDropdown);
-        dropdownInput.addEventListener('blur', () => setTimeout(() => {
-            dropdown.style.display = 'none';
-        }, 150));
-        
-        dropdownInput.addEventListener('keydown', e => {
-            if (!filtered.length) return;
-            if (e.key === 'ArrowDown') {
-                selectedIdx = (selectedIdx + 1) % filtered.length;
-                renderDropdown();
-                e.preventDefault();
-            } else if (e.key === 'ArrowUp') {
-                selectedIdx = (selectedIdx - 1 + filtered.length) % filtered.length;
-                renderDropdown();
-                e.preventDefault();
-            } else if (e.key === 'Enter') {
-                if (selectedIdx >= 0) {
-                    selectOption(filtered[selectedIdx]);
-                }
-                e.preventDefault();
-            }
+        // Add options to select
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt;
+            if (opt === currentValue) option.selected = true;
+            select.appendChild(option);
         });
         
-        // Add double-click to switch back to input mode
-        dropdownInput.addEventListener('dblclick', function(e) {
+        // On change, update marker and toggle back to input
+        select.addEventListener('change', function(e) {
+            marker[field] = e.target.value;
+            // Optionally, toggle back to input mode after selection:
+            toggleInputMode(select, field, marker);
+        });
+        // Double-click to toggle back to input
+        select.addEventListener('dblclick', function(e) {
             e.preventDefault();
-            toggleInputMode(dropdownInput, field, marker);
+            toggleInputMode(select, field, marker);
         });
         
-        dropdownInput.addEventListener('change', (e) => {
-            const newValue = e.target.value;
-            marker[field] = newValue;
-            if (activePasteColumns[field]) {
-                if (!manualEdits[field]) manualEdits[field] = {};
-                manualEdits[field][actualIndex] = true;
-            }
-        });
-        
-        container.appendChild(dropdownInput);
-        container.appendChild(dropdown);
-        
-        // Replace input with dropdown
+        // Replace input with select
         cell.innerHTML = '';
-        cell.appendChild(container);
-        
+        cell.appendChild(select);
     } else {
         // Switch back to input mode
         input.dataset.mode = 'input';
-        
-        // Create simple input
         const newInput = document.createElement('input');
         newInput.type = 'text';
         newInput.className = 'table-input toggleable-input';
@@ -3539,23 +3470,17 @@ function toggleInputMode(input, field, marker) {
         newInput.dataset.field = field;
         newInput.dataset.mode = 'input';
         makeInputResizable(newInput);
-        
-        // Add double-click handler
         newInput.addEventListener('dblclick', function(e) {
             e.preventDefault();
             toggleInputMode(newInput, field, marker);
         });
-        
         newInput.addEventListener('change', (e) => {
-            const newValue = e.target.value;
-            marker[field] = newValue;
+            marker[field] = e.target.value;
             if (activePasteColumns[field]) {
                 if (!manualEdits[field]) manualEdits[field] = {};
                 manualEdits[field][actualIndex] = true;
             }
         });
-        
-        // Replace dropdown with input
         cell.innerHTML = '';
         cell.appendChild(newInput);
     }
