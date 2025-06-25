@@ -1192,22 +1192,22 @@ def delete_usage(doc_id):
 
 @app.route('/api/unknown-tags', methods=['GET'])
 def list_unknown_tags():
-    """Lists unknown tags from Firestore."""
+    """Lists title tag presets from Firestore."""
     try:
         if firestore_client is None:
             return jsonify({'error': 'Firestore not initialized'}), 503
             
-        unknown_tags_ref = firestore_client.collection('unknown_tags')
-        unknown_tags_docs = unknown_tags_ref.stream()
-        unknown_tags_list = [{'id': doc.id, 'name': doc.to_dict()['name']} for doc in unknown_tags_docs]
-        return jsonify(unknown_tags_list)
+        title_tag_preset_ref = firestore_client.collection('title_tag_preset')
+        title_tag_preset_docs = title_tag_preset_ref.stream()
+        title_tag_preset_list = [{'id': doc.id, 'name': doc.to_dict()['name']} for doc in title_tag_preset_docs]
+        return jsonify(title_tag_preset_list)
     except Exception as e:
-        logger.error(f"Error listing unknown tags: {str(e)}")
+        logger.error(f"Error listing title tag presets: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/unknown-tags', methods=['POST'])
 def add_unknown_tag():
-    """Adds a new unknown tag to Firestore."""
+    """Adds a new title tag preset to Firestore."""
     try:
         if firestore_client is None:
             return jsonify({'error': 'Firestore not initialized'}), 503
@@ -1216,39 +1216,39 @@ def add_unknown_tag():
         name = data.get('name', '').strip()
         
         if not name:
-            return jsonify({'error': 'Unknown tag name is required'}), 400
+            return jsonify({'error': 'Title tag preset name is required'}), 400
         
         # Check if name already exists
-        existing_docs = firestore_client.collection('unknown_tags').where('name', '==', name).stream()
+        existing_docs = firestore_client.collection('title_tag_preset').where('name', '==', name).stream()
         if list(existing_docs):
-            return jsonify({'error': 'Unknown tag with this name already exists'}), 409
+            return jsonify({'error': 'Title tag preset with this name already exists'}), 409
         
-        # Add new unknown tag
-        doc_ref = firestore_client.collection('unknown_tags').add({'name': name})
+        # Add new title tag preset
+        doc_ref = firestore_client.collection('title_tag_preset').add({'name': name})
         
         return jsonify({'id': doc_ref[1].id, 'name': name, 'status': 'success'})
     except Exception as e:
-        logger.error(f"Error adding unknown tag: {str(e)}")
+        logger.error(f"Error adding title tag preset: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/unknown-tags/<doc_id>', methods=['DELETE'])
 def delete_unknown_tag(doc_id):
-    """Deletes an unknown tag from Firestore."""
+    """Deletes a title tag preset from Firestore."""
     try:
         if firestore_client is None:
             return jsonify({'error': 'Firestore not initialized'}), 503
         
         # Check if document exists
-        doc_ref = firestore_client.collection('unknown_tags').document(doc_id)
+        doc_ref = firestore_client.collection('title_tag_preset').document(doc_id)
         if not doc_ref.get().exists:
-            return jsonify({'error': 'Unknown tag not found'}), 404
+            return jsonify({'error': 'Title tag preset not found'}), 404
         
         # Delete the document
         doc_ref.delete()
         
-        return jsonify({'status': 'success', 'message': 'Unknown tag deleted successfully'})
+        return jsonify({'status': 'success', 'message': 'Title tag preset deleted successfully'})
     except Exception as e:
-        logger.error(f"Error deleting unknown tag: {str(e)}")
+        logger.error(f"Error deleting title tag preset: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/music-co')
