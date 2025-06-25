@@ -3430,6 +3430,8 @@ function toggleInputMode(input, field, marker) {
             options = getFilmTitleOptions();
         } else if (field === 'musicCo') {
             options = musicCoOptions;
+        } else if (field === 'title') {
+            options = unknownTagsOptions; // Use title track preset database for Title dropdown
         } else if (field === 'usage') {
             options = usageOptions;
         } else {
