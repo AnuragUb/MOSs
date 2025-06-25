@@ -116,7 +116,6 @@
             </div>
             <div class="export-buttons mb-3">
                 <button class="btn btn-warning" id="rowMarkBtn">Mark Exceptions</button>
-                <button class="btn btn-info" id="applyTitleBtn">Apply Title Tag</button>
                 <button class="btn btn-secondary ms-2" id="clearColumnBtn">Clear Column</button>
                 <button class="btn btn-primary ms-2" id="exportBtn">Export</button>
                 <button class="btn btn-danger ms-2" id="clearTableBtn">Clear Table</button>
@@ -239,32 +238,6 @@
         </div>
     </div>
 
-    <!-- Title Tag Modal -->
-    <div id="titleTagModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>Apply Title Tag to Selected Rows</h3>
-            <div class="mb-3">
-                <label for="titleTagSelect" class="form-label">Select Title Tag:</label>
-                <select id="titleTagSelect" class="form-select">
-                    <option value="">-- Select a title tag --</option>
-                </select>
-            </div>
-            <div class="mb-3">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="applyToAllSelected">
-                    <label class="form-check-label" for="applyToAllSelected">
-                        Apply to all selected rows
-                    </label>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-primary" id="applyTitleTagBtn">Apply Tag</button>
-                <button class="btn btn-secondary" id="cancelTitleTagBtn">Cancel</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Clear Column Modal -->
     <div id="clearColumnModal" class="modal">
         <div class="modal-content" style="background-color: #2d3748; color: #e2e8f0; border: 1px solid #4a5568;">
@@ -302,7 +275,7 @@
             <a href="/usage" class="nav-link" target="_blank" style="display: inline; padding: 0; margin: 0; width: auto;">Usage Management</a>
         </span>
         <span class="nav-item" style="display: inline-block; margin-right: 16px;">
-            <a href="/unknown-tags" class="nav-link" target="_blank" style="display: inline; padding: 0; margin: 0; width: auto;">Unknown Tags Management</a>
+            <a href="/unknown-tags" class="nav-link" target="_blank" style="display: inline; padding: 0; margin: 0; width: auto;">Title Tag Preset Management</a>
         </span>
     </div>
 
