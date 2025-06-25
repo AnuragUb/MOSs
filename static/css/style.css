@@ -1518,7 +1518,7 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
-    padding-right: 25px; /* Make room for the indicator */
+    padding-right: 30px; /* Make room for the indicator */
 }
 
 .toggleable-input:hover {
@@ -1543,7 +1543,7 @@ body {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
     border: 1px solid var(--accent-color);
-    padding: 6px 25px 6px 12px; /* Extra right padding for dropdown arrow */
+    padding: 6px 30px 6px 12px; /* Extra right padding for dropdown arrow */
     border-radius: 4px;
     transition: border-color 0.2s, box-shadow 0.2s;
     cursor: pointer;
@@ -1560,16 +1560,43 @@ body {
     background-color: var(--hover-color);
 }
 
-/* Visual indicator for dropdown mode */
+/* Visual indicator for dropdown mode - much more visible */
 .toggleable-dropdown-input::after {
     content: '▼';
     position: absolute;
-    right: 8px;
+    right: 10px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--accent-color);
-    font-size: 10px;
+    font-size: 14px;
+    font-weight: bold;
     pointer-events: none;
+    background-color: var(--bg-secondary);
+    padding: 2px;
+    border-radius: 2px;
+}
+
+/* Add a clear indicator for toggleable inputs - always visible */
+.toggleable-input::after {
+    content: '↔';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent-color);
+    font-size: 14px;
+    font-weight: bold;
+    pointer-events: none;
+    background-color: var(--bg-secondary);
+    padding: 2px;
+    border-radius: 2px;
+    opacity: 0.8;
+}
+
+.toggleable-input:hover::after {
+    opacity: 1;
+    color: var(--primary-color);
+    background-color: var(--hover-color);
 }
 
 /* Ensure toggleable dropdowns have the same styling as music-co dropdowns */
@@ -1606,34 +1633,6 @@ body {
 .toggleable-dropdown .dropdown-option.selected {
     background-color: var(--accent-color);
     color: white;
-}
-
-.toggleable-dropdown .dropdown-option.add-new {
-    background-color: var(--success-color);
-    color: white;
-    font-style: italic;
-}
-
-.toggleable-dropdown .dropdown-option.add-new:hover {
-    background-color: var(--success-hover-color);
-}
-
-/* Add a subtle indicator for toggleable inputs */
-.toggleable-input::after {
-    content: '↔';
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-secondary);
-    font-size: 10px;
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-.toggleable-input:hover::after {
-    opacity: 1;
-    color: var(--accent-color);
 }
 
 /* Better visual for multiple marks */

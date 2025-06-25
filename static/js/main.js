@@ -3467,23 +3467,12 @@ function toggleInputMode(input, field, marker) {
             const val = dropdownInput.value.trim().toLowerCase();
             filtered = options.filter(opt => opt.toLowerCase().includes(val));
             
-            if (val && !options.some(opt => opt.toLowerCase() === val)) {
-                filtered.push({ addNew: true, value: dropdownInput.value });
-            }
-            
             filtered.forEach((opt, i) => {
                 const div = document.createElement('div');
                 div.className = 'dropdown-option' + (i === selectedIdx ? ' selected' : '');
-                if (typeof opt === 'string') {
-                    div.textContent = opt;
-                    div.title = opt;
-                    div.onclick = () => selectOption(opt);
-                } else if (opt.addNew) {
-                    div.textContent = `Add new: "${opt.value}"`;
-                    div.title = `Add new: "${opt.value}"`;
-                    div.classList.add('add-new');
-                    div.onclick = () => selectOption(opt.value);
-                }
+                div.textContent = opt;
+                div.title = opt;
+                div.onclick = () => selectOption(opt);
                 dropdown.appendChild(div);
             });
             dropdown.style.display = filtered.length > 0 ? 'block' : 'none';
@@ -3497,12 +3486,6 @@ function toggleInputMode(input, field, marker) {
             // Update the appropriate options array based on field type
             if (field === 'musicCo' && val && !musicCoOptions.includes(val)) {
                 musicCoOptions.push(val);
-            } else if (field === 'composer' && val && !getComposerOptions().includes(val)) {
-                // Composer options are generated dynamically, so no need to update
-            } else if (field === 'lyricist' && val && !getLyricistOptions().includes(val)) {
-                // Lyricist options are generated dynamically, so no need to update
-            } else if (field === 'filmTitle' && val && !getFilmTitleOptions().includes(val)) {
-                // Film title options are generated dynamically, so no need to update
             }
             
             if (activePasteColumns[field]) {
@@ -3530,8 +3513,7 @@ function toggleInputMode(input, field, marker) {
                 e.preventDefault();
             } else if (e.key === 'Enter') {
                 if (selectedIdx >= 0) {
-                    const opt = filtered[selectedIdx];
-                    selectOption(typeof opt === 'string' ? opt : opt.value);
+                    selectOption(filtered[selectedIdx]);
                 }
                 e.preventDefault();
             }
