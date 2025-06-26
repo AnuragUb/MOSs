@@ -293,6 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeColumnResize();
     setupSeqHeaderDoubleClick();
     initializeClearColumnModal();
+    initializeTitleTagModal();
     
     // Load options from Firestore
     loadUsageOptions();
@@ -3542,4 +3543,35 @@ function loadUnknownTagsOptions() {
             console.log('Loaded title tag preset options:', unknownTagsOptions);
         })
         .catch(error => console.error('Error loading title tag preset options:', error));
+}
+
+// Function to refresh title tag options (can be called from management page)
+function refreshTitleTagOptions() {
+    loadUnknownTagsOptions();
+    // Also refresh any existing dropdowns
+    const titleTagSelect = document.getElementById('titleTagSelect');
+    if (titleTagSelect) {
+        populateTitleTagDropdown();
+    }
+}
+
+// Function to open title tag management page
+function openTitleTagManagement() {
+    const managementWindow = window.open('/unknown-tags', 'Title Tag Management', 'width=800,height=600');
+    
+    // Check if window opened successfully
+    if (!managementWindow) {
+        alert('Please allow popups for this site to use the title tag management.');
+        return;
+    }
+    
+    // Add event listener for when the management window closes
+    const checkWindow = setInterval(() => {
+        if (managementWindow.closed) {
+            clearInterval(checkWindow);
+            console.log('Title tag management window closed');
+            // Refresh options when management window closes
+            refreshTitleTagOptions();
+        }
+    }, 500);
 }

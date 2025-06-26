@@ -83,7 +83,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>Title Tag Preset Management</h1>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Title Tag Preset Management</h1>
+            <a href="/" class="btn btn-secondary">← Back to Main Page</a>
+        </div>
         
         <div class="card">
             <div class="card-header">
@@ -155,14 +158,18 @@
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ tag: tag })
+                        body: JSON.stringify({ name: tag })
                     });
                     
                     if (response.ok) {
+                        const result = await response.json();
                         tagInput.value = '';
                         loadTags();
+                        showMessage('Title tag preset added successfully!', 'success');
+                        refreshMainPageOptions();
                     } else {
-                        alert('Error adding tag');
+                        const errorData = await response.json();
+                        showMessage('Error adding tag: ' + (errorData.error || 'Unknown error'), 'error');
                     }
                 } catch (error) {
                     console.error('Error adding tag:', error);
@@ -171,28 +178,69 @@
             }
         });
 
+        // Load tags when page loads
+        document.addEventListener('DOMContentLoaded', loadTags);
+
+        // Show message function
+        function showMessage(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+            alertDiv.style.position = 'fixed';
+            alertDiv.style.top = '20px';
+            alertDiv.style.right = '20px';
+            alertDiv.style.zIndex = '9999';
+            alertDiv.style.minWidth = '300px';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(alertDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 5000);
+        }
+
+        // Refresh main page title tag options
+        function refreshMainPageOptions() {
+            try {
+                // Try to refresh the main page if it's open
+                const mainPage = window.opener || window.parent;
+                if (mainPage && mainPage !== window && mainPage.loadUnknownTagsOptions) {
+                    mainPage.loadUnknownTagsOptions();
+                }
+            } catch (e) {
+                // Ignore errors if main page is not accessible
+                console.log('Main page not accessible for refresh');
+            }
+        }
+
         // Delete tag
-        async function deleteTag(tag) {
-            if (confirm(`Are you sure you want to delete "${tag}"?`)) {
+        async function deleteTag(tagId) {
+            if (confirm(`Are you sure you want to delete this title tag preset?`)) {
                 try {
-                    const response = await fetch(`/api/unknown-tags/${encodeURIComponent(tag)}`, {
+                    const response = await fetch(`/api/unknown-tags/${encodeURIComponent(tagId)}`, {
                         method: 'DELETE'
                     });
                     
                     if (response.ok) {
                         loadTags();
+                        showMessage('Title tag preset deleted successfully!', 'success');
+                        refreshMainPageOptions();
                     } else {
-                        alert('Error deleting tag');
+                        const errorData = await response.json();
+                        showMessage('Error deleting tag: ' + (errorData.error || 'Unknown error'), 'error');
                     }
                 } catch (error) {
                     console.error('Error deleting tag:', error);
-                    alert('Error deleting tag');
+                    showMessage('Error deleting tag', 'error');
                 }
             }
         }
-
-        // Load tags when page loads
-        document.addEventListener('DOMContentLoaded', loadTags);
     </script>
 </body>
 </html> 
