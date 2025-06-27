@@ -1243,6 +1243,7 @@ function updateMarkerTable() {
         
         // Add Usage cell with dropdown
         const usageCell = document.createElement('td');
+        usageCell.className = 'usage-cell';
         const usageSelect = document.createElement('select');
         usageSelect.className = 'table-input';
         usageSelect.dataset.field = 'usage';
@@ -2617,9 +2618,23 @@ function loadUsageOptions() {
         .then(response => response.json())
         .then(data => {
             usageOptions = data.map(item => item.name);
+            console.log('Loaded usage options:', usageOptions);
+            
+            // Add fallback options if no data from Firestore
+            if (usageOptions.length === 0) {
+                usageOptions = ['BI', 'BV', 'VI', 'VV', 'SRC', 'BI,BV', 'VI,VV', 'BI,VV', 'VI,BV'];
+                console.log('Using fallback usage options:', usageOptions);
+            }
+            
             updateUsageDropdown();
         })
-        .catch(error => console.error('Error loading usage options:', error));
+        .catch(error => {
+            console.error('Error loading usage options:', error);
+            // Use fallback options on error
+            usageOptions = ['BI', 'BV', 'VI', 'VV', 'SRC', 'BI,BV', 'VI,VV', 'BI,VV', 'VI,BV'];
+            console.log('Using fallback usage options due to error:', usageOptions);
+            updateUsageDropdown();
+        });
 }
 
 // Add this function to load music co options from Firestore
@@ -2647,18 +2662,50 @@ function loadUnknownTagsOptions() {
 // Update the usage dropdown
 function updateUsageDropdown() {
     const usageCells = document.querySelectorAll('.usage-cell');
+    console.log('Found usage cells:', usageCells.length);
+    
     usageCells.forEach(cell => {
-        const select = document.createElement('select');
-        select.className = 'form-control usage-select';
-        usageOptions.forEach(option => {
-            const opt = document.createElement('option');
-            opt.value = option;
-            opt.textContent = option;
-            select.appendChild(opt);
-        });
+        // Clear existing content
         cell.innerHTML = '';
+        
+        const select = document.createElement('select');
+        select.className = 'form-control usage-select table-input';
+        select.dataset.field = 'usage';
+        makeInputResizable(select);
+        
+        // Add options
+        if (usageOptions && usageOptions.length > 0) {
+            usageOptions.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option;
+                opt.textContent = option;
+                select.appendChild(opt);
+            });
+        } else {
+            // Add fallback options if none available
+            const fallbackOptions = ['BI', 'BV', 'VI', 'VV', 'SRC', 'BI,BV', 'VI,VV', 'BI,VV', 'VI,BV'];
+            fallbackOptions.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option;
+                opt.textContent = option;
+                select.appendChild(opt);
+            });
+        }
+        
+        // Add change event listener
+        select.addEventListener('change', (e) => {
+            const row = cell.closest('tr');
+            const rowIndex = parseInt(row.dataset.rowIndex, 10);
+            if (markers[rowIndex]) {
+                markers[rowIndex].usage = Array.from(e.target.selectedOptions, option => option.value);
+                updateUsageCounts();
+            }
+        });
+        
         cell.appendChild(select);
     });
+    
+    console.log('Updated usage dropdowns with', usageOptions.length, 'options');
 }
 
 // Update the music co dropdown
