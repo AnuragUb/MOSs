@@ -3615,10 +3615,10 @@ function loadCloudVideo(gcsPath) {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            // Set the video source
-            videoPlayer.src = data.signedUrl;
+            // Set the video source using proxy URL
+            videoPlayer.src = data.proxyUrl;
             videoPlayer.load();
-            currentVideo = data.signedUrl;
+            currentVideo = data.proxyUrl;
             currentVideoFile = null; // Clear local file reference
             currentGcsPath = data.gcsPath; // Set the GCS path
             

@@ -1554,17 +1554,6 @@ def list_cloud_videos():
             if blob.name == 'videos/':
                 continue
                 
-            # Generate a signed URL for the video
-            try:
-                signed_url = blob.generate_signed_url(
-                    version="v4",
-                    expiration=timedelta(hours=1),
-                    method="GET"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to generate signed URL for {blob.name}: {str(e)}")
-                signed_url = None
-            
             # Extract filename from path
             filename = os.path.basename(blob.name)
             
@@ -1575,7 +1564,6 @@ def list_cloud_videos():
                 'size_mb': round(blob.size / (1024 * 1024), 2),
                 'created': blob.time_created.isoformat() if blob.time_created else None,
                 'updated': blob.updated.isoformat() if blob.updated else None,
-                'signed_url': signed_url,
                 'content_type': blob.content_type
             }
             videos.append(video_info)
@@ -1615,12 +1603,8 @@ def load_cloud_video():
         if not blob.exists():
             return jsonify({'error': 'Video not found in cloud storage'}), 404
         
-        # Generate a signed URL for the video
-        signed_url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(hours=1),
-            method="GET"
-        )
+        # Use server-side proxy URL
+        proxy_url = f"/api/serve-video/{gcs_path}"
         
         # Extract filename from path
         filename = os.path.basename(gcs_path)
@@ -1630,7 +1614,7 @@ def load_cloud_video():
         return jsonify({
             'status': 'success',
             'gcsPath': gcs_path,
-            'signedUrl': signed_url,
+            'proxyUrl': proxy_url,
             'filename': filename,
             'size': blob.size,
             'contentType': blob.content_type
@@ -1673,6 +1657,38 @@ def delete_cloud_video():
     except Exception as e:
         logger.error(f"Error deleting cloud video: {str(e)}")
         return jsonify({'error': f'Failed to delete video: {str(e)}'}), 500
+
+@app.route('/api/serve-video/<path:gcs_path>')
+def serve_video_proxy(gcs_path):
+    """Serve video files from GCS through a server-side proxy"""
+    try:
+        if storage_client is None:
+            return jsonify({'error': 'GCS client not initialized'}), 503
+        
+        bucket_name = os.getenv('GCS_BUCKET_NAME', 'mos-aat')
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(gcs_path)
+        
+        if not blob.exists():
+            return jsonify({'error': 'Video not found'}), 404
+        
+        # Stream the video content
+        response = app.response_class(
+            blob.download_as_bytes(),
+            status=200,
+            mimetype=blob.content_type
+        )
+        
+        # Add headers for video streaming
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Content-Length'] = str(blob.size)
+        response.headers['Cache-Control'] = 'public, max-age=3600'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error serving video {gcs_path}: {str(e)}")
+        return jsonify({'error': f'Failed to serve video: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True) 
