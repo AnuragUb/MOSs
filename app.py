@@ -26,6 +26,8 @@ from google.cloud import secretmanager
 from google.oauth2 import service_account
 import shutil
 from google.auth import compute_engine
+import urllib.parse
+import re
 
 # Load environment variables
 load_dotenv()
@@ -1662,32 +1664,96 @@ def delete_cloud_video():
 def serve_video_proxy(gcs_path):
     """Serve video files from GCS through a server-side proxy"""
     try:
+        logger.info(f"Attempting to serve video: {gcs_path}")
+        
         if storage_client is None:
+            logger.error("GCS client not initialized")
             return jsonify({'error': 'GCS client not initialized'}), 503
         
+        # URL decode the path to handle special characters
+        gcs_path = urllib.parse.unquote(gcs_path)
+        logger.info(f"Decoded path: {gcs_path}")
+        
         bucket_name = os.getenv('GCS_BUCKET_NAME', 'mos-aat')
+        logger.info(f"Using bucket: {bucket_name}")
+        
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(gcs_path)
         
+        logger.info(f"Checking if blob exists: {gcs_path}")
         if not blob.exists():
+            logger.error(f"Video not found: {gcs_path}")
             return jsonify({'error': 'Video not found'}), 404
         
-        # Stream the video content
-        response = app.response_class(
-            blob.download_as_bytes(),
-            status=200,
-            mimetype=blob.content_type
-        )
+        logger.info(f"Blob exists, size: {blob.size} bytes")
         
-        # Add headers for video streaming
-        response.headers['Accept-Ranges'] = 'bytes'
-        response.headers['Content-Length'] = str(blob.size)
-        response.headers['Cache-Control'] = 'public, max-age=3600'
+        # Check if this is a range request (for video seeking)
+        range_header = request.headers.get('Range', None)
+        logger.info(f"Range header: {range_header}")
         
-        return response
+        if range_header:
+            # Handle range requests for video seeking
+            try:
+                # Parse range header (e.g., "bytes=0-1023")
+                range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
+                if range_match:
+                    start = int(range_match.group(1))
+                    end = int(range_match.group(2)) if range_match.group(2) else blob.size - 1
+                    
+                    logger.info(f"Downloading range: {start}-{end}")
+                    # Download only the requested range
+                    video_data = blob.download_as_bytes(start=start, end=end)
+                    
+                    response = app.response_class(
+                        video_data,
+                        status=206,  # Partial Content
+                        mimetype=blob.content_type or 'video/mp4'
+                    )
+                    
+                    response.headers['Accept-Ranges'] = 'bytes'
+                    response.headers['Content-Length'] = str(len(video_data))
+                    response.headers['Content-Range'] = f'bytes {start}-{end}/{blob.size}'
+                    response.headers['Cache-Control'] = 'public, max-age=3600'
+                    
+                    logger.info(f"Served video range: {gcs_path} ({start}-{end}/{blob.size})")
+                    return response
+                    
+            except Exception as e:
+                logger.error(f"Error handling range request for {gcs_path}: {str(e)}")
+                # Fall back to full download
+        
+        # Full video download (for non-range requests or fallback)
+        try:
+            logger.info(f"Downloading full video: {gcs_path}")
+            video_data = blob.download_as_bytes()
+            logger.info(f"Downloaded {len(video_data)} bytes")
+            
+            response = app.response_class(
+                video_data,
+                status=200,
+                mimetype=blob.content_type or 'video/mp4'
+            )
+            
+            # Add headers for video streaming
+            response.headers['Accept-Ranges'] = 'bytes'
+            response.headers['Content-Length'] = str(blob.size)
+            response.headers['Cache-Control'] = 'public, max-age=3600'
+            
+            logger.info(f"Successfully served video: {gcs_path} ({blob.size} bytes)")
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error downloading video {gcs_path}: {str(e)}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return jsonify({'error': f'Failed to download video: {str(e)}'}), 500
         
     except Exception as e:
         logger.error(f"Error serving video {gcs_path}: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({'error': f'Failed to serve video: {str(e)}'}), 500
 
 if __name__ == '__main__':
