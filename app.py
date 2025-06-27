@@ -1535,5 +1535,144 @@ def upload_video_to_gcs():
         logger.error(f"Error uploading video to GCS: {str(e)}")
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
+@app.route('/api/list-cloud-videos', methods=['GET'])
+def list_cloud_videos():
+    """List all videos in the cloud storage videos folder"""
+    try:
+        if storage_client is None:
+            return jsonify({'error': 'GCS client not initialized'}), 503
+        
+        bucket_name = os.getenv('GCS_BUCKET_NAME', 'mos-aat')
+        bucket = storage_client.bucket(bucket_name)
+        
+        # List all blobs in the videos folder
+        blobs = bucket.list_blobs(prefix='videos/')
+        
+        videos = []
+        for blob in blobs:
+            # Skip the videos/ folder itself
+            if blob.name == 'videos/':
+                continue
+                
+            # Generate a signed URL for the video
+            try:
+                signed_url = blob.generate_signed_url(
+                    version="v4",
+                    expiration=timedelta(hours=1),
+                    method="GET"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to generate signed URL for {blob.name}: {str(e)}")
+                signed_url = None
+            
+            # Extract filename from path
+            filename = os.path.basename(blob.name)
+            
+            video_info = {
+                'name': blob.name,
+                'filename': filename,
+                'size': blob.size,
+                'size_mb': round(blob.size / (1024 * 1024), 2),
+                'created': blob.time_created.isoformat() if blob.time_created else None,
+                'updated': blob.updated.isoformat() if blob.updated else None,
+                'signed_url': signed_url,
+                'content_type': blob.content_type
+            }
+            videos.append(video_info)
+        
+        # Sort by creation date (newest first)
+        videos.sort(key=lambda x: x['created'] or '', reverse=True)
+        
+        logger.info(f"Listed {len(videos)} videos from cloud storage")
+        
+        return jsonify({
+            'status': 'success',
+            'videos': videos,
+            'total_count': len(videos)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error listing cloud videos: {str(e)}")
+        return jsonify({'error': f'Failed to list videos: {str(e)}'}), 500
+
+@app.route('/api/load-cloud-video', methods=['POST'])
+def load_cloud_video():
+    """Load a specific video from cloud storage"""
+    try:
+        data = request.get_json()
+        gcs_path = data.get('gcsPath')
+        
+        if not gcs_path:
+            return jsonify({'error': 'No GCS path provided'}), 400
+        
+        if storage_client is None:
+            return jsonify({'error': 'GCS client not initialized'}), 503
+        
+        bucket_name = os.getenv('GCS_BUCKET_NAME', 'mos-aat')
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(gcs_path)
+        
+        if not blob.exists():
+            return jsonify({'error': 'Video not found in cloud storage'}), 404
+        
+        # Generate a signed URL for the video
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(hours=1),
+            method="GET"
+        )
+        
+        # Extract filename from path
+        filename = os.path.basename(gcs_path)
+        
+        logger.info(f"Loaded cloud video: {gcs_path}")
+        
+        return jsonify({
+            'status': 'success',
+            'gcsPath': gcs_path,
+            'signedUrl': signed_url,
+            'filename': filename,
+            'size': blob.size,
+            'contentType': blob.content_type
+        })
+        
+    except Exception as e:
+        logger.error(f"Error loading cloud video: {str(e)}")
+        return jsonify({'error': f'Failed to load video: {str(e)}'}), 500
+
+@app.route('/api/delete-cloud-video', methods=['DELETE'])
+def delete_cloud_video():
+    """Delete a video from cloud storage"""
+    try:
+        data = request.get_json()
+        gcs_path = data.get('gcsPath')
+        
+        if not gcs_path:
+            return jsonify({'error': 'No GCS path provided'}), 400
+        
+        if storage_client is None:
+            return jsonify({'error': 'GCS client not initialized'}), 503
+        
+        bucket_name = os.getenv('GCS_BUCKET_NAME', 'mos-aat')
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(gcs_path)
+        
+        if not blob.exists():
+            return jsonify({'error': 'Video not found in cloud storage'}), 404
+        
+        # Delete the blob
+        blob.delete()
+        
+        logger.info(f"Deleted cloud video: {gcs_path}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Video {gcs_path} deleted successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting cloud video: {str(e)}")
+        return jsonify({'error': f'Failed to delete video: {str(e)}'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True) 

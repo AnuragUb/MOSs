@@ -1401,14 +1401,14 @@ body {
     top: 100%;
     left: 0;
     right: 0;
-    background: #2d2d2d;
-    border: 1px solid #444;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     max-height: 200px;
     overflow-y: auto;
-    z-index: 9999;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    min-width: 220px;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .dropdown-option {
@@ -1879,4 +1879,119 @@ kbd:hover {
   z-index: 9999;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   min-width: 220px;
+}
+
+/* Cloud Video Management Styles */
+.cloud-videos-section {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cloud-videos-section h6 {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.cloud-videos-list {
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    padding: 0.5rem;
+}
+
+.cloud-video-item {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 6px !important;
+    margin-bottom: 0.5rem !important;
+    transition: all 0.2s ease;
+}
+
+.cloud-video-item:hover {
+    border-color: var(--accent-color) !important;
+    box-shadow: 0 2px 8px rgba(127, 156, 245, 0.2);
+}
+
+.cloud-video-item .card-body {
+    background: transparent !important;
+    padding: 0.75rem !important;
+}
+
+.cloud-video-item .card-title {
+    color: var(--text-primary) !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.25rem !important;
+    word-break: break-word;
+}
+
+.cloud-video-item .text-muted {
+    color: var(--text-secondary) !important;
+    font-size: 0.75rem !important;
+}
+
+.cloud-video-item .btn-group {
+    flex-shrink: 0;
+}
+
+.cloud-video-item .btn {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+    border-radius: 4px !important;
+}
+
+.cloud-video-item .btn-primary {
+    background-color: var(--accent-color) !important;
+    border-color: var(--accent-color) !important;
+    color: white !important;
+}
+
+.cloud-video-item .btn-primary:hover {
+    background-color: #6b7cff !important;
+    border-color: #6b7cff !important;
+}
+
+.cloud-video-item .btn-danger {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: white !important;
+}
+
+.cloud-video-item .btn-danger:hover {
+    background-color: #c82333 !important;
+    border-color: #bd2130 !important;
+}
+
+/* Loading state for cloud videos */
+.cloud-videos-list .spinner-border {
+    color: var(--accent-color);
+}
+
+/* Empty state for cloud videos */
+.cloud-videos-list .text-muted {
+    color: var(--text-secondary) !important;
+    font-style: italic;
+}
+
+/* Scrollbar styling for cloud videos list */
+.cloud-videos-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.cloud-videos-list::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 3px;
+}
+
+.cloud-videos-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.cloud-videos-list::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
 } 

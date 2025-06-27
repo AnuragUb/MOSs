@@ -308,6 +308,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize history with current state
     saveToHistory();
     
+    // Initialize cloud video management
+    loadCloudVideos();
+    
     console.log('Main page components initialized');
 });
 
@@ -3496,4 +3499,213 @@ function openTitleTagManagement() {
             refreshTitleTagOptions();
         }
     }, 500);
+}
+
+// Cloud Video Management Functions
+function loadCloudVideos() {
+    const container = document.getElementById('cloudVideosContainer');
+    if (!container) {
+        console.error('Cloud videos container not found');
+        return;
+    }
+    
+    // Show loading state
+    container.innerHTML = `
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+    
+    fetch('/api/list-cloud-videos')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayCloudVideos(data.videos);
+            } else {
+                throw new Error(data.error || 'Failed to load cloud videos');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading cloud videos:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Failed to load cloud videos: ${error.message}
+                </div>
+            `;
+        });
+}
+
+function displayCloudVideos(videos) {
+    const container = document.getElementById('cloudVideosContainer');
+    if (!container) return;
+    
+    if (videos.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-cloud me-2"></i>
+                No videos found in cloud storage
+            </div>
+        `;
+        return;
+    }
+    
+    const videosHtml = videos.map(video => {
+        const createdDate = video.created ? new Date(video.created).toLocaleDateString() : 'Unknown';
+        const sizeText = video.size_mb ? `${video.size_mb} MB` : 'Unknown size';
+        
+        return `
+            <div class="cloud-video-item card mb-2">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="card-title mb-1">${video.filename}</h6>
+                            <div class="text-muted small">
+                                <span class="me-3"><i class="fas fa-calendar me-1"></i>${createdDate}</span>
+                                <span class="me-3"><i class="fas fa-file me-1"></i>${sizeText}</span>
+                                <span><i class="fas fa-film me-1"></i>${video.content_type || 'video'}</span>
+                            </div>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-primary btn-sm" onclick="loadCloudVideo('${video.name}')" title="Load Video">
+                                <i class="fas fa-play"></i> Load
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteCloudVideo('${video.name}')" title="Delete Video">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = videosHtml;
+}
+
+function loadCloudVideo(gcsPath) {
+    const videoPlayer = document.getElementById('videoPlayer');
+    const playerStatus = document.getElementById('playerStatus');
+    
+    if (!videoPlayer) {
+        alert('Video player not found');
+        return;
+    }
+    
+    // Show loading state
+    playerStatus.innerHTML = `
+        <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <span>Loading video from cloud...</span>
+        </div>
+    `;
+    playerStatus.style.display = 'block';
+    
+    fetch('/api/load-cloud-video', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            gcsPath: gcsPath
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Set the video source
+            videoPlayer.src = data.signedUrl;
+            videoPlayer.load();
+            currentVideo = data.signedUrl;
+            currentVideoFile = null; // Clear local file reference
+            currentGcsPath = data.gcsPath; // Set the GCS path
+            
+            playerStatus.className = 'alert alert-success';
+            playerStatus.textContent = `Video loaded: ${data.filename}`;
+            
+            setTimeout(() => {
+                playerStatus.style.display = 'none';
+            }, 3000);
+            
+            console.log('Cloud video loaded:', data.gcsPath);
+        } else {
+            throw new Error(data.error || 'Failed to load cloud video');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading cloud video:', error);
+        playerStatus.className = 'alert alert-danger';
+        playerStatus.textContent = `Failed to load video: ${error.message}`;
+        
+        setTimeout(() => {
+            playerStatus.style.display = 'none';
+        }, 5000);
+    });
+}
+
+function deleteCloudVideo(gcsPath) {
+    if (!confirm(`Are you sure you want to delete this video from cloud storage?\n\nThis action cannot be undone.`)) {
+        return;
+    }
+    
+    fetch('/api/delete-cloud-video', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            gcsPath: gcsPath
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Show success message
+            const successDiv = document.createElement('div');
+            successDiv.className = 'alert alert-success';
+            successDiv.style.position = 'fixed';
+            successDiv.style.top = '20px';
+            successDiv.style.right = '20px';
+            successDiv.style.zIndex = '9999';
+            successDiv.style.minWidth = '300px';
+            successDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-trash me-2"></i>
+                    <span>Video deleted successfully</span>
+                </div>
+            `;
+            
+            document.body.appendChild(successDiv);
+            
+            // Remove the message after 3 seconds
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.parentNode.removeChild(successDiv);
+                }
+            }, 3000);
+            
+            // Refresh the cloud videos list
+            loadCloudVideos();
+            
+            // If this was the currently loaded video, clear the player
+            if (currentGcsPath === gcsPath) {
+                const videoPlayer = document.getElementById('videoPlayer');
+                if (videoPlayer) {
+                    videoPlayer.src = '';
+                    videoPlayer.load();
+                }
+                currentVideo = null;
+                currentVideoFile = null;
+                currentGcsPath = null;
+            }
+        } else {
+            throw new Error(data.error || 'Failed to delete video');
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting cloud video:', error);
+        alert(`Failed to delete video: ${error.message}`);
+    });
 }
