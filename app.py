@@ -99,17 +99,13 @@ except Exception as e:
 storage_client = None
 
 def initialize_gcs_client():
-    """Initializes the GCS client by explicitly using Compute Engine credentials,
-    which correctly sources the identity from the instance metadata server."""
+    """Initializes the GCS client"""
     global storage_client
     try:
-        # Explicitly create credentials from the metadata server.
-        # This resolves the ambiguity where google.auth.default() was failing.
-        credentials = compute_engine.Credentials()
-        storage_client = storage.Client(credentials=credentials)
-        logger.info(f"Successfully initialized GCS client with explicit Compute Engine credentials.")
+        storage_client = storage.Client()
+        logger.info(f"Successfully initialized GCS client .")
     except Exception as e:
-        logger.error(f"FATAL: Failed to initialize GCS client with explicit credentials: {e}")
+        logger.error(f"FATAL: Failed to initialize GCS client : {e}")
         storage_client = None
 
 # Initialize GCS client on application startup
