@@ -1748,17 +1748,31 @@ def serve_video_proxy(gcs_path):
                     end = int(range_match.group(2)) if range_match.group(2) else blob.size - 1
                     
                     logger.info(f"Downloading range: {start}-{end}")
-                    # Download only the requested range
-                    video_data = blob.download_as_bytes(start=start, end=end)
+                    
+                    # Use streaming for range requests
+                    def generate_range():
+                        try:
+                            # Download the range in chunks
+                            chunk_size = 1024 * 1024  # 1MB chunks
+                            current_pos = start
+                            
+                            while current_pos <= end:
+                                chunk_end = min(current_pos + chunk_size - 1, end)
+                                chunk_data = blob.download_as_bytes(start=current_pos, end=chunk_end)
+                                yield chunk_data
+                                current_pos = chunk_end + 1
+                        except Exception as e:
+                            logger.error(f"Error in range streaming: {str(e)}")
+                            raise
                     
                     response = app.response_class(
-                        video_data,
+                        generate_range(),
                         status=206,  # Partial Content
                         mimetype=blob.content_type or 'video/mp4'
                     )
                     
                     response.headers['Accept-Ranges'] = 'bytes'
-                    response.headers['Content-Length'] = str(len(video_data))
+                    response.headers['Content-Length'] = str(end - start + 1)
                     response.headers['Content-Range'] = f'bytes {start}-{end}/{blob.size}'
                     response.headers['Cache-Control'] = 'public, max-age=3600'
                     
@@ -1769,14 +1783,29 @@ def serve_video_proxy(gcs_path):
                 logger.error(f"Error handling range request for {gcs_path}: {str(e)}")
                 # Fall back to full download
         
-        # Full video download (for non-range requests or fallback)
+        # Full video streaming (for non-range requests or fallback)
         try:
-            logger.info(f"Downloading full video: {gcs_path}")
-            video_data = blob.download_as_bytes()
-            logger.info(f"Downloaded {len(video_data)} bytes")
+            logger.info(f"Streaming full video: {gcs_path}")
+            
+            # Use streaming for full video download
+            def generate_stream():
+                try:
+                    # Download in chunks to avoid memory issues
+                    chunk_size = 1024 * 1024  # 1MB chunks
+                    current_pos = 0
+                    
+                    while current_pos < blob.size:
+                        chunk_end = min(current_pos + chunk_size - 1, blob.size - 1)
+                        chunk_data = blob.download_as_bytes(start=current_pos, end=chunk_end)
+                        yield chunk_data
+                        current_pos = chunk_end + 1
+                        
+                except Exception as e:
+                    logger.error(f"Error in video streaming: {str(e)}")
+                    raise
             
             response = app.response_class(
-                video_data,
+                generate_stream(),
                 status=200,
                 mimetype=blob.content_type or 'video/mp4'
             )
@@ -1786,15 +1815,15 @@ def serve_video_proxy(gcs_path):
             response.headers['Content-Length'] = str(blob.size)
             response.headers['Cache-Control'] = 'public, max-age=3600'
             
-            logger.info(f"Successfully served video: {gcs_path} ({blob.size} bytes)")
+            logger.info(f"Successfully streaming video: {gcs_path} ({blob.size} bytes)")
             return response
             
         except Exception as e:
-            logger.error(f"Error downloading video {gcs_path}: {str(e)}")
+            logger.error(f"Error streaming video {gcs_path}: {str(e)}")
             logger.error(f"Exception type: {type(e).__name__}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
-            return jsonify({'error': f'Failed to download video: {str(e)}'}), 500
+            return jsonify({'error': f'Failed to stream video: {str(e)}'}), 500
         
     except Exception as e:
         logger.error(f"Error serving video {gcs_path}: {str(e)}")
