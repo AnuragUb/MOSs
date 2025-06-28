@@ -1994,4 +1994,39 @@ kbd:hover {
 
 .cloud-videos-list::-webkit-scrollbar-thumb:hover {
     background: var(--accent-color);
+}
+
+/* Maintain a 16:9 aspect ratio for the video section */
+#videoSection {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  max-width: 100%;
+  background: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px; /* Optional: prevent too small */
+}
+
+#videoPlayer {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  display: block;
+}
+
+/* Fallback for browsers that do not support aspect-ratio */
+@supports not (aspect-ratio: 16 / 9) {
+  #videoSection {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 */
+    height: 0;
+  }
+  #videoPlayer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+  }
 } 
