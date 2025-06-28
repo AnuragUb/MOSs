@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cloud Storage Videos</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body { background: #222; color: #fff; font-family: sans-serif; }
+        .cloud-video-list { max-width: 700px; margin: 2rem auto; }
+        .cloud-video-item { background: #333; margin-bottom: 1rem; padding: 1rem; border-radius: 8px; }
+        .cloud-video-item h6 { margin: 0 0 0.5rem 0; }
+        .cloud-video-item button { float: right; }
+    </style>
+</head>
+<body>
+    <h2 style="text-align:center;">Cloud Storage Videos</h2>
+    <div id="cloudVideosContainer" class="cloud-video-list">
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+    <script>
+    fetch('/api/list-cloud-videos')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('cloudVideosContainer');
+            if (data.status === 'success' && data.videos.length > 0) {
+                container.innerHTML = data.videos.map(video => `
+                    <div class="cloud-video-item">
+                        <h6>${video.filename}</h6>
+                        <div class="text-muted small">
+                            <span>${video.size_mb} MB</span> |
+                            <span>${video.content_type || 'video'}</span> |
+                            <span>${new Date(video.created).toLocaleDateString()}</span>
+                        </div>
+                        <button onclick="selectVideo('${video.proxyUrl}', '${video.name}')">Load</button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="text-center text-muted">No videos found in cloud storage</div>';
+            }
+        })
+        .catch(error => {
+            document.getElementById('cloudVideosContainer').innerHTML = '<div class="alert alert-danger">Failed to load cloud videos.</div>';
+        });
+    function selectVideo(proxyUrl, gcsPath) {
+        if (window.opener) {
+            window.opener.postMessage({ type: 'cloud-video-selected', proxyUrl, gcsPath }, '*');
+            window.close();
+        }
+    }
+    </script>
+</body>
+</html> 

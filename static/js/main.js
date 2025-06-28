@@ -312,6 +312,26 @@ document.addEventListener('DOMContentLoaded', function() {
     loadCloudVideos();
     
     console.log('Main page components initialized');
+
+    const loadCloudVideoBtn = document.getElementById('loadCloudVideoBtn');
+    if (loadCloudVideoBtn) {
+        loadCloudVideoBtn.addEventListener('click', function() {
+            window.open('/cloud-videos', 'Cloud Videos', 'width=800,height=600');
+        });
+    }
+    // Listen for messages from the popup
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'cloud-video-selected') {
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (videoPlayer && event.data.proxyUrl) {
+                videoPlayer.src = event.data.proxyUrl;
+                videoPlayer.load();
+                currentVideo = event.data.proxyUrl;
+                currentVideoFile = null;
+                currentGcsPath = event.data.gcsPath;
+            }
+        }
+    });
 });
 
 function initializeVideoPlayer() {

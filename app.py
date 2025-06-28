@@ -1752,5 +1752,9 @@ def serve_video_proxy(gcs_path):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({'error': f'Failed to serve video: {str(e)}'}), 500
 
+@app.route('/cloud-videos')
+def cloud_videos():
+    return render_template('cloud_videos.html')
+
 if __name__ == '__main__':
     app.run(debug=True) 
