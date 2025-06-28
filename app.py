@@ -1555,6 +1555,9 @@ def list_cloud_videos():
             # Extract filename from path
             filename = os.path.basename(blob.name)
             
+            # Create proxy URL for serving the video
+            proxy_url = f"/api/serve-video/{blob.name}"
+            
             video_info = {
                 'name': blob.name,
                 'filename': filename,
@@ -1562,7 +1565,8 @@ def list_cloud_videos():
                 'size_mb': round(blob.size / (1024 * 1024), 2),
                 'created': blob.time_created.isoformat() if blob.time_created else None,
                 'updated': blob.updated.isoformat() if blob.updated else None,
-                'content_type': blob.content_type
+                'content_type': blob.content_type,
+                'proxyUrl': proxy_url
             }
             videos.append(video_info)
         
