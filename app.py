@@ -1486,6 +1486,53 @@ def loadsave():
         logger.error(f"Error in loadsave: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/autosave', methods=['POST'])
+def autosave():
+    """Save markers and other data to Firestore for session-based autosave"""
+    try:
+        if firestore_client is None:
+            logger.error("Firestore not initialized")
+            return jsonify({'error': 'Database not available'}), 503
+        
+        # Generate or get session ID
+        if 'session_id' not in session:
+            session['session_id'] = str(uuid.uuid4())
+        
+        session_id = session['session_id']
+        
+        # Get data from request
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Validate markers data
+        markers = data.get('markers', [])
+        if not isinstance(markers, list):
+            return jsonify({'error': 'Invalid markers data'}), 400
+        
+        # Prepare data for storage
+        save_data = {
+            'markers': markers,
+            'videoState': data.get('videoState'),
+            'exportSettings': data.get('exportSettings', {}),
+            'markedRows': data.get('markedRows', {}),
+            'exceptionSettings': data.get('exceptionSettings', {}),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Save to Firestore
+        try:
+            firestore_client.collection('autosaves').document(session_id).set(save_data)
+            logger.info(f"Autosave successful for session {session_id}")
+            return jsonify({'status': 'success', 'message': 'Data saved successfully'})
+        except Exception as db_error:
+            logger.error(f"Database operation failed: {str(db_error)}")
+            return jsonify({'error': 'Failed to save data'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in autosave: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/upload-video-to-gcs', methods=['POST'])
 def upload_video_to_gcs():
     """Upload video file to GCS and return the GCS path"""
