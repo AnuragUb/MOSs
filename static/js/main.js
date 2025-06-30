@@ -218,10 +218,11 @@ const defaultMarkerColumns = [
     { key: 'composer', label: 'Composer' },
     { key: 'lyricist', label: 'Lyricist' },
     { key: 'musicCo', label: 'Music Co' },
+    { key: 'publicDomain', label: 'Public Domain' },
     { key: 'nocId', label: 'NOC ID' },
     { key: 'nocTitle', label: 'NOC Title' },
-    { key: 'recognize', label: 'Recognize' }, // For the Recognize button
-    { key: 'view', label: 'View' } // For the view button
+    { key: 'recognize', label: 'Recognize' },
+    { key: 'view', label: 'View' }
 ];
 
 // Mapping for common column name variations
@@ -959,6 +960,7 @@ function markTCR(type) {
                     composer: '',
                     lyricist: '',
                     musicCo: '',
+                    publicDomain: '',
                     nocId: '',
                     nocTitle: ''
                 });
@@ -981,6 +983,7 @@ function markTCR(type) {
                     composer: '',
                     lyricist: '',
                     musicCo: '',
+                    publicDomain: '',
                     nocId: '',
                     nocTitle: ''
                 });
@@ -1079,7 +1082,7 @@ function applyValueToAllRows(column, value) {
 function getColumnName(index) {
     // Now includes 'title'
     const columns = ['seq', 'tcrIn', 'tcrOut', 'duration', 'usage', 'title',
-        'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'];
+        'filmTitle', 'composer', 'lyricist', 'musicCo', 'publicDomain', 'nocId', 'nocTitle'];
     return columns[index];
 }
 
@@ -1295,7 +1298,7 @@ function updateMarkerTable() {
         row.appendChild(usageCell);
         
         // Add other cells with resizable inputs
-        ['title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'].forEach(field => {
+        ['title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'publicDomain', 'nocId', 'nocTitle'].forEach(field => {
             const cell = document.createElement('td');
             // Create toggleable input/dropdown for all fields including musicCo
             const input = document.createElement('input');

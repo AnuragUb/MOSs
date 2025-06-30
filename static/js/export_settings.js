@@ -279,9 +279,10 @@ function populateFieldsToExport() {
     fieldsContainer.innerHTML = '';
 
     // Always use all available fields
-    const fields = ['tcrIn', 'tcrOut', 'duration', 'usage', 'title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'nocId', 'nocTitle'];
+    const fields = ['tcrIn', 'tcrOut', 'duration', 'usage', 'title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'publicDomain', 'nocId', 'nocTitle'];
 
     const fieldLabels = {
+        'seq': 'Seq#',
         'tcrIn': 'TCR In',
         'tcrOut': 'TCR Out',
         'duration': 'Duration',
@@ -291,6 +292,7 @@ function populateFieldsToExport() {
         'composer': 'Composer',
         'lyricist': 'Lyricist',
         'musicCo': 'Music Co',
+        'publicDomain': 'Public Domain',
         'nocId': 'NOC ID',
         'nocTitle': 'NOC Title'
     };
@@ -553,6 +555,9 @@ function exportWithSettings() {
             }
             return marker;
         });
+
+        // Filter out 'recognize' and 'actions' from fieldsToExport if present
+        settings.fieldsToExport = settings.fieldsToExport.filter(f => f !== 'recognize' && f !== 'actions');
 
         // Field labels for export header
         const fieldLabels = {
