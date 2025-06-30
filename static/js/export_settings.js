@@ -519,6 +519,9 @@ function exportWithSettings() {
             });
         }
 
+        console.log("Loaded markers before prefix:", markers);
+        console.log("addSeriesTitlePrefix:", settings.addSeriesTitlePrefix);
+        console.log("seriesTitle:", seriesTitle);
         // Apply addSeriesTitlePrefix if enabled (respecting exceptions)
         if (settings.addSeriesTitlePrefix && seriesTitle) {
             markers = markers.map((marker, index) => {
@@ -535,7 +538,7 @@ function exportWithSettings() {
                     title
                 };
             });
-            console.log('Applied series title prefix to titles:', markers.map(m => m.title));
+            console.log('Markers after prefix logic:', markers.map(m => m.title));
         }
 
         // Log a sample marker after mapping
