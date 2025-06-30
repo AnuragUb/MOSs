@@ -3410,17 +3410,22 @@ function toggleInputMode(input, field, marker) {
     const currentMode = input.dataset.mode;
     const cell = input.parentElement;
     const currentValue = input.value;
-    
+
     if (currentMode === 'input') {
-        // Switch to dropdown mode (simple <select>, browser-native search)
-        input.dataset.mode = 'dropdown';
-        
-        // Create select element
+        // Switch to dropdown mode (with non-disabled placeholder, all options selectable)
         const select = document.createElement('select');
-        select.className = 'form-control toggleable-dropdown-select';
+        select.className = 'table-input toggleable-dropdown-select';
         select.dataset.field = field;
         select.dataset.mode = 'dropdown';
-        
+
+        // Add non-disabled placeholder
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- Select --';
+        // Not disabled, so user can re-select it
+        if (!marker[field]) placeholder.selected = true;
+        select.appendChild(placeholder);
+
         // Get options for this field
         let options = [];
         if (field === 'composer') {
@@ -3432,40 +3437,42 @@ function toggleInputMode(input, field, marker) {
         } else if (field === 'musicCo') {
             options = musicCoOptions;
         } else if (field === 'title') {
-            options = unknownTagsOptions; // Use title track preset database for Title dropdown
+            options = unknownTagsOptions;
         } else if (field === 'usage') {
             options = usageOptions;
         } else {
             options = getFieldOptions(field);
         }
-        
-        // Add options to select
-        options.forEach(opt => {
+
+        // Add options to select (skip empty string)
+        options.filter(opt => opt && opt !== '').forEach(opt => {
             const option = document.createElement('option');
             option.value = opt;
             option.textContent = opt;
-            if (opt === currentValue) option.selected = true;
+            if (opt === marker[field]) option.selected = true;
             select.appendChild(option);
         });
-        
-        // On change, update marker and toggle back to input
+
+        // On change, update marker
         select.addEventListener('change', function(e) {
             marker[field] = e.target.value;
-            // Optionally, toggle back to input mode after selection:
-            toggleInputMode(select, field, marker);
+            if (activePasteColumns[field]) {
+                if (!manualEdits[field]) manualEdits[field] = {};
+                manualEdits[field][actualIndex] = true;
+            }
+            autoSave();
         });
         // Double-click to toggle back to input
         select.addEventListener('dblclick', function(e) {
             e.preventDefault();
             toggleInputMode(select, field, marker);
         });
-        
+
         // Replace input with select
         cell.innerHTML = '';
         cell.appendChild(select);
     } else {
         // Switch back to input mode
-        input.dataset.mode = 'input';
         const newInput = document.createElement('input');
         newInput.type = 'text';
         newInput.className = 'table-input toggleable-input';
