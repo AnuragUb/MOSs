@@ -522,17 +522,20 @@ function exportWithSettings() {
         // Apply addSeriesTitlePrefix if enabled (respecting exceptions)
         if (settings.addSeriesTitlePrefix && seriesTitle) {
             markers = markers.map((marker, index) => {
-                // Check if this row has exception settings that prevent title prefix auto-fill
                 const rowException = exceptionSettings[index];
                 if (rowException && rowException.titlePrefix) {
-                    // Don't auto-fill title prefix for this row
                     return marker;
+                }
+                let title = marker.title || '';
+                if (!title.startsWith(seriesTitle + ' - (')) {
+                    title = `${seriesTitle} - (${title})`;
                 }
                 return {
                     ...marker,
-                    title: `${seriesTitle} - (${marker.title || ''})`
+                    title
                 };
             });
+            console.log('Applied series title prefix to titles:', markers.map(m => m.title));
         }
 
         // Log a sample marker after mapping
