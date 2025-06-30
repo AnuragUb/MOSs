@@ -1300,47 +1300,81 @@ function updateMarkerTable() {
         // Add other cells with resizable inputs
         ['title', 'filmTitle', 'composer', 'lyricist', 'musicCo', 'publicDomain', 'nocId', 'nocTitle'].forEach(field => {
             const cell = document.createElement('td');
-            // Create toggleable input/dropdown for all fields including musicCo
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'table-input toggleable-input';
-            input.value = marker[field] || '';
-            input.dataset.field = field;
-            input.dataset.mode = 'input'; // Track current mode
-            makeInputResizable(input);
-            
-            // Add double-click handler to toggle mode
-            input.addEventListener('dblclick', function(e) {
-                e.preventDefault();
-                toggleInputMode(input, field, marker);
-            });
-            
-            input.addEventListener('change', (e) => {
-                const newValue = e.target.value;
-                marker[field] = newValue;
-                if (activePasteColumns[field]) {
-                    if (!manualEdits[field]) manualEdits[field] = {};
-                    manualEdits[field][actualIndex] = true;
+            // For Title, Music Co, and Public Domain, use a dropdown with a non-empty placeholder
+            if (field === 'title' || field === 'musicCo' || field === 'publicDomain') {
+                const select = document.createElement('select');
+                select.className = 'table-input toggleable-dropdown-select';
+                select.dataset.field = field;
+                select.dataset.mode = 'dropdown';
+                // Add non-empty placeholder
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = '-- Select --';
+                placeholder.disabled = true;
+                // If no value, select the placeholder
+                if (!marker[field]) placeholder.selected = true;
+                select.appendChild(placeholder);
+                // Build options
+                let options = [];
+                if (field === 'title') {
+                    options = [...new Set([...(unknownTagsOptions || []), marker[field]])].filter(opt => opt && opt !== '');
+                } else if (field === 'musicCo') {
+                    options = [...new Set([...(musicCoOptions || []), marker[field]])].filter(opt => opt && opt !== '');
+                } else if (field === 'publicDomain') {
+                    options = ['Yes'];
+                    // Always include current value if not empty and not 'Yes'
+                    if (marker[field] && marker[field] !== 'Yes') options.push(marker[field]);
                 }
-            });
-            
-            cell.appendChild(input);
+                options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt;
+                    option.textContent = opt;
+                    if (opt === marker[field]) option.selected = true;
+                    select.appendChild(option);
+                });
+                // Make searchable (simple browser-native search)
+                select.addEventListener('change', function(e) {
+                    marker[field] = e.target.value;
+                    if (activePasteColumns[field]) {
+                        if (!manualEdits[field]) manualEdits[field] = {};
+                        manualEdits[field][actualIndex] = true;
+                    }
+                    updateMarkerTable(); // For publicDomain, update immediately
+                    autoSave();
+                });
+                // Double-click to toggle back to input for title/musicCo
+                if (field === 'title' || field === 'musicCo') {
+                    select.addEventListener('dblclick', function(e) {
+                        e.preventDefault();
+                        toggleInputMode(select, field, marker);
+                    });
+                }
+                cell.appendChild(select);
+            } else {
+                // Default: text input
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'table-input toggleable-input';
+                input.value = marker[field] || '';
+                input.dataset.field = field;
+                input.dataset.mode = 'input';
+                makeInputResizable(input);
+                input.addEventListener('dblclick', function(e) {
+                    e.preventDefault();
+                    toggleInputMode(input, field, marker);
+                });
+                input.addEventListener('change', (e) => {
+                    const newValue = e.target.value;
+                    marker[field] = newValue;
+                    if (activePasteColumns[field]) {
+                        if (!manualEdits[field]) manualEdits[field] = {};
+                        manualEdits[field][actualIndex] = true;
+                    }
+                });
+                cell.appendChild(input);
+            }
             row.appendChild(cell);
         });
-        
-        // After musicCo, add Public Domain cell
-        if (field === 'musicCo') {
-            const pdCell = document.createElement('td');
-            pdCell.className = 'public-domain-cell';
-            pdCell.textContent = marker.publicDomain === 'Yes' ? 'Yes' : '';
-            pdCell.style.cursor = 'pointer';
-            pdCell.addEventListener('dblclick', function() {
-                marker.publicDomain = marker.publicDomain === 'Yes' ? '' : 'Yes';
-                updateMarkerTable();
-                autoSave();
-            });
-            row.appendChild(pdCell);
-        }
         
         // Add Recognize button
         const recognizeCell = document.createElement('td');
