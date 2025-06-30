@@ -1328,6 +1328,20 @@ function updateMarkerTable() {
             row.appendChild(cell);
         });
         
+        // After musicCo, add Public Domain cell
+        if (field === 'musicCo') {
+            const pdCell = document.createElement('td');
+            pdCell.className = 'public-domain-cell';
+            pdCell.textContent = marker.publicDomain === 'Yes' ? 'Yes' : '';
+            pdCell.style.cursor = 'pointer';
+            pdCell.addEventListener('dblclick', function() {
+                marker.publicDomain = marker.publicDomain === 'Yes' ? '' : 'Yes';
+                updateMarkerTable();
+                autoSave();
+            });
+            row.appendChild(pdCell);
+        }
+        
         // Add Recognize button
         const recognizeCell = document.createElement('td');
         const recognizeBtn = document.createElement('button');
