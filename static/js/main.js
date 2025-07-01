@@ -3366,6 +3366,7 @@ function initializeClearColumnModal() {
             }
         }, 3000);
 
+        updateMarkerTable(); // Ensure UI updates after clearing column
         hideClearColumnModal();
     }
 
@@ -3786,4 +3787,77 @@ function deleteCloudVideo(gcsPath) {
         console.error('Error deleting cloud video:', error);
         alert(`Failed to delete video: ${error.message}`);
     });
+}
+
+// --- Right-click context menu for adding rows above/below ---
+function showAddRowContextMenu(e, rowIndex) {
+    // Remove any existing context menu
+    document.querySelectorAll('.add-row-context-menu').forEach(menu => menu.remove());
+    const menu = document.createElement('div');
+    menu.className = 'add-row-context-menu';
+    menu.style.position = 'fixed';
+    menu.style.top = `${e.clientY}px`;
+    menu.style.left = `${e.clientX}px`;
+    menu.style.background = '#fff';
+    menu.style.border = '1px solid #ccc';
+    menu.style.borderRadius = '4px';
+    menu.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+    menu.style.zIndex = 10000;
+    menu.style.display = 'flex';
+    menu.style.flexDirection = 'column';
+    menu.style.padding = '4px 0';
+    // Add row above button
+    const btnAbove = document.createElement('button');
+    btnAbove.textContent = '↑';
+    btnAbove.title = 'Add row above';
+    btnAbove.style.fontSize = '18px';
+    btnAbove.style.padding = '2px 12px';
+    btnAbove.style.border = 'none';
+    btnAbove.style.background = 'none';
+    btnAbove.style.cursor = 'pointer';
+    btnAbove.addEventListener('click', function() {
+        insertMarkerRowAt(rowIndex);
+        menu.remove();
+    });
+    // Add row below button
+    const btnBelow = document.createElement('button');
+    btnBelow.textContent = '↓';
+    btnBelow.title = 'Add row below';
+    btnBelow.style.fontSize = '18px';
+    btnBelow.style.padding = '2px 12px';
+    btnBelow.style.border = 'none';
+    btnBelow.style.background = 'none';
+    btnBelow.style.cursor = 'pointer';
+    btnBelow.addEventListener('click', function() {
+        insertMarkerRowAt(rowIndex + 1);
+        menu.remove();
+    });
+    menu.appendChild(btnAbove);
+    menu.appendChild(btnBelow);
+    document.body.appendChild(menu);
+    // Hide menu on any other click
+    setTimeout(() => {
+        document.addEventListener('mousedown', function hideMenu(ev) {
+            if (!menu.contains(ev.target)) {
+                menu.remove();
+                document.removeEventListener('mousedown', hideMenu);
+            }
+        });
+    }, 0);
+}
+
+// Insert a new empty marker row at the given index
+function insertMarkerRowAt(index) {
+    const newMarker = {};
+    // Fill with default columns
+    defaultMarkerColumns.forEach(col => {
+        newMarker[col.key] = '';
+    });
+    // Fill extra columns
+    extraColumns.forEach(col => {
+        newMarker[col.name] = '';
+    });
+    markers.splice(index, 0, newMarker);
+    updateMarkerTable();
+    autoSave();
 }
