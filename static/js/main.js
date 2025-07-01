@@ -1210,6 +1210,11 @@ function updateMarkerTable() {
         seqCell.className = 'seq-cell';
         seqCell.dataset.row = actualIndex;
         seqCell.addEventListener('click', () => handleSeqClick(actualIndex, seqCell));
+        // Add right-click context menu for add row above/below
+        seqCell.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            showAddRowContextMenu(e, actualIndex);
+        });
         row.appendChild(seqCell);
         
         // Add TCR In cell
