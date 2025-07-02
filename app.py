@@ -1836,5 +1836,30 @@ def serve_video_proxy(gcs_path):
 def cloud_videos():
     return render_template('cloud_videos.html')
 
+@app.route('/subtitle-edit')
+def subtitle_edit():
+    return render_template('subtitle_edit.html')
+
+@app.route('/api/upload-subtitle', methods=['POST'])
+def upload_subtitle():
+    if 'file' not in request.files:
+        return {'error': 'No file uploaded'}, 400
+    file = request.files['file']
+    ext = file.filename.split('.')[-1].lower()
+    if ext not in ['srt', 'vtt', 'ass', 'sub']:
+        return {'error': 'Unsupported file type'}, 400
+    content = file.read().decode('utf-8', errors='replace')
+    return {'filename': file.filename, 'content': content}
+
+@app.route('/api/download-subtitle', methods=['POST'])
+def download_subtitle():
+    data = request.json
+    content = data.get('content', '')
+    filename = data.get('filename', 'subtitles.srt')
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.srt', mode='w', encoding='utf-8') as f:
+        f.write(content)
+        temp_path = f.name
+    return send_file(temp_path, as_attachment=True, download_name=filename)
+
 if __name__ == '__main__':
     app.run(debug=True) 

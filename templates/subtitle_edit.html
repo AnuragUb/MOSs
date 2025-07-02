@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Subtitle Edit (Web)</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #subtitle-table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    #subtitle-table th, #subtitle-table td { border: 1px solid #ccc; padding: 6px; }
+    #subtitle-table th { background: #f0f0f0; }
+    .controls { margin-bottom: 10px; }
+    .controls button { margin-right: 5px; }
+    .file-input { margin-bottom: 10px; }
+    .video-container { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Subtitle Edit (Web)</h1>
+  <div class="file-input">
+    <label>Upload Subtitle File: <input type="file" id="subtitleFile"></label>
+    <button onclick="downloadSubtitle()">Download</button>
+    <span id="filename"></span>
+  </div>
+  <div class="controls">
+    <button onclick="addRow()">Add Line</button>
+    <button onclick="deleteSelected()">Delete Selected</button>
+    <!-- More controls can be added here -->
+  </div>
+  <table id="subtitle-table">
+    <thead>
+      <tr>
+        <th>Select</th>
+        <th>#</th>
+        <th>Start</th>
+        <th>End</th>
+        <th>Text</th>
+      </tr>
+    </thead>
+    <tbody id="subtitleBody">
+      <!-- Subtitle rows will go here -->
+    </tbody>
+  </table>
+  <div class="video-container">
+    <label>Video: <input type="file" id="videoFile" accept="video/*"></label>
+    <video id="videoPlayer" width="600" controls style="display:none;"></video>
+  </div>
+  <script>
+    let subtitles = [];
+    let filename = '';
+
+    document.getElementById('subtitleFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('file', file);
+      fetch('/api/upload-subtitle', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) { alert(data.error); return; }
+          filename = data.filename;
+          document.getElementById('filename').textContent = filename;
+          subtitles = parseSRT(data.content);
+          renderTable();
+        });
+    });
+
+    function parseSRT(content) {
+      // Very basic SRT parser (expand for more formats)
+      const lines = content.split(/\r?\n/);
+      let subs = [], i = 0;
+      while (i < lines.length) {
+        if (!lines[i].trim()) { i++; continue; }
+        let idx = lines[i++];
+        let times = lines[i++];
+        if (!times) break;
+        let [start, end] = times.split(' --> ');
+        let text = '';
+        while (i < lines.length && lines[i].trim()) text += (text ? '\n' : '') + lines[i++];
+        subs.push({ idx: subs.length+1, start, end, text });
+        i++;
+      }
+      return subs;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('subtitleBody');
+      tbody.innerHTML = '';
+      subtitles.forEach((sub, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="checkbox" data-idx="${i}"></td>
+          <td>${i+1}</td>
+          <td contenteditable="true" oninput="updateField(${i}, 'start', this.textContent)">${sub.start}</td>
+          <td contenteditable="true" oninput="updateField(${i}, 'end', this.textContent)">${sub.end}</td>
+          <td contenteditable="true" oninput="updateField(${i}, 'text', this.textContent)">${sub.text.replace(/\n/g, '<br>')}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    window.updateField = function(idx, field, value) {
+      subtitles[idx][field] = field === 'text' ? value.replace(/<br>/g, '\n') : value;
+    }
+
+    function addRow() {
+      subtitles.push({ idx: subtitles.length+1, start: '', end: '', text: '' });
+      renderTable();
+    }
+
+    function deleteSelected() {
+      const checkboxes = document.querySelectorAll('#subtitleBody input[type=checkbox]:checked');
+      const idxs = Array.from(checkboxes).map(cb => parseInt(cb.dataset.idx));
+      subtitles = subtitles.filter((_, i) => !idxs.includes(i));
+      renderTable();
+    }
+
+    function downloadSubtitle() {
+      let content = '';
+      subtitles.forEach((sub, i) => {
+        content += `${i+1}\n${sub.start} --> ${sub.end}\n${sub.text}\n\n`;
+      });
+      fetch('/api/download-subtitle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, filename: filename || 'subtitles.srt' })
+      })
+      .then(resp => resp.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'subtitles.srt';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      });
+    }
+
+    document.getElementById('videoFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const video = document.getElementById('videoPlayer');
+      video.src = url;
+      video.style.display = 'block';
+    });
+  </script>
+</body>
+</html> 
