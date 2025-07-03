@@ -1874,6 +1874,7 @@ def srt_check_api():
         max_cps = int(data.get('max_cps', 20))
         max_line_length = int(data.get('max_line_length', 42))
         frame_rate = float(data.get('frame_rate', 25.0))
+        speaker_style = data.get('speaker_style', 'dash_both_lines_with_space')
 
         # Parse SRT
         import re
@@ -1899,58 +1900,9 @@ def srt_check_api():
                 return h*3600 + m*60 + s
             return 0
 
-        errors = []
-        subs = parse_srt(srt_content)
-        # --- Max line length and CPS ---
-        for sub in subs:
-            # Duration
-            start_sec = time_to_seconds(sub['start'])
-            end_sec = time_to_seconds(sub['end'])
-            duration = max(end_sec - start_sec, 0.001)
-            # Max line length
-            lines = sub['text'].split('\n')
-            for i, line in enumerate(lines):
-                if len(line) > max_line_length:
-                    errors.append({
-                        'idx': sub['idx'],
-                        'start': sub['start'],
-                        'end': sub['end'],
-                        'type': 'Line Length',
-                        'message': f'Line {i+1} exceeds max length ({len(line)}/{max_line_length})',
-                        'text': line
-                    })
-            # Max CPS
-            total_chars = len(sub['text'].replace('\n', ''))
-            cps = total_chars / duration if duration > 0 else 0
-            if cps > max_cps:
-                errors.append({
-                    'idx': sub['idx'],
-                    'start': sub['start'],
-                    'end': sub['end'],
-                    'type': 'CPS',
-                    'message': f'Characters per second ({cps:.2f}) exceeds max ({max_cps})',
-                    'text': sub['text']
-                })
-        # --- Whitespace checks ---
-        for sub in subs:
-            text = sub['text']
-            # Line ending whitespace
-            if re.match(r'^( |\n|\r\n)[^\s]', text):
-                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': 'Whitespace at start of subtitle', 'text': text})
-            if re.match(r'[^\s]( |\n|\r\n)$', text):
-                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': 'Whitespace at end of subtitle', 'text': text})
-            # Spaces before punctuation
-            if re.search(r'[^\s]( |\n|\r\n)[!?).,\u061f\u060c\u2026]', text):
-                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': 'Space before punctuation', 'text': text})
-            # 2+ consecutive spaces
-            if re.search(r'( |\n|\r\n){2,}', text):
-                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': '2+ consecutive spaces', 'text': text})
-        # --- Italics check ---
-        for sub in subs:
-            text = sub['text']
-            if 'i>' in text.lower():
-                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Italics', 'message': 'Italics tag detected', 'text': text})
-        # --- Gap checks (bridge gaps, two frames gap) ---
+        def time_to_ms(t):
+            return time_to_seconds(t) * 1000
+
         def ms_from_time(t):
             t = t.replace(',', '.')
             parts = re.split('[:.]', t)
@@ -1961,6 +1913,134 @@ def srt_check_api():
                 h, m, s = map(int, parts)
                 return (h*3600 + m*60 + s)*1000
             return 0
+
+        def convert_number_to_string(num, language='en'):
+            numbers = {
+                'en': {'1': 'one', '2': 'two', '3': 'three', '4': 'four', '5': 'five',
+                       '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine', '10': 'ten'}
+            }
+            return numbers.get(language, numbers['en']).get(str(num), str(num))
+
+        errors = []
+        subs = parse_srt(srt_content)
+
+        # 1. Max CPS and Line Length
+        for sub in subs:
+            start_sec = time_to_seconds(sub['start'])
+            end_sec = time_to_seconds(sub['end'])
+            duration = max(end_sec - start_sec, 0.001)
+            
+            # Max line length
+            lines = sub['text'].split('\n')
+            for i, line in enumerate(lines):
+                if len(line) > max_line_length:
+                    errors.append({
+                        'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                        'type': 'Line Length', 'message': f'Line {i+1} exceeds max length ({len(line)}/{max_line_length})', 'text': line
+                    })
+            
+            # Max CPS
+            total_chars = len(sub['text'].replace('\n', ''))
+            cps = total_chars / duration if duration > 0 else 0
+            if cps > max_cps:
+                errors.append({
+                    'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                    'type': 'CPS', 'message': f'Characters per second ({cps:.2f}) exceeds max ({max_cps})', 'text': sub['text']
+                })
+
+        # 2. Min Duration (833ms = 5/6 second)
+        for sub in subs:
+            duration_ms = ms_from_time(sub['end']) - ms_from_time(sub['start'])
+            min_duration = 500 if language == 'ja' else 833
+            if duration_ms < min_duration:
+                errors.append({
+                    'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                    'type': 'Min Duration', 'message': f'Duration ({duration_ms}ms) below minimum ({min_duration}ms)', 'text': sub['text']
+                })
+
+        # 3. Max Duration (7 seconds)
+        for sub in subs:
+            duration_ms = ms_from_time(sub['end']) - ms_from_time(sub['start'])
+            if duration_ms > 7000:
+                errors.append({
+                    'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                    'type': 'Max Duration', 'message': f'Duration ({duration_ms}ms) exceeds maximum (7000ms)', 'text': sub['text']
+                })
+
+        # 4. Number of Lines (max 2 lines)
+        for sub in subs:
+            line_count = len(sub['text'].split('\n'))
+            if line_count > 2:
+                errors.append({
+                    'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                    'type': 'Line Count', 'message': f'Too many lines ({line_count} > 2)', 'text': sub['text']
+                })
+
+        # 5. Ellipses check (use … not ...)
+        for sub in subs:
+            if '...' in sub['text']:
+                errors.append({
+                    'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                    'type': 'Ellipses', 'message': 'Use single smart character (…) not three dots (...)', 'text': sub['text']
+                })
+
+        # 6. Numbers 1-10 should be spelled out
+        if language not in ['ja', 'ar']:
+            for sub in subs:
+                text = sub['text']
+                # Check for single digits 1-9
+                for i in range(1, 10):
+                    pattern = rf'\b{i}\b'
+                    if re.search(pattern, text):
+                        # Check if it's not part of time, URL, etc.
+                        if not re.search(rf'\b{i}[:.]', text) and not re.search(rf'[:.]{i}\b', text):
+                            errors.append({
+                                'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                                'type': 'Number Spelling', 'message': f'Number {i} should be spelled out ({convert_number_to_string(i, language)})', 'text': text
+                            })
+                # Check for 10
+                if re.search(r'\b10\b', text) and not re.search(r'\b10[:.]', text):
+                    errors.append({
+                        'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                        'type': 'Number Spelling', 'message': 'Number 10 should be spelled out (ten)', 'text': text
+                    })
+
+        # 7. Dialog formatting (speaker style)
+        if language != 'ja':
+            for sub in subs:
+                text = sub['text']
+                # Check for inconsistent dash usage
+                if '-' in text:
+                    lines = text.split('\n')
+                    for i, line in enumerate(lines):
+                        if line.strip().startswith('-') and not line.strip().startswith('- '):
+                            errors.append({
+                                'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                                'type': 'Dialog Format', 'message': f'Line {i+1}: Use hyphen with space for speaker', 'text': text
+                            })
+
+        # 8. Whitespace checks
+        for sub in subs:
+            text = sub['text']
+            # Start/end whitespace
+            if re.match(r'^( |\n|\r\n)[^\s]', text):
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': 'Whitespace at start of subtitle', 'text': text})
+            if re.match(r'[^\s]( |\n|\r\n)$', text):
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': 'Whitespace at end of subtitle', 'text': text})
+            # Spaces before punctuation
+            if re.search(r'[^\s]( |\n|\r\n)[!?).,\u061f\u060c\u2026]', text):
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': 'Space before punctuation', 'text': text})
+            # 2+ consecutive spaces
+            if re.search(r'( |\n|\r\n){2,}', text):
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': '2+ consecutive spaces', 'text': text})
+
+        # 9. Italics check
+        for sub in subs:
+            text = sub['text']
+            if 'i>' in text.lower():
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Italics', 'message': 'Italics tag detected', 'text': text})
+
+        # 10. Gap checks (bridge gaps, two frames gap)
         for i in range(len(subs)-1):
             cur = subs[i]
             nxt = subs[i+1]
@@ -1974,6 +2054,43 @@ def srt_check_api():
                 errors.append({'idx': cur['idx'], 'start': cur['start'], 'end': cur['end'], 'type': 'Gap', 'message': f'Gap of {gap_frames:.1f} frames (should be 2)', 'text': cur['text']})
             if gap_frames < 2:
                 errors.append({'idx': cur['idx'], 'start': cur['start'], 'end': cur['end'], 'type': 'Gap', 'message': f'Less than 2 frames gap ({gap_frames:.1f})', 'text': cur['text']})
+
+        # 11. Hearing impaired formatting (brackets for sound effects)
+        for sub in subs:
+            text = sub['text']
+            # Check for sound effects that should be in brackets
+            sound_effects = ['[music]', '[laughter]', '[applause]', '[sighs]', '[gasps]', '[whispers]']
+            for effect in sound_effects:
+                if effect.lower() in text.lower() and not re.search(rf'\[{effect[1:-1]}\]', text, re.IGNORECASE):
+                    errors.append({
+                        'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                        'type': 'Hearing Impaired', 'message': f'Sound effect should be in brackets: [{effect[1:-1]}]', 'text': text
+                    })
+
+        # 12. Glyph checks (special characters)
+        for sub in subs:
+            text = sub['text']
+            # Check for invalid characters
+            invalid_chars = ['\u0000', '\u0001', '\u0002', '\u0003', '\u0004', '\u0005', '\u0006', '\u0007']
+            for char in invalid_chars:
+                if char in text:
+                    errors.append({
+                        'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                        'type': 'Glyph', 'message': f'Invalid control character detected', 'text': text
+                    })
+
+        # 13. Frame rate validation
+        for sub in subs:
+            start_ms = ms_from_time(sub['start'])
+            end_ms = ms_from_time(sub['end'])
+            # Check if timing aligns with frame rate
+            frame_duration = 1000.0 / frame_rate
+            if start_ms % frame_duration != 0 or end_ms % frame_duration != 0:
+                errors.append({
+                    'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'],
+                    'type': 'Frame Rate', 'message': f'Timing does not align with {frame_rate} fps frame boundaries', 'text': sub['text']
+                })
+
         return jsonify({'errors': errors, 'count': len(errors)})
     except Exception as e:
         import traceback

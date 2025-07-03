@@ -4,38 +4,72 @@
   <title>SRT Error Checker</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 30px; background: #f8f8f8; }
-    .container { max-width: 700px; margin: 0 auto; background: #fff; padding: 24px 32px 32px 32px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
+    .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 24px 32px 32px 32px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
     h1 { margin-top: 0; }
     label { display: block; margin-top: 16px; font-weight: bold; }
-    input[type=number] { width: 70px; margin-left: 8px; }
+    input[type=number], select { width: 70px; margin-left: 8px; }
     textarea { width: 100%; min-height: 180px; margin-top: 8px; font-family: monospace; font-size: 1em; }
-    .params { margin: 16px 0; }
+    .params { margin: 16px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .param-group { display: flex; align-items: center; }
+    .param-group label { margin: 0; margin-right: 8px; }
     button { margin-top: 18px; padding: 8px 24px; font-size: 1.1em; }
     .results { margin-top: 32px; background: #f9f2f4; border: 1px solid #e0b4b4; border-radius: 6px; padding: 16px; }
     .error-list { margin: 0; padding-left: 20px; }
     .error-list li { margin-bottom: 10px; }
     .success { color: #1a7f37; font-weight: bold; }
     .error { color: #b00; font-weight: bold; }
+    .error-type { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; font-weight: bold; margin-right: 8px; }
+    .error-type.cps { background: #ffebee; color: #c62828; }
+    .error-type.duration { background: #fff3e0; color: #ef6c00; }
+    .error-type.formatting { background: #e8f5e8; color: #2e7d32; }
+    .error-type.whitespace { background: #f3e5f5; color: #7b1fa2; }
+    .error-type.timing { background: #e3f2fd; color: #1565c0; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>SRT Error Checker</h1>
+    <p style="color: #666; margin-bottom: 24px;">Comprehensive Netflix-style subtitle quality checking with 13 different error types</p>
+    
     <form id="checkerForm" onsubmit="return false;">
       <label>SRT File:
         <input type="file" id="srtFile" accept=".srt">
       </label>
       <label>Or paste SRT content:</label>
       <textarea id="srtContent" placeholder="Paste SRT content here..."></textarea>
+      
       <div class="params">
-        <label>Max CPS: <input type="number" id="maxCpsInput" value="20" min="1"></label>
-        <label>Max Line Length: <input type="number" id="maxLineLengthInput" value="42" min="1"></label>
-        <label>Frame Rate: <input type="number" id="frameRateInput" value="25" min="1" step="0.01"></label>
+        <div class="param-group">
+          <label>Language:</label>
+          <select id="languageInput">
+            <option value="en">English</option>
+            <option value="ja">Japanese</option>
+            <option value="ar">Arabic</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+          </select>
+        </div>
+        <div class="param-group">
+          <label>Max CPS:</label>
+          <input type="number" id="maxCpsInput" value="20" min="1">
+        </div>
+        <div class="param-group">
+          <label>Max Line Length:</label>
+          <input type="number" id="maxLineLengthInput" value="42" min="1">
+        </div>
+        <div class="param-group">
+          <label>Frame Rate:</label>
+          <input type="number" id="frameRateInput" value="25" min="1" step="0.01">
+        </div>
       </div>
-      <button id="runCheckBtn">Run SRT Error Check</button>
+      
+      <button id="runCheckBtn">Run Comprehensive SRT Error Check</button>
     </form>
+    
     <div class="results" id="resultsPanel" style="display:none;"></div>
   </div>
+  
   <script>
     document.getElementById('srtFile').addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -49,18 +83,21 @@
 
     document.getElementById('runCheckBtn').addEventListener('click', function() {
       const srt = document.getElementById('srtContent').value;
+      const language = document.getElementById('languageInput').value;
       const maxCps = document.getElementById('maxCpsInput').value || 20;
       const maxLineLength = document.getElementById('maxLineLengthInput').value || 42;
       const frameRate = document.getElementById('frameRateInput').value || 25;
       const resultsPanel = document.getElementById('resultsPanel');
+      
       resultsPanel.style.display = 'block';
-      resultsPanel.innerHTML = 'Checking...';
+      resultsPanel.innerHTML = 'Running comprehensive check...';
+      
       fetch('/api/srt-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: srt,
-          language: 'en',
+          language: language,
           max_cps: maxCps,
           max_line_length: maxLineLength,
           frame_rate: frameRate
@@ -72,14 +109,54 @@
           resultsPanel.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
           return;
         }
+        
         if (data.count === 0) {
-          resultsPanel.innerHTML = '<span class="success">No errors found!</span>';
+          resultsPanel.innerHTML = '<span class="success">✅ No errors found! Your SRT file passes all Netflix quality checks.</span>';
         } else {
-          resultsPanel.innerHTML = `<b>${data.count} error(s) found:</b><ul class='error-list'>` +
-            data.errors.map(e => `<li><span class='error'>[${e.type}]</span> <b>#${e.idx}</b> <span style='color:#333;'>(${e.start} - ${e.end})</span>: <span style='color:#222;'>${e.message}</span><br><span style='color:#555;font-size:0.95em;'>${e.text}</span></li>`).join('') + '</ul>';
+          // Group errors by type for better organization
+          const errorGroups = {};
+          data.errors.forEach(e => {
+            if (!errorGroups[e.type]) errorGroups[e.type] = [];
+            errorGroups[e.type].push(e);
+          });
+          
+          let html = `<b>${data.count} error(s) found across ${Object.keys(errorGroups).length} categories:</b><br><br>`;
+          
+          Object.keys(errorGroups).forEach(type => {
+            const errors = errorGroups[type];
+            const typeClass = getTypeClass(type);
+            html += `<div style="margin-bottom: 16px;"><span class="error-type ${typeClass}">${type}</span> <b>(${errors.length} error${errors.length > 1 ? 's' : ''})</b></div>`;
+            html += '<ul class="error-list">';
+            errors.forEach(e => {
+              html += `<li><b>#${e.idx}</b> <span style='color:#333;'>(${e.start} - ${e.end})</span>: <span style='color:#222;'>${e.message}</span><br><span style='color:#555;font-size:0.9em;font-style:italic;'>"${e.text}"</span></li>`;
+            });
+            html += '</ul>';
+          });
+          
+          resultsPanel.innerHTML = html;
         }
       });
     });
+    
+    function getTypeClass(type) {
+      const typeMap = {
+        'CPS': 'cps',
+        'Line Length': 'formatting',
+        'Min Duration': 'duration',
+        'Max Duration': 'duration',
+        'Line Count': 'formatting',
+        'Ellipses': 'formatting',
+        'Number Spelling': 'formatting',
+        'Dialog Format': 'formatting',
+        'Whitespace': 'whitespace',
+        'Italics': 'formatting',
+        'Gap': 'timing',
+        'Hearing Impaired': 'formatting',
+        'Glyph': 'formatting',
+        'Frame Rate': 'timing'
+      };
+      return typeMap[type] || 'formatting';
+    }
   </script>
 </body>
 </html> 
