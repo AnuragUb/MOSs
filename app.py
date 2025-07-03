@@ -1861,5 +1861,124 @@ def download_subtitle():
         temp_path = f.name
     return send_file(temp_path, as_attachment=True, download_name=filename)
 
+@app.route('/srt-check')
+def srt_check_page():
+    return render_template('srt_check.html')
+
+@app.route('/api/srt-check', methods=['POST'])
+def srt_check_api():
+    try:
+        data = request.get_json()
+        srt_content = data.get('content', '')
+        language = data.get('language', 'en')
+        max_cps = int(data.get('max_cps', 20))
+        max_line_length = int(data.get('max_line_length', 42))
+        frame_rate = float(data.get('frame_rate', 25.0))
+
+        # Parse SRT
+        import re
+        def parse_srt(srt):
+            pattern = re.compile(r"(\d+)\s+([\d:,]+)\s+-->\s+([\d:,]+)\s+([\s\S]+?)(?=\n\d+\n|\Z)", re.MULTILINE)
+            subs = []
+            for match in pattern.finditer(srt):
+                idx = int(match.group(1))
+                start = match.group(2)
+                end = match.group(3)
+                text = match.group(4).strip().replace('\r', '')
+                subs.append({'idx': idx, 'start': start, 'end': end, 'text': text})
+            return subs
+
+        def time_to_seconds(t):
+            t = t.replace(',', '.')
+            parts = re.split('[:.]', t)
+            if len(parts) == 4:
+                h, m, s, ms = map(int, parts)
+                return h*3600 + m*60 + s + ms/1000
+            elif len(parts) == 3:
+                h, m, s = map(int, parts)
+                return h*3600 + m*60 + s
+            return 0
+
+        errors = []
+        subs = parse_srt(srt_content)
+        # --- Max line length and CPS ---
+        for sub in subs:
+            # Duration
+            start_sec = time_to_seconds(sub['start'])
+            end_sec = time_to_seconds(sub['end'])
+            duration = max(end_sec - start_sec, 0.001)
+            # Max line length
+            lines = sub['text'].split('\n')
+            for i, line in enumerate(lines):
+                if len(line) > max_line_length:
+                    errors.append({
+                        'idx': sub['idx'],
+                        'start': sub['start'],
+                        'end': sub['end'],
+                        'type': 'Line Length',
+                        'message': f'Line {i+1} exceeds max length ({len(line)}/{max_line_length})',
+                        'text': line
+                    })
+            # Max CPS
+            total_chars = len(sub['text'].replace('\n', ''))
+            cps = total_chars / duration if duration > 0 else 0
+            if cps > max_cps:
+                errors.append({
+                    'idx': sub['idx'],
+                    'start': sub['start'],
+                    'end': sub['end'],
+                    'type': 'CPS',
+                    'message': f'Characters per second ({cps:.2f}) exceeds max ({max_cps})',
+                    'text': sub['text']
+                })
+        # --- Whitespace checks ---
+        for sub in subs:
+            text = sub['text']
+            # Line ending whitespace
+            if re.match(r'^( |\n|\r\n)[^\s]', text):
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': 'Whitespace at start of subtitle', 'text': text})
+            if re.match(r'[^\s]( |\n|\r\n)$', text):
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': 'Whitespace at end of subtitle', 'text': text})
+            # Spaces before punctuation
+            if re.search(r'[^\s]( |\n|\r\n)[!?).,\u061f\u060c\u2026]', text):
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': 'Space before punctuation', 'text': text})
+            # 2+ consecutive spaces
+            if re.search(r'( |\n|\r\n){2,}', text):
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Whitespace', 'message': '2+ consecutive spaces', 'text': text})
+        # --- Italics check ---
+        for sub in subs:
+            text = sub['text']
+            if 'i>' in text.lower():
+                errors.append({'idx': sub['idx'], 'start': sub['start'], 'end': sub['end'], 'type': 'Italics', 'message': 'Italics tag detected', 'text': text})
+        # --- Gap checks (bridge gaps, two frames gap) ---
+        def ms_from_time(t):
+            t = t.replace(',', '.')
+            parts = re.split('[:.]', t)
+            if len(parts) == 4:
+                h, m, s, ms = map(int, parts)
+                return (h*3600 + m*60 + s)*1000 + ms
+            elif len(parts) == 3:
+                h, m, s = map(int, parts)
+                return (h*3600 + m*60 + s)*1000
+            return 0
+        for i in range(len(subs)-1):
+            cur = subs[i]
+            nxt = subs[i+1]
+            end_ms = ms_from_time(cur['end'])
+            start_ms = ms_from_time(nxt['start'])
+            gap_ms = start_ms - end_ms
+            two_frames = 1000.0 / frame_rate * 2.0
+            half_sec_gap = int(round(frame_rate / 2))
+            gap_frames = (gap_ms) / (1000.0 / frame_rate)
+            if gap_frames > 2 and gap_frames < half_sec_gap:
+                errors.append({'idx': cur['idx'], 'start': cur['start'], 'end': cur['end'], 'type': 'Gap', 'message': f'Gap of {gap_frames:.1f} frames (should be 2)', 'text': cur['text']})
+            if gap_frames < 2:
+                errors.append({'idx': cur['idx'], 'start': cur['start'], 'end': cur['end'], 'type': 'Gap', 'message': f'Less than 2 frames gap ({gap_frames:.1f})', 'text': cur['text']})
+        return jsonify({'errors': errors, 'count': len(errors)})
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True) 
