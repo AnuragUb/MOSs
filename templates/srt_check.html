@@ -4,14 +4,18 @@
   <title>SRT Error Checker</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 30px; background: #f8f8f8; }
-    .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 24px 32px 32px 32px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
+    .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 24px 32px 32px 32px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
     h1 { margin-top: 0; }
     label { display: block; margin-top: 16px; font-weight: bold; }
-    input[type=number], select { width: 70px; margin-left: 8px; }
+    input[type=number], select { width: 80px; margin-left: 8px; }
     textarea { width: 100%; min-height: 180px; margin-top: 8px; font-family: monospace; font-size: 1em; }
-    .params { margin: 16px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .params { margin: 16px 0; }
+    .param-section { margin-bottom: 24px; padding: 16px; background: #f8f9fa; border-radius: 6px; }
+    .param-section h3 { margin-top: 0; margin-bottom: 12px; color: #495057; font-size: 1.1em; }
+    .param-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
     .param-group { display: flex; align-items: center; }
-    .param-group label { margin: 0; margin-right: 8px; }
+    .param-group label { margin: 0; margin-right: 8px; font-size: 0.9em; }
+    .param-group input, .param-group select { width: 80px; }
     button { margin-top: 18px; padding: 8px 24px; font-size: 1.1em; }
     .results { margin-top: 32px; background: #f9f2f4; border: 1px solid #e0b4b4; border-radius: 6px; padding: 16px; }
     .error-list { margin: 0; padding-left: 20px; }
@@ -24,12 +28,15 @@
     .error-type.formatting { background: #e8f5e8; color: #2e7d32; }
     .error-type.whitespace { background: #f3e5f5; color: #7b1fa2; }
     .error-type.timing { background: #e3f2fd; color: #1565c0; }
+    .checkbox-group { display: flex; align-items: center; margin: 8px 0; }
+    .checkbox-group input[type="checkbox"] { margin-right: 8px; }
+    .checkbox-group label { margin: 0; font-size: 0.9em; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>SRT Error Checker</h1>
-    <p style="color: #666; margin-bottom: 24px;">Comprehensive Netflix-style subtitle quality checking with 13 different error types</p>
+    <p style="color: #666; margin-bottom: 24px;">Comprehensive Netflix-style subtitle quality checking with fully configurable parameters</p>
     
     <form id="checkerForm" onsubmit="return false;">
       <label>SRT File:
@@ -39,28 +46,151 @@
       <textarea id="srtContent" placeholder="Paste SRT content here..."></textarea>
       
       <div class="params">
-        <div class="param-group">
-          <label>Language:</label>
-          <select id="languageInput">
-            <option value="en">English</option>
-            <option value="ja">Japanese</option>
-            <option value="ar">Arabic</option>
-            <option value="es">Spanish</option>
-            <option value="fr">French</option>
-            <option value="de">German</option>
-          </select>
+        <!-- Basic Settings -->
+        <div class="param-section">
+          <h3>Basic Settings</h3>
+          <div class="param-grid">
+            <div class="param-group">
+              <label>Language:</label>
+              <select id="languageInput">
+                <option value="en">English</option>
+                <option value="ja">Japanese</option>
+                <option value="ar">Arabic</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+              </select>
+            </div>
+            <div class="param-group">
+              <label>Frame Rate:</label>
+              <input type="number" id="frameRateInput" value="25" min="1" step="0.01">
+            </div>
+          </div>
         </div>
-        <div class="param-group">
-          <label>Max CPS:</label>
-          <input type="number" id="maxCpsInput" value="20" min="1">
+
+        <!-- Reading Speed & Formatting -->
+        <div class="param-section">
+          <h3>Reading Speed & Formatting</h3>
+          <div class="param-grid">
+            <div class="param-group">
+              <label>Max CPS:</label>
+              <input type="number" id="maxCpsInput" value="20" min="1">
+            </div>
+            <div class="param-group">
+              <label>Max Line Length:</label>
+              <input type="number" id="maxLineLengthInput" value="42" min="1">
+            </div>
+            <div class="param-group">
+              <label>Max Lines:</label>
+              <input type="number" id="maxLinesInput" value="2" min="1">
+            </div>
+          </div>
         </div>
-        <div class="param-group">
-          <label>Max Line Length:</label>
-          <input type="number" id="maxLineLengthInput" value="42" min="1">
+
+        <!-- Duration Settings -->
+        <div class="param-section">
+          <h3>Duration Settings</h3>
+          <div class="param-grid">
+            <div class="param-group">
+              <label>Min Duration (ms):</label>
+              <input type="number" id="minDurationInput" value="833" min="1">
+            </div>
+            <div class="param-group">
+              <label>Max Duration (ms):</label>
+              <input type="number" id="maxDurationInput" value="7000" min="1">
+            </div>
+            <div class="param-group">
+              <label>Min Gap (frames):</label>
+              <input type="number" id="minGapFramesInput" value="2" min="0">
+            </div>
+            <div class="param-group">
+              <label>Max Gap (frames):</label>
+              <input type="number" id="maxGapFramesInput" value="12" min="0">
+            </div>
+          </div>
         </div>
-        <div class="param-group">
-          <label>Frame Rate:</label>
-          <input type="number" id="frameRateInput" value="25" min="1" step="0.01">
+
+        <!-- Text Formatting -->
+        <div class="param-section">
+          <h3>Text Formatting</h3>
+          <div class="param-grid">
+            <div class="param-group">
+              <label>Speaker Style:</label>
+              <select id="speakerStyleInput">
+                <option value="dash_both_lines_with_space">Dash with space</option>
+                <option value="dash_both_lines_without_space">Dash without space</option>
+                <option value="dash_second_line_with_space">Dash 2nd line with space</option>
+                <option value="dash_second_line_without_space">Dash 2nd line without space</option>
+              </select>
+            </div>
+            <div class="param-group">
+              <label>Number Spelling Max:</label>
+              <input type="number" id="numberSpellingMaxInput" value="10" min="1">
+            </div>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkEllipsesInput" checked>
+            <label for="checkEllipsesInput">Check ellipses (use … not ...)</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkNumberSpellingInput" checked>
+            <label for="checkNumberSpellingInput">Check number spelling (1-10 should be spelled out)</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkItalicsInput" checked>
+            <label for="checkItalicsInput">Check for italics tags</label>
+          </div>
+        </div>
+
+        <!-- Whitespace & Characters -->
+        <div class="param-section">
+          <h3>Whitespace & Characters</h3>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkStartWhitespaceInput" checked>
+            <label for="checkStartWhitespaceInput">Check whitespace at start</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkEndWhitespaceInput" checked>
+            <label for="checkEndWhitespaceInput">Check whitespace at end</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkSpaceBeforePunctuationInput" checked>
+            <label for="checkSpaceBeforePunctuationInput">Check space before punctuation</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkConsecutiveSpacesInput" checked>
+            <label for="checkConsecutiveSpacesInput">Check consecutive spaces</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkInvalidCharsInput" checked>
+            <label for="checkInvalidCharsInput">Check invalid control characters</label>
+          </div>
+        </div>
+
+        <!-- Accessibility -->
+        <div class="param-section">
+          <h3>Accessibility</h3>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkHearingImpairedInput" checked>
+            <label for="checkHearingImpairedInput">Check hearing impaired formatting (brackets for sound effects)</label>
+          </div>
+          <div class="param-group">
+            <label>Sound Effects (comma-separated):</label>
+            <input type="text" id="soundEffectsInput" value="music,laughter,applause,sighs,gasps,whispers" style="width: 200px;">
+          </div>
+        </div>
+
+        <!-- Advanced -->
+        <div class="param-section">
+          <h3>Advanced</h3>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkFrameRateAlignmentInput" checked>
+            <label for="checkFrameRateAlignmentInput">Check frame rate alignment</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="checkDialogFormatInput" checked>
+            <label for="checkDialogFormatInput">Check dialog formatting</label>
+          </div>
         </div>
       </div>
       
@@ -84,13 +214,34 @@
     document.getElementById('runCheckBtn').addEventListener('click', function() {
       const srt = document.getElementById('srtContent').value;
       const language = document.getElementById('languageInput').value;
+      const frameRate = document.getElementById('frameRateInput').value || 25;
       const maxCps = document.getElementById('maxCpsInput').value || 20;
       const maxLineLength = document.getElementById('maxLineLengthInput').value || 42;
-      const frameRate = document.getElementById('frameRateInput').value || 25;
-      const resultsPanel = document.getElementById('resultsPanel');
+      const maxLines = document.getElementById('maxLinesInput').value || 2;
+      const minDuration = document.getElementById('minDurationInput').value || 833;
+      const maxDuration = document.getElementById('maxDurationInput').value || 7000;
+      const minGapFrames = document.getElementById('minGapFramesInput').value || 2;
+      const maxGapFrames = document.getElementById('maxGapFramesInput').value || 12;
+      const speakerStyle = document.getElementById('speakerStyleInput').value;
+      const numberSpellingMax = document.getElementById('numberSpellingMaxInput').value || 10;
+      const soundEffects = document.getElementById('soundEffectsInput').value;
       
+      // Checkbox values
+      const checkEllipses = document.getElementById('checkEllipsesInput').checked;
+      const checkNumberSpelling = document.getElementById('checkNumberSpellingInput').checked;
+      const checkItalics = document.getElementById('checkItalicsInput').checked;
+      const checkStartWhitespace = document.getElementById('checkStartWhitespaceInput').checked;
+      const checkEndWhitespace = document.getElementById('checkEndWhitespaceInput').checked;
+      const checkSpaceBeforePunctuation = document.getElementById('checkSpaceBeforePunctuationInput').checked;
+      const checkConsecutiveSpaces = document.getElementById('checkConsecutiveSpacesInput').checked;
+      const checkInvalidChars = document.getElementById('checkInvalidCharsInput').checked;
+      const checkHearingImpaired = document.getElementById('checkHearingImpairedInput').checked;
+      const checkFrameRateAlignment = document.getElementById('checkFrameRateAlignmentInput').checked;
+      const checkDialogFormat = document.getElementById('checkDialogFormatInput').checked;
+      
+      const resultsPanel = document.getElementById('resultsPanel');
       resultsPanel.style.display = 'block';
-      resultsPanel.innerHTML = 'Running comprehensive check...';
+      resultsPanel.innerHTML = 'Running comprehensive check with custom parameters...';
       
       fetch('/api/srt-check', {
         method: 'POST',
@@ -98,9 +249,30 @@
         body: JSON.stringify({
           content: srt,
           language: language,
+          frame_rate: frameRate,
           max_cps: maxCps,
           max_line_length: maxLineLength,
-          frame_rate: frameRate
+          max_lines: maxLines,
+          min_duration: minDuration,
+          max_duration: maxDuration,
+          min_gap_frames: minGapFrames,
+          max_gap_frames: maxGapFrames,
+          speaker_style: speakerStyle,
+          number_spelling_max: numberSpellingMax,
+          sound_effects: soundEffects,
+          checks: {
+            ellipses: checkEllipses,
+            number_spelling: checkNumberSpelling,
+            italics: checkItalics,
+            start_whitespace: checkStartWhitespace,
+            end_whitespace: checkEndWhitespace,
+            space_before_punctuation: checkSpaceBeforePunctuation,
+            consecutive_spaces: checkConsecutiveSpaces,
+            invalid_chars: checkInvalidChars,
+            hearing_impaired: checkHearingImpaired,
+            frame_rate_alignment: checkFrameRateAlignment,
+            dialog_format: checkDialogFormat
+          }
         })
       })
       .then(res => res.json())
@@ -111,7 +283,7 @@
         }
         
         if (data.count === 0) {
-          resultsPanel.innerHTML = '<span class="success">✅ No errors found! Your SRT file passes all Netflix quality checks.</span>';
+          resultsPanel.innerHTML = '<span class="success">✅ No errors found! Your SRT file passes all configured quality checks.</span>';
         } else {
           // Group errors by type for better organization
           const errorGroups = {};
