@@ -28,6 +28,7 @@ import shutil
 from google.auth import compute_engine
 import urllib.parse
 import re
+import mimetypes
 
 # Load environment variables
 load_dotenv()
@@ -110,6 +111,128 @@ def initialize_gcs_client():
 
 # Initialize GCS client on application startup
 initialize_gcs_client()
+
+# --- SRT Profile Management Endpoints ---
+PROFILE_COLLECTION = 'SRT_validator_profiles'
+PROFILE_DOC = 'global'
+PROFILE_SUBCOL = 'profiles'
+PROFILE_ICON_BUCKET = os.getenv('GCS_PROFILE_ICON_BUCKET', os.getenv('GCS_BUCKET_NAME', 'mos-aat'))
+PROFILE_ICON_FOLDER = 'profile_icons/'
+PROFILE_ICON_MAX_SIZE = 100 * 1024  # 100KB
+PROFILE_ICON_ALLOWED = {'image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'}
+
+@app.route('/api/srt-profiles', methods=['GET'])
+def list_srt_profiles():
+    try:
+        profiles_ref = firestore_client.collection(PROFILE_COLLECTION).document(PROFILE_DOC).collection(PROFILE_SUBCOL)
+        docs = profiles_ref.stream()
+        profiles = []
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            profiles.append(data)
+        return jsonify({'profiles': profiles})
+    except Exception as e:
+        logger.error(f"Error listing SRT profiles: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/srt-profiles', methods=['POST'])
+def create_srt_profile():
+    try:
+        data = request.json
+        name = data.get('name', '').strip()
+        icon = data.get('icon', '')  # URL or empty
+        parameters = data.get('parameters', {})
+        now = datetime.utcnow()
+        if not name:
+            return jsonify({'error': 'Profile name is required'}), 400
+        profiles_ref = firestore_client.collection(PROFILE_COLLECTION).document(PROFILE_DOC).collection(PROFILE_SUBCOL)
+        # Optionally, check for duplicate name
+        existing = list(profiles_ref.where('name', '==', name).stream())
+        if existing:
+            return jsonify({'error': 'Profile with this name already exists'}), 409
+        doc_ref = profiles_ref.document()
+        doc_ref.set({
+            'name': name,
+            'icon': icon,
+            'parameters': parameters,
+            'created_at': now,
+            'updated_at': now
+        })
+        return jsonify({'id': doc_ref.id, 'name': name, 'icon': icon, 'parameters': parameters})
+    except Exception as e:
+        logger.error(f"Error creating SRT profile: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/srt-profiles/<profile_id>', methods=['PUT'])
+def update_srt_profile(profile_id):
+    try:
+        data = request.json
+        name = data.get('name', '').strip()
+        icon = data.get('icon', '')
+        parameters = data.get('parameters', {})
+        now = datetime.utcnow()
+        profiles_ref = firestore_client.collection(PROFILE_COLLECTION).document(PROFILE_DOC).collection(PROFILE_SUBCOL)
+        doc_ref = profiles_ref.document(profile_id)
+        if not doc_ref.get().exists:
+            return jsonify({'error': 'Profile not found'}), 404
+        update_data = {'updated_at': now}
+        if name:
+            update_data['name'] = name
+        if icon is not None:
+            update_data['icon'] = icon
+        if parameters:
+            update_data['parameters'] = parameters
+        doc_ref.update(update_data)
+        return jsonify({'id': profile_id, 'name': name, 'icon': icon, 'parameters': parameters})
+    except Exception as e:
+        logger.error(f"Error updating SRT profile: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/srt-profiles/<profile_id>', methods=['DELETE'])
+def delete_srt_profile(profile_id):
+    try:
+        profiles_ref = firestore_client.collection(PROFILE_COLLECTION).document(PROFILE_DOC).collection(PROFILE_SUBCOL)
+        doc_ref = profiles_ref.document(profile_id)
+        if not doc_ref.get().exists:
+            return jsonify({'error': 'Profile not found'}), 404
+        doc_ref.delete()
+        return jsonify({'status': 'success', 'message': 'Profile deleted'})
+    except Exception as e:
+        logger.error(f"Error deleting SRT profile: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/srt-profile-icon-upload', methods=['POST'])
+def upload_srt_profile_icon():
+    try:
+        if 'icon' not in request.files:
+            return jsonify({'error': 'No icon file uploaded'}), 400
+        file = request.files['icon']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        # Check file size
+        file.seek(0, 2)
+        size = file.tell()
+        file.seek(0)
+        if size > PROFILE_ICON_MAX_SIZE:
+            return jsonify({'error': f'Icon file too large (max {PROFILE_ICON_MAX_SIZE//1024}KB)'}), 400
+        # Check file type
+        mime = mimetypes.guess_type(file.filename)[0]
+        if mime not in PROFILE_ICON_ALLOWED:
+            return jsonify({'error': f'Invalid file type: {mime}'}), 400
+        # Save to GCS
+        ext = os.path.splitext(file.filename)[1]
+        unique_name = f"{uuid.uuid4()}{ext}"
+        gcs_path = f"{PROFILE_ICON_FOLDER}{unique_name}"
+        bucket = storage_client.bucket(PROFILE_ICON_BUCKET)
+        blob = bucket.blob(gcs_path)
+        blob.upload_from_file(file, content_type=mime)
+        blob.make_public()
+        url = blob.public_url
+        return jsonify({'url': url})
+    except Exception as e:
+        logger.error(f"Error uploading profile icon: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/')
 def index():
