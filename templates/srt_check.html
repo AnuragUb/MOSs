@@ -606,7 +606,225 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/export_settings.js') }}?v=3"></script>
     <script>
-        // JavaScript code will be added in the next part
+        // --- SRT Profile Management Logic ---
+        let profiles = [];
+        let currentProfileId = null;
+        let currentProfileParams = {};
+
+        function fetchProfiles() {
+            fetch('/api/srt-profiles')
+                .then(res => res.json())
+                .then(data => {
+                    profiles = data.profiles || [];
+                    updateProfileSelector();
+                });
+        }
+
+        function updateProfileSelector() {
+            const selector = document.getElementById('profileSelector');
+            selector.innerHTML = '';
+            profiles.forEach(profile => {
+                const option = document.createElement('option');
+                option.value = profile.id;
+                option.textContent = profile.name;
+                selector.appendChild(option);
+            });
+            setProfileIconPreview();
+            if (profiles.length > 0) {
+                selector.value = currentProfileId || profiles[0].id;
+                loadProfileParams(selector.value);
+            }
+        }
+
+        function setProfileIconPreview() {
+            const selector = document.getElementById('profileSelector');
+            const preview = document.getElementById('profileIconPreview');
+            const selected = profiles.find(p => p.id === selector.value);
+            if (selected && selected.icon) {
+                preview.innerHTML = `<img src="${selected.icon}" style="width:28px; height:28px; border-radius:4px; vertical-align:middle;">`;
+            } else {
+                preview.innerHTML = '';
+            }
+        }
+
+        document.getElementById('profileSelector').addEventListener('change', function() {
+            currentProfileId = this.value;
+            loadProfileParams(currentProfileId);
+            setProfileIconPreview();
+        });
+
+        function loadProfileParams(profileId) {
+            const profile = profiles.find(p => p.id === profileId);
+            if (profile) {
+                for (const key in profile.parameters) {
+                    const el = document.getElementById(key + 'Input');
+                    if (el) el.value = profile.parameters[key];
+                }
+                currentProfileParams = { ...profile.parameters };
+            }
+        }
+
+        // --- Set New Profile Modal ---
+        document.getElementById('setNewProfileBtn').onclick = function() {
+            document.getElementById('setProfileModal').style.display = 'flex';
+            document.getElementById('newProfileName').value = '';
+            document.getElementById('newProfileIcon').value = '';
+            document.getElementById('newProfileIconPreview').innerHTML = '';
+            document.getElementById('setProfileModalError').textContent = '';
+            // Pre-fill modal fields with current form values
+            document.getElementById('profileParamsForm').innerHTML = `
+                <div class='param-group'><label>Max CPS</label><input type='number' id='modal_max_cps' min='1' value='${document.getElementById('maxCpsInput').value}'></div>
+                <div class='param-group'><label>Max Line Length</label><input type='number' id='modal_max_line_length' min='1' value='${document.getElementById('maxLineLengthInput').value}'></div>
+                <div class='param-group'><label>Max Lines</label><input type='number' id='modal_max_lines' min='1' value='${document.getElementById('maxLinesInput').value}'></div>
+                <div class='param-group'><label>Min Duration (ms)</label><input type='number' id='modal_min_duration' min='1' value='${document.getElementById('minDurationInput').value}'></div>
+                <div class='param-group'><label>Max Duration (ms)</label><input type='number' id='modal_max_duration' min='1' value='${document.getElementById('maxDurationInput').value}'></div>
+                <div class='param-group'><label>Min Gap (frames)</label><input type='number' id='modal_min_gap_frames' min='0' value='${document.getElementById('minGapFramesInput').value}'></div>
+                <div class='param-group'><label>Max Gap (frames)</label><input type='number' id='modal_max_gap_frames' min='0' value='${document.getElementById('maxGapFramesInput').value}'></div>
+                <div class='param-group'><label>Speaker Style</label><select id='modal_speaker_style'>
+                    <option value='dash_both_lines_with_space'>Dash with space</option>
+                    <option value='dash_both_lines_without_space'>Dash without space</option>
+                    <option value='dash_second_line_with_space'>Dash 2nd line with space</option>
+                    <option value='dash_second_line_without_space'>Dash 2nd line without space</option>
+                </select></div>
+                <div class='param-group'><label>Number Spelling Max</label><input type='number' id='modal_number_spelling_max' min='1' value='${document.getElementById('numberSpellingMaxInput').value}'></div>
+                <div class='param-group'><label>Language</label><select id='modal_language'>
+                    <option value='en'>English</option>
+                    <option value='ja'>Japanese</option>
+                    <option value='ar'>Arabic</option>
+                    <option value='es'>Spanish</option>
+                    <option value='fr'>French</option>
+                    <option value='de'>German</option>
+                </select></div>
+                <div class='param-group'><label>Frame Rate</label><input type='number' id='modal_frame_rate' min='1' step='0.01' value='${document.getElementById('frameRateInput').value}'></div>
+                <div class='param-group'><label>Sound Effects (comma-separated)</label><input type='text' id='modal_sound_effects' value='${document.getElementById('soundEffectsInput').value}'></div>
+            `;
+            document.getElementById('modal_speaker_style').value = document.getElementById('speakerStyleInput').value;
+            document.getElementById('modal_language').value = document.getElementById('languageInput').value;
+        };
+        document.getElementById('cancelNewProfileBtn').onclick = function() {
+            document.getElementById('setProfileModal').style.display = 'none';
+        };
+        document.getElementById('newProfileIcon').onchange = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 100 * 1024) {
+                document.getElementById('setProfileModalError').textContent = 'Icon file too large (max 100KB)';
+                e.target.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                document.getElementById('newProfileIconPreview').innerHTML = `<img src="${evt.target.result}" style="width:32px; height:32px; border-radius:4px;">`;
+            };
+            reader.readAsDataURL(file);
+        };
+        document.getElementById('saveNewProfileBtn').onclick = function() {
+            const name = document.getElementById('newProfileName').value.trim();
+            const iconFile = document.getElementById('newProfileIcon').files[0];
+            if (!name) {
+                document.getElementById('setProfileModalError').textContent = 'Profile name is required.';
+                return;
+            }
+            // Gather parameter values from modal fields
+            const params = {
+                max_cps: document.getElementById('modal_max_cps').value,
+                max_line_length: document.getElementById('modal_max_line_length').value,
+                max_lines: document.getElementById('modal_max_lines').value,
+                min_duration: document.getElementById('modal_min_duration').value,
+                max_duration: document.getElementById('modal_max_duration').value,
+                min_gap_frames: document.getElementById('modal_min_gap_frames').value,
+                max_gap_frames: document.getElementById('modal_max_gap_frames').value,
+                speaker_style: document.getElementById('modal_speaker_style').value,
+                number_spelling_max: document.getElementById('modal_number_spelling_max').value,
+                language: document.getElementById('modal_language').value,
+                frame_rate: document.getElementById('modal_frame_rate').value,
+                sound_effects: document.getElementById('modal_sound_effects').value
+            };
+            // Upload icon if present
+            if (iconFile) {
+                const formData = new FormData();
+                formData.append('icon', iconFile);
+                fetch('/api/srt-profile-icon-upload', { method: 'POST', body: formData })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.error) {
+                            document.getElementById('setProfileModalError').textContent = data.error;
+                        } else {
+                            saveProfile(name, data.url, params);
+                        }
+                    });
+            } else {
+                saveProfile(name, '', params);
+            }
+        };
+        function saveProfile(name, icon, params) {
+            fetch('/api/srt-profiles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, icon, parameters: params })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('setProfileModalError').textContent = data.error;
+                    } else {
+                        document.getElementById('setProfileModal').style.display = 'none';
+                        fetchProfiles();
+                    }
+                });
+        }
+
+        // --- Manage Profiles Modal ---
+        document.getElementById('manageProfilesBtn').onclick = function() {
+            document.getElementById('manageProfilesModal').style.display = 'flex';
+            renderManageProfilesList();
+        };
+        document.getElementById('closeManageProfilesBtn').onclick = function() {
+            document.getElementById('manageProfilesModal').style.display = 'none';
+        };
+        function renderManageProfilesList() {
+            const list = document.getElementById('manageProfilesList');
+            list.innerHTML = '';
+            profiles.forEach(profile => {
+                const div = document.createElement('div');
+                div.style.display = 'flex';
+                div.style.alignItems = 'center';
+                div.style.gap = '12px';
+                div.style.marginBottom = '10px';
+                div.innerHTML = `
+                    ${profile.icon ? `<img src="${profile.icon}" style="width:28px; height:28px; border-radius:4px;">` : ''}
+                    <span style="font-weight:bold;">${profile.name}</span>
+                    <button onclick="deleteProfile('${profile.id}')" style="margin-left:auto; background:#f8d7da; color:#b00; border:none; border-radius:4px; padding:4px 10px;">Delete</button>
+                `;
+                list.appendChild(div);
+            });
+        }
+        function deleteProfile(profileId) {
+            if (!confirm('Delete this profile?')) return;
+            fetch(`/api/srt-profiles/${profileId}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    fetchProfiles();
+                    renderManageProfilesList();
+                });
+        }
+
+        // --- Modal Close Logic ---
+        document.querySelectorAll('.modal .close').forEach(btn => {
+            btn.onclick = function() {
+                btn.closest('.modal').style.display = 'none';
+            };
+        });
+        window.onclick = function(event) {
+            document.querySelectorAll('.modal').forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        };
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', fetchProfiles);
     </script>
 </body>
 </html> 
