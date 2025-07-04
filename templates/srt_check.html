@@ -31,6 +31,16 @@
     .checkbox-group { display: flex; align-items: center; margin: 8px 0; }
     .checkbox-group input[type="checkbox"] { margin-right: 8px; }
     .checkbox-group label { margin: 0; font-size: 0.9em; }
+    .export-buttons { margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .export-btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+    .export-btn.csv { background: #28a745; color: white; }
+    .export-btn.csv:hover { background: #218838; }
+    .export-btn.pdf { background: #dc3545; color: white; }
+    .export-btn.pdf:hover { background: #c82333; }
+    .export-btn:disabled { background: #6c757d; cursor: not-allowed; }
+    .summary-stats { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+    .stat-item { background: #e9ecef; padding: 8px 12px; border-radius: 4px; font-size: 0.9em; }
+    .stat-item .number { font-weight: bold; color: #495057; }
   </style>
 </head>
 <body>
@@ -197,10 +207,24 @@
       <button id="runCheckBtn">Run Comprehensive SRT Error Check</button>
     </form>
     
-    <div class="results" id="resultsPanel" style="display:none;"></div>
+    <div class="results" id="resultsPanel" style="display:none;">
+      <div class="summary-stats" id="summaryStats"></div>
+      <div id="resultsContent"></div>
+      <div class="export-buttons" id="exportButtons" style="display:none;">
+        <button class="export-btn csv" onclick="exportToCSV()">
+          📊 Export to CSV
+        </button>
+        <button class="export-btn pdf" onclick="exportToPDF()">
+          📄 Export to PDF
+        </button>
+      </div>
+    </div>
   </div>
   
   <script>
+    let currentErrors = [];
+    let currentParams = {};
+    
     document.getElementById('srtFile').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -239,9 +263,28 @@
       const checkFrameRateAlignment = document.getElementById('checkFrameRateAlignmentInput').checked;
       const checkDialogFormat = document.getElementById('checkDialogFormatInput').checked;
       
+      // Store current parameters for export
+      currentParams = {
+        language, frameRate, maxCps, maxLineLength, maxLines, minDuration, maxDuration,
+        minGapFrames, maxGapFrames, speakerStyle, numberSpellingMax, soundEffects,
+        checks: {
+          ellipses: checkEllipses, number_spelling: checkNumberSpelling, italics: checkItalics,
+          start_whitespace: checkStartWhitespace, end_whitespace: checkEndWhitespace,
+          space_before_punctuation: checkSpaceBeforePunctuation, consecutive_spaces: checkConsecutiveSpaces,
+          invalid_chars: checkInvalidChars, hearing_impaired: checkHearingImpaired,
+          frame_rate_alignment: checkFrameRateAlignment, dialog_format: checkDialogFormat
+        }
+      };
+      
       const resultsPanel = document.getElementById('resultsPanel');
+      const resultsContent = document.getElementById('resultsContent');
+      const exportButtons = document.getElementById('exportButtons');
+      const summaryStats = document.getElementById('summaryStats');
+      
       resultsPanel.style.display = 'block';
-      resultsPanel.innerHTML = 'Running comprehensive check with custom parameters...';
+      resultsContent.innerHTML = 'Running comprehensive check with custom parameters...';
+      exportButtons.style.display = 'none';
+      summaryStats.innerHTML = '';
       
       fetch('/api/srt-check', {
         method: 'POST',
@@ -278,12 +321,22 @@
       .then(res => res.json())
       .then(data => {
         if (data.error) {
-          resultsPanel.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
+          resultsContent.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
           return;
         }
         
+        currentErrors = data.errors || [];
+        
         if (data.count === 0) {
-          resultsPanel.innerHTML = '<span class="success">✅ No errors found! Your SRT file passes all configured quality checks.</span>';
+          resultsContent.innerHTML = '<span class="success">✅ No errors found! Your SRT file passes all configured quality checks.</span>';
+          summaryStats.innerHTML = `
+            <div class="stat-item">
+              <span class="number">0</span> errors found
+            </div>
+            <div class="stat-item">
+              <span class="number">100%</span> pass rate
+            </div>
+          `;
         } else {
           // Group errors by type for better organization
           const errorGroups = {};
@@ -305,7 +358,29 @@
             html += '</ul>';
           });
           
-          resultsPanel.innerHTML = html;
+          resultsContent.innerHTML = html;
+          
+          // Show summary stats
+          const totalSubs = data.total_subtitles || 0;
+          const passRate = totalSubs > 0 ? ((totalSubs - data.count) / totalSubs * 100).toFixed(1) : 0;
+          
+          summaryStats.innerHTML = `
+            <div class="stat-item">
+              <span class="number">${data.count}</span> errors found
+            </div>
+            <div class="stat-item">
+              <span class="number">${totalSubs}</span> total subtitles
+            </div>
+            <div class="stat-item">
+              <span class="number">${passRate}%</span> pass rate
+            </div>
+            <div class="stat-item">
+              <span class="number">${Object.keys(errorGroups).length}</span> error categories
+            </div>
+          `;
+          
+          // Show export buttons
+          exportButtons.style.display = 'flex';
         }
       });
     });
@@ -328,6 +403,79 @@
         'Frame Rate': 'timing'
       };
       return typeMap[type] || 'formatting';
+    }
+    
+    function exportToCSV() {
+      if (currentErrors.length === 0) {
+        alert('No errors to export');
+        return;
+      }
+      
+      const csvContent = generateCSV();
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `srt_errors_${new Date().toISOString().slice(0,10)}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    
+    function exportToPDF() {
+      if (currentErrors.length === 0) {
+        alert('No errors to export');
+        return;
+      }
+      
+      fetch('/api/export-srt-errors-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          errors: currentErrors,
+          parameters: currentParams,
+          summary: {
+            totalErrors: currentErrors.length,
+            totalSubtitles: currentErrors.length > 0 ? Math.max(...currentErrors.map(e => e.idx)) : 0,
+            errorCategories: [...new Set(currentErrors.map(e => e.type))].length
+          }
+        })
+      })
+      .then(res => res.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `srt_errors_${new Date().toISOString().slice(0,10)}.pdf`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      })
+      .catch(err => {
+        console.error('Error generating PDF:', err);
+        alert('Error generating PDF. Please try again.');
+      });
+    }
+    
+    function generateCSV() {
+      const headers = ['Subtitle #', 'Start Time', 'End Time', 'Error Type', 'Message', 'Subtitle Text'];
+      const csvRows = [headers.join(',')];
+      
+      currentErrors.forEach(error => {
+        const row = [
+          error.idx,
+          `"${error.start}"`,
+          `"${error.end}"`,
+          `"${error.type}"`,
+          `"${error.message.replace(/"/g, '""')}"`,
+          `"${error.text.replace(/"/g, '""')}"`
+        ];
+        csvRows.push(row.join(','));
+      });
+      
+      return csvRows.join('\n');
     }
   </script>
 </body>

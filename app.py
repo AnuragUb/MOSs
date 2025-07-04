@@ -2102,11 +2102,185 @@ def srt_check_api():
                         'type': 'Frame Rate', 'message': f'Timing does not align with {frame_rate} fps frame boundaries', 'text': sub['text']
                     })
 
-        return jsonify({'errors': errors, 'count': len(errors)})
+        return jsonify({
+            'errors': errors, 
+            'count': len(errors),
+            'total_subtitles': len(subs) if subs else 0
+        })
     except Exception as e:
         import traceback
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/export-srt-errors-pdf', methods=['POST'])
+def export_srt_errors_pdf():
+    """Generate a PDF report of SRT errors"""
+    try:
+        data = request.get_json()
+        errors = data.get('errors', [])
+        parameters = data.get('parameters', {})
+        summary = data.get('summary', {})
+        
+        if not errors:
+            return jsonify({'error': 'No errors to export'}), 400
+        
+        # Create PDF using reportlab
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+        import io
+        
+        # Create buffer for PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=72)
+        
+        # Get styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            spaceBefore=20
+        )
+        normal_style = styles['Normal']
+        
+        # Build PDF content
+        story = []
+        
+        # Title
+        story.append(Paragraph("SRT Error Check Report", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Summary section
+        story.append(Paragraph("Summary", heading_style))
+        summary_data = [
+            ['Total Errors', str(summary.get('totalErrors', 0))],
+            ['Total Subtitles', str(summary.get('totalSubtitles', 0))],
+            ['Error Categories', str(summary.get('errorCategories', 0))],
+            ['Check Date', datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[2*inch, 3*inch])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.grey),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (1, 0), (1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(summary_table)
+        story.append(Spacer(1, 20))
+        
+        # Parameters section
+        story.append(Paragraph("Check Parameters", heading_style))
+        param_data = [
+            ['Parameter', 'Value'],
+            ['Language', parameters.get('language', 'N/A')],
+            ['Frame Rate', str(parameters.get('frameRate', 'N/A'))],
+            ['Max CPS', str(parameters.get('maxCps', 'N/A'))],
+            ['Max Line Length', str(parameters.get('maxLineLength', 'N/A'))],
+            ['Max Lines', str(parameters.get('maxLines', 'N/A'))],
+            ['Min Duration (ms)', str(parameters.get('minDuration', 'N/A'))],
+            ['Max Duration (ms)', str(parameters.get('maxDuration', 'N/A'))],
+            ['Min Gap (frames)', str(parameters.get('minGapFrames', 'N/A'))],
+            ['Max Gap (frames)', str(parameters.get('maxGapFrames', 'N/A'))],
+            ['Speaker Style', parameters.get('speakerStyle', 'N/A')],
+            ['Number Spelling Max', str(parameters.get('numberSpellingMax', 'N/A'))],
+            ['Sound Effects', parameters.get('soundEffects', 'N/A')]
+        ]
+        
+        param_table = Table(param_data, colWidths=[2*inch, 3*inch])
+        param_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.grey),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (1, 0), (1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(param_table)
+        story.append(Spacer(1, 20))
+        
+        # Error details section
+        story.append(Paragraph("Error Details", heading_style))
+        
+        # Group errors by type
+        error_groups = {}
+        for error in errors:
+            error_type = error.get('type', 'Unknown')
+            if error_type not in error_groups:
+                error_groups[error_type] = []
+            error_groups[error_type].append(error)
+        
+        # Create error tables for each type
+        for error_type, type_errors in error_groups.items():
+            story.append(Paragraph(f"{error_type} ({len(type_errors)} errors)", heading_style))
+            
+            # Create table for this error type
+            error_data = [['Subtitle #', 'Time Range', 'Message', 'Text']]
+            
+            for error in type_errors:
+                time_range = f"{error.get('start', 'N/A')} - {error.get('end', 'N/A')}"
+                message = error.get('message', 'N/A')
+                text = error.get('text', 'N/A')
+                
+                # Truncate long text for PDF
+                if len(text) > 50:
+                    text = text[:47] + "..."
+                
+                error_data.append([
+                    str(error.get('idx', 'N/A')),
+                    time_range,
+                    message,
+                    text
+                ])
+            
+            error_table = Table(error_data, colWidths=[0.8*inch, 1.5*inch, 2.5*inch, 2*inch])
+            error_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.lightgrey),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+            ]))
+            story.append(error_table)
+            story.append(Spacer(1, 12))
+        
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        
+        return send_file(
+            buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'srt_error_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating PDF: {str(e)}")
+        return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True) 
