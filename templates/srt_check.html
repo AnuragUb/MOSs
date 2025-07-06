@@ -528,8 +528,38 @@
                         <i class="fas fa-search me-2"></i>
                         Run Comprehensive SRT Error Check
                     </button>
+                    <button id="openAutoFixBtn" class="btn btn-success btn-lg ms-3">
+                        <i class="fas fa-magic me-2"></i>
+                        Auto-Fix Common Errors
+                    </button>
                 </div>
             </form>
+        </div>
+        
+        <!-- Auto-Fix Modal -->
+        <div id="autoFixModal" class="modal">
+            <div class="modal-content" style="max-width:700px;">
+                <span class="close" id="closeAutoFixModal">&times;</span>
+                <h2>Auto-Fix Common Subtitle Errors</h2>
+                <div id="autoFixError" class="text-danger mb-2"></div>
+                <form id="autoFixForm" onsubmit="return false;">
+                    <div class="mb-3">
+                        <label style="font-weight:600;">Select fixes to apply:</label>
+                        <div class="row" id="autoFixCheckboxes">
+                            <!-- Checkboxes will be populated by JS -->
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button id="runAutoFixBtn" class="btn btn-success">Run Auto-Fix</button>
+                        <button id="cancelAutoFixBtn" class="btn btn-secondary">Cancel</button>
+                    </div>
+                </form>
+                <div id="autoFixResultSection" style="display:none; margin-top:2rem;">
+                    <h4>Fixed SRT Content</h4>
+                    <textarea id="autoFixResult" class="srt-textarea" style="min-height:180px;"></textarea>
+                    <button id="downloadAutoFixBtn" class="btn btn-primary mt-2">Download Fixed SRT</button>
+                </div>
+            </div>
         </div>
         
         <div class="results-panel" id="resultsPanel" style="display:none;">
@@ -821,6 +851,122 @@
                     modal.style.display = 'none';
                 }
             });
+        };
+
+        // --- Auto-Fix Modal Logic ---
+        const autoFixBtn = document.getElementById('openAutoFixBtn');
+        const autoFixModal = document.getElementById('autoFixModal');
+        const closeAutoFixModal = document.getElementById('closeAutoFixModal');
+        const cancelAutoFixBtn = document.getElementById('cancelAutoFixBtn');
+        const runAutoFixBtn = document.getElementById('runAutoFixBtn');
+        const autoFixCheckboxes = document.getElementById('autoFixCheckboxes');
+        const autoFixError = document.getElementById('autoFixError');
+        const autoFixResultSection = document.getElementById('autoFixResultSection');
+        const autoFixResult = document.getElementById('autoFixResult');
+        const downloadAutoFixBtn = document.getElementById('downloadAutoFixBtn');
+
+        // List of all available fixes (key: backend key, label: user-friendly)
+        const AUTO_FIXES = [
+            { key: 'remove_empty_lines', label: 'Remove empty lines/unused line breaks' },
+            { key: 'fix_overlapping_times', label: 'Fix overlapping display times' },
+            { key: 'fix_short_display_times', label: 'Fix short display times' },
+            { key: 'fix_long_display_times', label: 'Fix long display times' },
+            { key: 'fix_short_gaps', label: 'Fix short gaps' },
+            { key: 'fix_invalid_italic_tags', label: 'Fix invalid italic tags' },
+            { key: 'remove_spaces', label: 'Remove unneeded spaces' },
+            { key: 'fix_missing_spaces', label: 'Fix missing spaces' },
+            { key: 'fix_commas', label: 'Remove unneeded periods/commas' },
+            { key: 'break_long_lines', label: 'Break long lines' },
+            { key: 'remove_line_breaks_short_text', label: 'Remove line breaks in short texts (one sentence)' },
+            { key: 'remove_line_breaks_short_texts_except_dialogs', label: 'Remove line breaks in short texts (all except dialogs)' },
+            { key: 'unbreak_one_line', label: 'Unbreak subtitles that fit on one line' },
+            { key: 'fix_double_apostrophe', label: 'Fix double apostrophe characters' },
+            { key: 'replace_music_symbols', label: 'Replace music symbols (♪, etc.)' },
+            { key: 'add_period_end', label: 'Add period after lines not ending with punctuation' },
+            { key: 'start_uppercase_after_paragraph', label: 'Start with uppercase after paragraph' },
+            { key: 'start_uppercase_after_colon_semicolon', label: 'Start with uppercase after colon/semicolon' },
+            { key: 'add_missing_quotes', label: 'Add missing quotes' },
+            { key: 'split_dialogs', label: 'Fix dash in dialogs (split dash lines with space)' },
+            { key: 'remove_dialog_dash_single_line', label: 'Remove dialog dashes in single lines' },
+            { key: 'fix_more_than_two_lines', label: 'Fix subtitles with more than two lines' },
+            { key: 'fix_dash_dash_to_ellipsis', label: 'Fix \'- -\' to ellipsis' },
+            { key: 'remove_double_arrow', label: 'Remove \'>>\'' },
+            { key: 'fix_continuation_style', label: 'Fix continuation style (ellipsis for pauses)' },
+            { key: 'fix_missing_bracket_or_in_line', label: 'Fix missing [ or ] in line' },
+            { key: 'fix_common_ocr_errors', label: 'Fix common OCR errors' },
+            { key: 'fix_uppercase_i_inside_lowercase', label: 'Fix uppercase "i" inside lowercase words (OCR error)' },
+            { key: 'remove_space_between_numbers', label: 'Remove space between numbers' },
+            { key: 'fix_alone_lowercase_i', label: 'Fix alone lowercase "i" to "I"' },
+            { key: 'remove_start_dash_non_dialog', label: 'Remove start dash in first line for non-dialogs' },
+            { key: 'normalize_strings', label: 'Normalize strings' },
+            { key: 'normalize_cross_platform', label: 'Normalize for cross-platform compatibility' }
+        ];
+
+        autoFixBtn.onclick = function() {
+            autoFixModal.style.display = 'flex';
+            autoFixError.textContent = '';
+            autoFixResultSection.style.display = 'none';
+            autoFixResult.value = '';
+            // Populate checkboxes
+            autoFixCheckboxes.innerHTML = '';
+            AUTO_FIXES.forEach(fix => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6';
+                col.innerHTML = `<div class='checkbox-group'><input type='checkbox' id='fix_${fix.key}' value='${fix.key}'><label for='fix_${fix.key}'>${fix.label}</label></div>`;
+                autoFixCheckboxes.appendChild(col);
+            });
+        };
+        closeAutoFixModal.onclick = cancelAutoFixBtn.onclick = function() {
+            autoFixModal.style.display = 'none';
+        };
+        runAutoFixBtn.onclick = function() {
+            autoFixError.textContent = '';
+            autoFixResultSection.style.display = 'none';
+            autoFixResult.value = '';
+            // Gather selected fixes
+            const selected = Array.from(autoFixCheckboxes.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+            if (selected.length === 0) {
+                autoFixError.textContent = 'Please select at least one fix.';
+                return;
+            }
+            // Get SRT content
+            const srtContent = document.getElementById('srtContent').value;
+            if (!srtContent.trim()) {
+                autoFixError.textContent = 'Please provide SRT content to fix.';
+                return;
+            }
+            runAutoFixBtn.disabled = true;
+            fetch('/api/srt-fix', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: srtContent, fixes: selected })
+            })
+            .then(res => res.json())
+            .then(data => {
+                runAutoFixBtn.disabled = false;
+                if (data.error) {
+                    autoFixError.textContent = data.error;
+                } else {
+                    autoFixResult.value = data.fixed_content;
+                    autoFixResultSection.style.display = 'block';
+                }
+            })
+            .catch(err => {
+                runAutoFixBtn.disabled = false;
+                autoFixError.textContent = 'Error running auto-fix.';
+            });
+        };
+        downloadAutoFixBtn.onclick = function() {
+            const content = autoFixResult.value;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'fixed_subtitles.srt';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
         };
 
         // --- Initial Load ---
