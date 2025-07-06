@@ -227,8 +227,21 @@ def upload_srt_profile_icon():
         bucket = storage_client.bucket(PROFILE_ICON_BUCKET)
         blob = bucket.blob(gcs_path)
         blob.upload_from_file(file, content_type=mime)
-        blob.make_public()
-        url = blob.public_url
+        # Do NOT call blob.make_public() or use ACLs
+        # If the bucket is public, the public URL will work. If not, generate a signed URL.
+        public_url = f"https://storage.googleapis.com/{PROFILE_ICON_BUCKET}/{gcs_path}"
+        # Optionally, check if the bucket is public. If not, generate a signed URL (valid for 1 year)
+        try:
+            # Try a HEAD request to see if the object is public
+            import requests
+            resp = requests.head(public_url)
+            if resp.status_code == 403:
+                # Not public, generate signed URL
+                url = blob.generate_signed_url(version="v4", expiration=60*60*24*365, method="GET")
+            else:
+                url = public_url
+        except Exception:
+            url = public_url
         return jsonify({'url': url})
     except Exception as e:
         logger.error(f"Error uploading profile icon: {str(e)}")
