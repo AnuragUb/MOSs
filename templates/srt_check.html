@@ -969,6 +969,210 @@
             URL.revokeObjectURL(url);
         };
 
+        // --- File Upload Handling ---
+        document.getElementById('srtFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const content = event.target.result;
+                document.getElementById('srtContent').value = content;
+            };
+            reader.readAsText(file);
+        });
+
+        // --- SRT Check Functionality ---
+        document.getElementById('runCheckBtn').addEventListener('click', function() {
+            const srtContent = document.getElementById('srtContent').value.trim();
+            if (!srtContent) {
+                alert('Please provide SRT content to check.');
+                return;
+            }
+
+            // Gather all parameters
+            const params = {
+                content: srtContent,
+                language: document.getElementById('languageInput').value,
+                frame_rate: parseFloat(document.getElementById('frameRateInput').value),
+                max_cps: parseInt(document.getElementById('maxCpsInput').value),
+                max_line_length: parseInt(document.getElementById('maxLineLengthInput').value),
+                max_lines: parseInt(document.getElementById('maxLinesInput').value),
+                min_duration: parseInt(document.getElementById('minDurationInput').value),
+                max_duration: parseInt(document.getElementById('maxDurationInput').value),
+                min_gap_frames: parseInt(document.getElementById('minGapFramesInput').value),
+                max_gap_frames: parseInt(document.getElementById('maxGapFramesInput').value),
+                speaker_style: document.getElementById('speakerStyleInput').value,
+                number_spelling_max: parseInt(document.getElementById('numberSpellingMaxInput').value),
+                sound_effects: document.getElementById('soundEffectsInput').value,
+                checks: {
+                    ellipses: document.getElementById('checkEllipsesInput').checked,
+                    number_spelling: document.getElementById('checkNumberSpellingInput').checked,
+                    italics: document.getElementById('checkItalicsInput').checked,
+                    start_whitespace: document.getElementById('checkStartWhitespaceInput').checked,
+                    end_whitespace: document.getElementById('checkEndWhitespaceInput').checked,
+                    space_before_punctuation: document.getElementById('checkSpaceBeforePunctuationInput').checked,
+                    consecutive_spaces: document.getElementById('checkConsecutiveSpacesInput').checked,
+                    invalid_chars: document.getElementById('checkInvalidCharsInput').checked,
+                    hearing_impaired: document.getElementById('checkHearingImpairedInput').checked,
+                    frame_rate_alignment: document.getElementById('checkFrameRateAlignmentInput').checked,
+                    dialog_format: document.getElementById('checkDialogFormatInput').checked
+                }
+            };
+
+            // Show loading state
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Checking...';
+
+            // Send request to API
+            fetch('/api/srt-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            })
+            .then(res => res.json())
+            .then(data => {
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-search me-2"></i>Run Comprehensive SRT Error Check';
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                displayResults(data);
+            })
+            .catch(err => {
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-search me-2"></i>Run Comprehensive SRT Error Check';
+                alert('Error checking SRT: ' + err.message);
+            });
+        });
+
+        function displayResults(data) {
+            const resultsPanel = document.getElementById('resultsPanel');
+            const summaryStats = document.getElementById('summaryStats');
+            const resultsContent = document.getElementById('resultsContent');
+            const exportButtons = document.getElementById('exportButtons');
+
+            // Store current results for export
+            window.currentErrors = data.errors || [];
+            window.currentTotalSubtitles = data.total_subtitles || 0;
+
+            // Update summary stats
+            summaryStats.innerHTML = `
+                <div class="stat-item">
+                    <div class="number">${data.count}</div>
+                    <div>Total Errors</div>
+                </div>
+                <div class="stat-item">
+                    <div class="number">${data.total_subtitles}</div>
+                    <div>Total Subtitles</div>
+                </div>
+                <div class="stat-item">
+                    <div class="number">${new Set(data.errors.map(e => e.type)).size}</div>
+                    <div>Error Categories</div>
+                </div>
+            `;
+
+            // Display errors
+            if (data.errors && data.errors.length > 0) {
+                const errorGroups = {};
+                data.errors.forEach(error => {
+                    if (!errorGroups[error.type]) {
+                        errorGroups[error.type] = [];
+                    }
+                    errorGroups[error.type].push(error);
+                });
+
+                let html = '<h4>Error Details</h4>';
+                Object.keys(errorGroups).forEach(type => {
+                    html += `<h5>${type} (${errorGroups[type].length} errors)</h5>`;
+                    html += '<ul class="error-list">';
+                    errorGroups[type].forEach(error => {
+                        html += `
+                            <li>
+                                <span class="error-type ${type.toLowerCase().replace(/\s+/g, '-')}">${error.type}</span>
+                                <strong>Subtitle #${error.idx}</strong> (${error.start} - ${error.end}): ${error.message}
+                                <br><small style="color: var(--text-secondary);">Text: "${error.text}"</small>
+                            </li>
+                        `;
+                    });
+                    html += '</ul>';
+                });
+                resultsContent.innerHTML = html;
+                exportButtons.style.display = 'flex';
+            } else {
+                resultsContent.innerHTML = '<div class="success">No errors found! Your SRT file looks good.</div>';
+                exportButtons.style.display = 'none';
+            }
+
+            resultsPanel.style.display = 'block';
+        }
+
+        // Export functions
+        window.exportToCSV = function() {
+            const srtContent = document.getElementById('srtContent').value;
+            const blob = new Blob([srtContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'srt_errors.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        };
+
+        window.exportToPDF = function() {
+            const srtContent = document.getElementById('srtContent').value;
+            const params = {
+                content: srtContent,
+                language: document.getElementById('languageInput').value,
+                frame_rate: parseFloat(document.getElementById('frameRateInput').value),
+                max_cps: parseInt(document.getElementById('maxCpsInput').value),
+                max_line_length: parseInt(document.getElementById('maxLineLengthInput').value),
+                max_lines: parseInt(document.getElementById('maxLinesInput').value),
+                min_duration: parseInt(document.getElementById('minDurationInput').value),
+                max_duration: parseInt(document.getElementById('maxDurationInput').value),
+                min_gap_frames: parseInt(document.getElementById('minGapFramesInput').value),
+                max_gap_frames: parseInt(document.getElementById('maxGapFramesInput').value),
+                speaker_style: document.getElementById('speakerStyleInput').value,
+                number_spelling_max: parseInt(document.getElementById('numberSpellingMaxInput').value),
+                sound_effects: document.getElementById('soundEffectsInput').value
+            };
+
+            fetch('/api/export-srt-errors-pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    errors: window.currentErrors || [], 
+                    parameters: params,
+                    summary: {
+                        totalErrors: window.currentErrors ? window.currentErrors.length : 0,
+                        totalSubtitles: window.currentTotalSubtitles || 0,
+                        errorCategories: window.currentErrors ? new Set(window.currentErrors.map(e => e.type)).size : 0
+                    }
+                })
+            })
+            .then(res => res.blob())
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'srt_error_report.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            });
+        };
+
+        // Title tag management function
+        window.openTitleTagManagement = function() {
+            window.open('/unknown-tags', '_blank');
+        };
+
         // --- Initial Load ---
         document.addEventListener('DOMContentLoaded', fetchProfiles);
     </script>
