@@ -1996,29 +1996,9 @@ def upload_subtitle():
         file.seek(0)
         file.save(local_path)
         
-        # Upload to GCS
-        bucket_name = os.getenv('GCS_BUCKET_NAME', 'mos-aat')
-        gcs_folder = 'subtitles/'
-        unique_filename = f"{uuid.uuid4()}_{filename}"
-        gcs_path = f"{gcs_folder}{unique_filename}"
-        
-        if storage_client is None:
-            return {'error': 'GCS client not initialized'}, 503
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(gcs_path)
-        blob.upload_from_filename(local_path, content_type='text/plain')
-        
-        # Optionally, generate a signed URL for access (valid 1 year)
-        try:
-            url = blob.generate_signed_url(version="v4", expiration=60*60*24*365, method="GET")
-        except Exception:
-            url = f"https://storage.googleapis.com/{bucket_name}/{gcs_path}"
-        
         return {
             'filename': filename,
-            'local_path': local_path,
-            'gcs_path': gcs_path,
-            'gcs_url': url
+            'local_path': local_path
         }
     except Exception as e:
         logger.error(f"Error uploading subtitle: {str(e)}")
