@@ -1978,14 +1978,51 @@ def subtitle_edit():
 
 @app.route('/api/upload-subtitle', methods=['POST'])
 def upload_subtitle():
-    if 'file' not in request.files:
-        return {'error': 'No file uploaded'}, 400
-    file = request.files['file']
-    ext = file.filename.split('.')[-1].lower()
-    if ext not in ['srt', 'vtt', 'ass', 'sub']:
-        return {'error': 'Unsupported file type'}, 400
-    content = file.read().decode('utf-8', errors='replace')
-    return {'filename': file.filename, 'content': content}
+    try:
+        if 'file' not in request.files:
+            return {'error': 'No file uploaded'}, 400
+        file = request.files['file']
+        ext = file.filename.split('.')[-1].lower()
+        if ext not in ['srt', 'vtt', 'ass', 'sub']:
+            return {'error': 'Unsupported file type'}, 400
+        
+        # Ensure local directory exists
+        local_dir = os.path.join('uploads', 'subtitles')
+        os.makedirs(local_dir, exist_ok=True)
+        
+        # Secure filename and save locally
+        filename = secure_filename(file.filename)
+        local_path = os.path.join(local_dir, filename)
+        file.seek(0)
+        file.save(local_path)
+        
+        # Upload to GCS
+        bucket_name = os.getenv('GCS_BUCKET_NAME', 'mos-aat')
+        gcs_folder = 'subtitles/'
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        gcs_path = f"{gcs_folder}{unique_filename}"
+        
+        if storage_client is None:
+            return {'error': 'GCS client not initialized'}, 503
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(gcs_path)
+        blob.upload_from_filename(local_path, content_type='text/plain')
+        
+        # Optionally, generate a signed URL for access (valid 1 year)
+        try:
+            url = blob.generate_signed_url(version="v4", expiration=60*60*24*365, method="GET")
+        except Exception:
+            url = f"https://storage.googleapis.com/{bucket_name}/{gcs_path}"
+        
+        return {
+            'filename': filename,
+            'local_path': local_path,
+            'gcs_path': gcs_path,
+            'gcs_url': url
+        }
+    except Exception as e:
+        logger.error(f"Error uploading subtitle: {str(e)}")
+        return {'error': str(e)}, 500
 
 @app.route('/api/download-subtitle', methods=['POST'])
 def download_subtitle():
@@ -2417,6 +2454,331 @@ def export_srt_errors_pdf():
     except Exception as e:
         logger.error(f"Error generating PDF: {str(e)}")
         return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500
+
+@app.route('/api/srt-fix', methods=['POST'])
+def srt_fix_api():
+    try:
+        data = request.get_json()
+        srt_content = data.get('content', '')
+        fixes = data.get('fixes', [])  # List of fix keys, e.g. ['remove_spaces', 'fix_commas']
+
+        def parse_srt(srt):
+            import re
+            pattern = re.compile(r"(\d+)\s+([\d:,]+)\s+-->\s+([\d:,]+)\s+([\s\S]+?)(?=\n\d+\n|\Z)", re.MULTILINE)
+            subs = []
+            for match in pattern.finditer(srt):
+                idx = int(match.group(1))
+                start = match.group(2)
+                end = match.group(3)
+                text = match.group(4).strip().replace('\r', '')
+                subs.append({'idx': idx, 'start': start, 'end': end, 'text': text})
+            return subs
+
+        def to_srt(subs):
+            out = []
+            for i, sub in enumerate(subs, 1):
+                out.append(f"{i}\n{sub['start']} --> {sub['end']}\n{sub['text']}\n")
+            return '\n'.join(out)
+
+        subs = parse_srt(srt_content)
+
+        # --- Fixes ---
+        if 'remove_spaces' in fixes:
+            for sub in subs:
+                # Remove unneeded spaces (leading/trailing, double spaces)
+                lines = [l.strip() for l in sub['text'].split('\n')]
+                lines = [' '.join(l.split()) for l in lines]
+                sub['text'] = '\n'.join(lines)
+        if 'fix_commas' in fixes:
+            for sub in subs:
+                # Remove unneeded periods/commas at end of lines
+                lines = [l.rstrip('.,') for l in sub['text'].split('\n')]
+                sub['text'] = '\n'.join(lines)
+        if 'split_dialogs' in fixes:
+            for sub in subs:
+                # Split dialogs on one line: "- Hi! - Hello!" -> "- Hi!\n- Hello!"
+                import re
+                lines = []
+                for l in sub['text'].split('\n'):
+                    # Look for dash-dialogs on one line
+                    if re.match(r"^- .+ - .+", l):
+                        parts = re.split(r" - ", l)
+                        lines.extend([f"- {p.strip()}" for p in parts if p.strip()])
+                    else:
+                        lines.append(l)
+                sub['text'] = '\n'.join(lines)
+        # --- Additional Fixes ---
+        if 'remove_empty_lines' in fixes:
+            # Remove subtitles with empty text
+            subs = [sub for sub in subs if sub['text'].strip()]
+        if 'break_long_lines' in fixes:
+            # Break lines longer than max_line_length (default 42)
+            max_len = 42
+            for sub in subs:
+                lines = []
+                for l in sub['text'].split('\n'):
+                    while len(l) > max_len:
+                        # Break at last space before max_len
+                        idx = l.rfind(' ', 0, max_len)
+                        if idx == -1:
+                            idx = max_len
+                        lines.append(l[:idx].strip())
+                        l = l[idx:].strip()
+                    lines.append(l)
+                sub['text'] = '\n'.join(lines)
+        if 'remove_line_breaks_short_text' in fixes:
+            # Remove line breaks in short texts (<= max_line_length)
+            max_len = 42
+            for sub in subs:
+                text = sub['text'].replace('\n', ' ')
+                if len(text) <= max_len:
+                    sub['text'] = text
+        if 'unbreak_one_line' in fixes:
+            # Unbreak subtitles that can fit on one line
+            max_len = 42
+            for sub in subs:
+                text = sub['text'].replace('\n', ' ')
+                if len(text) <= max_len:
+                    sub['text'] = text
+        if 'add_period_end' in fixes:
+            # Add period at end if missing (and not other punctuation)
+            import re
+            for sub in subs:
+                lines = sub['text'].split('\n')
+                for i, l in enumerate(lines):
+                    if l and not re.search(r'[.!?…]$', l):
+                        lines[i] = l + '.'
+                sub['text'] = '\n'.join(lines)
+        if 'start_uppercase_after_paragraph' in fixes:
+            # Start with uppercase after paragraph
+            for sub in subs:
+                lines = sub['text'].split('\n')
+                for i, l in enumerate(lines):
+                    if l:
+                        lines[i] = l[0].upper() + l[1:] if l[0].islower() else l
+                sub['text'] = '\n'.join(lines)
+        if 'remove_double_arrow' in fixes:
+            # Remove '>>' at start of lines
+            for sub in subs:
+                lines = [l.lstrip('> ').lstrip() if l.strip().startswith('>>') else l for l in sub['text'].split('\n')]
+                sub['text'] = '\n'.join(lines)
+        if 'fix_alone_lowercase_i' in fixes:
+            # Fix alone lowercase 'i' to 'I'
+            import re
+            for sub in subs:
+                lines = [re.sub(r'\bi\b', 'I', l) for l in sub['text'].split('\n')]
+                sub['text'] = '\n'.join(lines)
+        if 'normalize_strings' in fixes:
+            # Normalize strings: remove extra spaces, standardize ellipses, etc.
+            import re
+            for sub in subs:
+                text = sub['text']
+                text = re.sub(r'\s+', ' ', text)
+                text = text.replace('...', '…')
+                text = text.replace(' ,', ',').replace(' .', '.')
+                sub['text'] = text.strip()
+        if 'fix_overlapping_times' in fixes:
+            # Fix overlapping display times (ensure no subtitle starts before previous ends)
+            for i in range(1, len(subs)):
+                if subs[i]['start'] < subs[i-1]['end']:
+                    subs[i]['start'] = subs[i-1]['end']
+        if 'fix_short_display_times' in fixes:
+            # Fix short display times (set to min_duration if too short)
+            min_duration = 833
+            for sub in subs:
+                import re
+                def to_ms(t):
+                    t = t.replace(',', '.')
+                    parts = re.split('[:.]', t)
+                    if len(parts) == 4:
+                        h, m, s, ms = map(int, parts)
+                        return (h*3600 + m*60 + s)*1000 + ms
+                    elif len(parts) == 3:
+                        h, m, s = map(int, parts)
+                        return (h*3600 + m*60 + s)*1000
+                    return 0
+                def to_time(ms):
+                    h = ms // 3600000
+                    m = (ms % 3600000) // 60000
+                    s = (ms % 60000) // 1000
+                    ms = ms % 1000
+                    return f"{h:02}:{m:02}:{s:02},{ms:03}"
+                start_ms = to_ms(sub['start'])
+                end_ms = to_ms(sub['end'])
+                if end_ms - start_ms < min_duration:
+                    sub['end'] = to_time(start_ms + min_duration)
+        if 'fix_long_display_times' in fixes:
+            # Fix long display times (set to max_duration if too long)
+            max_duration = 7000
+            for sub in subs:
+                import re
+                def to_ms(t):
+                    t = t.replace(',', '.')
+                    parts = re.split('[:.]', t)
+                    if len(parts) == 4:
+                        h, m, s, ms = map(int, parts)
+                        return (h*3600 + m*60 + s)*1000 + ms
+                    elif len(parts) == 3:
+                        h, m, s = map(int, parts)
+                        return (h*3600 + m*60 + s)*1000
+                    return 0
+                def to_time(ms):
+                    h = ms // 3600000
+                    m = (ms % 3600000) // 60000
+                    s = (ms % 60000) // 1000
+                    ms = ms % 1000
+                    return f"{h:02}:{m:02}:{s:02},{ms:03}"
+                start_ms = to_ms(sub['start'])
+                end_ms = to_ms(sub['end'])
+                if end_ms - start_ms > max_duration:
+                    sub['end'] = to_time(start_ms + max_duration)
+        if 'fix_short_gaps' in fixes:
+            # Fix short gaps (ensure at least min_gap between subtitles)
+            min_gap = 2 * 1000 // 25  # 2 frames at 25fps
+            for i in range(1, len(subs)):
+                import re
+                def to_ms(t):
+                    t = t.replace(',', '.')
+                    parts = re.split('[:.]', t)
+                    if len(parts) == 4:
+                        h, m, s, ms = map(int, parts)
+                        return (h*3600 + m*60 + s)*1000 + ms
+                    elif len(parts) == 3:
+                        h, m, s = map(int, parts)
+                        return (h*3600 + m*60 + s)*1000
+                    return 0
+                def to_time(ms):
+                    h = ms // 3600000
+                    m = (ms % 3600000) // 60000
+                    s = (ms % 60000) // 1000
+                    ms = ms % 1000
+                    return f"{h:02}:{m:02}:{s:02},{ms:03}"
+                prev_end = to_ms(subs[i-1]['end'])
+                cur_start = to_ms(subs[i]['start'])
+                if cur_start - prev_end < min_gap:
+                    subs[i]['start'] = to_time(prev_end + min_gap)
+        if 'fix_invalid_italic_tags' in fixes:
+            # Remove invalid <i> or </i> tags
+            import re
+            for sub in subs:
+                sub['text'] = re.sub(r'<\/?i>', '', sub['text'])
+        if 'fix_missing_spaces' in fixes:
+            # Add missing spaces after punctuation if needed
+            import re
+            for sub in subs:
+                sub['text'] = re.sub(r'([.,!?])([A-Za-z])', r'\1 \2', sub['text'])
+        if 'remove_line_breaks_short_texts_except_dialogs' in fixes:
+            # Remove line breaks in short texts except dialogs (lines not starting with '-')
+            max_len = 42
+            for sub in subs:
+                lines = sub['text'].split('\n')
+                if all(not l.strip().startswith('-') for l in lines):
+                    text = ' '.join(lines)
+                    if len(text) <= max_len:
+                        sub['text'] = text
+        if 'fix_double_apostrophe' in fixes:
+            # Replace double apostrophe with single
+            for sub in subs:
+                sub['text'] = sub['text'].replace('""', '"')
+        if 'replace_music_symbols' in fixes:
+            # Replace music symbols with preferred symbol (♪)
+            import re
+            for sub in subs:
+                sub['text'] = re.sub(r'[♫♬]', '♪', sub['text'])
+        if 'add_missing_quotes' in fixes:
+            # Add missing quotes at start/end if line starts/ends with dialogue
+            for sub in subs:
+                lines = sub['text'].split('\n')
+                for i, l in enumerate(lines):
+                    if l and l[0].isalpha() and not l.startswith('"'):
+                        lines[i] = '"' + l
+                    if l and l[-1].isalpha() and not l.endswith('"'):
+                        lines[i] = lines[i] + '"'
+                sub['text'] = '\n'.join(lines)
+        if 'start_uppercase_after_colon_semicolon' in fixes:
+            # Start with uppercase after colon/semicolon
+            import re
+            for sub in subs:
+                lines = sub['text'].split('\n')
+                for i, l in enumerate(lines):
+                    lines[i] = re.sub(r'([:;]\s*)([a-z])', lambda m: m.group(1) + m.group(2).upper(), l)
+                sub['text'] = '\n'.join(lines)
+        if 'remove_dialog_dash_single_line' in fixes:
+            # Remove dash at start if only one line and starts with dash
+            for sub in subs:
+                lines = sub['text'].split('\n')
+                if len(lines) == 1 and lines[0].strip().startswith('- '):
+                    sub['text'] = lines[0].strip()[2:]
+        if 'fix_more_than_two_lines' in fixes:
+            # Merge lines if more than two lines
+            for sub in subs:
+                lines = sub['text'].split('\n')
+                if len(lines) > 2:
+                    sub['text'] = ' '.join(lines)
+        if 'fix_dash_dash_to_ellipsis' in fixes:
+            # Replace '- -' with '…'
+            import re
+            for sub in subs:
+                sub['text'] = re.sub(r'- -', '…', sub['text'])
+        if 'fix_continuation_style' in fixes:
+            # Replace '...' at end with ellipsis
+            import re
+            for sub in subs:
+                sub['text'] = re.sub(r'\.\.\.$', '…', sub['text'])
+        if 'fix_missing_bracket_or_in_line' in fixes:
+            # Add missing [ or ] if line contains sound effect but not bracketed
+            import re
+            sound_effects = ['music', 'laughter', 'applause', 'sighs', 'gasps', 'whispers']
+            for sub in subs:
+                for effect in sound_effects:
+                    if effect in sub['text'].lower() and not re.search(r'\[' + effect + r'\]', sub['text'], re.IGNORECASE):
+                        sub['text'] = re.sub(effect, f'[{effect}]', sub['text'], flags=re.IGNORECASE)
+        if 'fix_common_ocr_errors' in fixes:
+            # Replace common OCR errors (e.g., 'l' for 'I', '0' for 'O')
+            import re
+            for sub in subs:
+                sub['text'] = re.sub(r'\bl\b', 'I', sub['text'])
+                sub['text'] = re.sub(r'\b0\b', 'O', sub['text'])
+        if 'fix_uppercase_i_inside_lowercase' in fixes:
+            # Fix uppercase 'I' inside lowercase words (e.g., 'thIs' -> 'this')
+            import re
+            for sub in subs:
+                sub['text'] = re.sub(r'([a-z])I([a-z])', lambda m: m.group(0).lower(), sub['text'])
+        if 'remove_space_between_numbers' in fixes:
+            # Remove spaces between numbers (e.g., '1 000' -> '1000')
+            import re
+            for sub in subs:
+                sub['text'] = re.sub(r'(\d) (\d)', r'\1\2', sub['text'])
+        if 'remove_start_dash_non_dialog' in fixes:
+            # Remove start dash in first line for non-dialogs
+            for sub in subs:
+                lines = sub['text'].split('\n')
+                if lines and not lines[0].strip().startswith('-') and lines[0].strip().startswith('- '):
+                    lines[0] = lines[0][2:]
+                sub['text'] = '\n'.join(lines)
+        if 'normalize_cross_platform' in fixes:
+            import re
+            def normalize_text(text):
+                # Normalize line endings to \n
+                text = text.replace('\r\n', '\n').replace('\r', '\n')
+                # Replace smart quotes with straight quotes
+                text = text.replace('"', '"').replace("'", "'")
+                # Replace non-breaking spaces with regular spaces
+                text = text.replace('\u00A0', ' ').replace(chr(160), ' ')
+                # Remove zero-width spaces and control characters
+                text = re.sub(r'[\u200B-\u200D\uFEFF]', '', text)
+                text = ''.join(ch for ch in text if (ch >= ' ' or ch == '\n'))
+                return text
+            for sub in subs:
+                sub['text'] = normalize_text(sub['text'])
+            # Also normalize the SRT as a whole (for line endings)
+            srt_content = normalize_text(srt_content)
+
+        fixed_srt = to_srt(subs)
+        return jsonify({'fixed_content': fixed_srt})
+    except Exception as e:
+        logger.error(f"Error fixing SRT: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True) 
