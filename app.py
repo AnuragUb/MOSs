@@ -1996,9 +1996,14 @@ def upload_subtitle():
         file.seek(0)
         file.save(local_path)
         
+        # Read file content to return to frontend
+        with open(local_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+        
         return {
             'filename': filename,
-            'local_path': local_path
+            'local_path': local_path,
+            'content': content
         }
     except Exception as e:
         logger.error(f"Error uploading subtitle: {str(e)}")
