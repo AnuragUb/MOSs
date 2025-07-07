@@ -341,13 +341,28 @@
             color: var(--text-primary);
             background: var(--bg-tertiary);
         }
+
+        /* Logo debugging styles */
+        .logo-img {
+            display: block;
+            max-height: 40px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .topbar-logo {
+            display: flex;
+            align-items: center;
+            min-height: 40px;
+        }
     </style>
 </head>
 <body>
     <!-- Top Bar -->
     <div class="topbar">
         <div class="topbar-logo">
-            <img src="{{ url_for('static', filename='img/Group59.png') }}" alt="Logo" class="logo-img" style="max-height: 40px;" />
+            <img src="{{ url_for('static', filename='img/Group59.png') }}" alt="Logo" class="logo-img" style="max-height: 40px;" onerror="console.error('Logo failed to load:', this.src); this.style.border='2px solid red'; this.style.display='none'; document.getElementById('fallback-logo').style.display='block';" onload="console.log('Logo loaded successfully:', this.src);" />
+            <div id="fallback-logo" style="display: none; color: white; font-weight: bold; font-size: 1.2rem;">MOS</div>
         </div>
         <div class="topbar-actions">
             <a href="/" class="btn btn-outline-light">Back to Main</a>
@@ -1172,6 +1187,40 @@
         window.openTitleTagManagement = function() {
             window.open('/unknown-tags', '_blank');
         };
+
+        // --- Logo Debugging ---
+        document.addEventListener('DOMContentLoaded', function() {
+            // Test logo loading
+            const logoImg = document.querySelector('.logo-img');
+            if (logoImg) {
+                console.log('Logo element found:', logoImg);
+                console.log('Logo src:', logoImg.src);
+                
+                // Test if the URL is accessible
+                fetch(logoImg.src)
+                    .then(response => {
+                        console.log('Logo fetch response:', response.status, response.statusText);
+                        if (!response.ok) {
+                            console.error('Logo fetch failed:', response.status);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Logo fetch error:', error);
+                    });
+            } else {
+                console.error('Logo element not found');
+            }
+            
+            // Test the logo API endpoint
+            fetch('/test-logo')
+                .then(res => res.json())
+                .then(data => {
+                    console.log('Logo test API response:', data);
+                })
+                .catch(err => {
+                    console.error('Logo test API error:', err);
+                });
+        });
 
         // --- Initial Load ---
         document.addEventListener('DOMContentLoaded', fetchProfiles);

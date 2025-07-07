@@ -2023,6 +2023,31 @@ def download_subtitle():
 def srt_check_page():
     return render_template('srt_check.html')
 
+@app.route('/test-logo')
+def test_logo():
+    """Test route to verify logo file serving"""
+    try:
+        logo_path = os.path.join(app.static_folder, 'img', 'Group59.png')
+        if os.path.exists(logo_path):
+            return jsonify({
+                'status': 'success',
+                'message': 'Logo file exists',
+                'path': logo_path,
+                'size': os.path.getsize(logo_path),
+                'url': url_for('static', filename='img/Group59.png')
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Logo file not found',
+                'path': logo_path
+            })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
 @app.route('/api/srt-check', methods=['POST'])
 def srt_check_api():
     try:
